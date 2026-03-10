@@ -283,7 +283,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   <nav class="navbar">
     <div class="nav-logo" onclick="showMainTab('room')">REVENGE<span>.</span></div>
     <div class="nav-tabs">
-      <button class="nav-tab active" id="ntab-room" onclick="showMainTab('room')">🎮 Room</button>
+      <button class="nav-tab active" id="ntab-room" onclick="showMainTab('room')">🏆 Ranked</button>
       <button class="nav-tab" id="ntab-lb" onclick="showMainTab('lb')">🏆 Classement</button>
       <button class="nav-tab" id="ntab-admin" onclick="showMainTab('admin')" style="display:none;color:var(--gold);">🔐 Admin</button>
     </div>
@@ -757,13 +757,13 @@ function initSocket() {
       `<button onclick="voteWeapon('${w}')" style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 18px;font-size:14px;font-weight:700;color:var(--text);cursor:pointer;font-family:'Space Grotesk',sans-serif;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)';" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text)';">${w}</button>`
     ).join('');
     // Timer visuel 20s
-    let secs = 20;
+    let secs = 10;
     const fill = document.getElementById('weapon-timer-fill');
     fill.style.transition = 'none'; fill.style.width = '100%';
     const wTimer = setInterval(() => {
       secs--;
       fill.style.transition = '1s linear';
-      fill.style.width = (secs / 20 * 100) + '%';
+      fill.style.width = (secs / 10 * 100) + '%';
       if (secs <= 0) clearInterval(wTimer);
     }, 1000);
     section._wTimer = wTimer;
