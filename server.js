@@ -15,7 +15,7 @@ const io = new Server(server, {
 const PORT = process.env.PORT || 3000;
 const MAPS = ['Ascent', 'Bind', 'Haven', 'Icebox', 'Lotus', 'Pearl', 'Split'];
 const BAN_TIMEOUT = 15000;
-const START_COUNTDOWN = 10000;
+const START_COUNTDOWN = 5000;
 const ADMIN_PSEUDOS = ['Karim34']; // ← ajoute ton pseudo ici
 
 app.use(express.json());
@@ -108,9 +108,9 @@ function startRoomCountdown(roomId) {
       const room = rooms[roomId];
       if (!room) return;
 
-      if (room.mode === '1v1') {
+      if (room.mode === '1v1' || room.mode === '2v2') {
         room.status = 'playing';
-        io.to('room_' + roomId).emit('game_start', { mode: '1v1' });
+        io.to('room_' + roomId).emit('game_start', { mode: room.mode });
       } else {
         room.status = 'ban_phase';
         io.to('room_' + roomId).emit('ban_phase', { turn: 0, team: 1, mapsLeft: MAPS.length });
@@ -439,6 +439,77 @@ io.on('connection', (socket) => {
       if (group.players.length === 0) delete groups[code];
       else io.to('group_' + code).emit('group_updated', { players: group.players.map(p => ({ pseudo: p.pseudo, elo: p.elo })), mode: group.mode });
     }
+  });
+
+  // ── LEAVE GROUP ──
+  socket.on('leave_group', () => {
+    const entry = getGroupBySocket(socket.id);
+    if (!entry) return;
+    const [code, group] = entry;
+    group.players = group.players.filter(p => p.socketId !== socket.id);
+    socket.leave('group_' + code);
+    socket.groupCode = null;
+    if (group.players.length === 0) delete groups[code];
+    else io.to('group_' + code).emit('group_updated', { players: group.players.map(p => ({ pseudo: p.pseudo, elo: p.elo })), mode: group.mode });
+    // Create a fresh solo group
+    const newCode = generateCode();
+    const elo = getModeElo(socket.userId, socket.groupMode || '2v2');
+    groups[newCode] = { mode: socket.groupMode || '2v2', players: [{ id: socket.userId, pseudo: socket.pseudo, elo, socketId: socket.id }] };
+    socket.groupCode = newCode;
+    socket.join('group_' + newCode);
+    socket.emit('group_created', { code: newCode, mode: socket.groupMode || '2v2', players: [{ pseudo: socket.pseudo, elo }] });
+  });
+
+  // ── CHAT IMAGE ──
+  socket.on('chat_img', ({ img }) => {
+    if (!socket.roomId) return;
+    const room = rooms[socket.roomId];
+    if (!room) return;
+    const team = room.teams[0].some(p => p.id === socket.userId) ? 'team1' : 'team2';
+    io.to('room_' + socket.roomId).emit('chat_img', { author: socket.pseudo, team, img, time: Date.now() });
+  });
+
+  // ── ADMIN ALERT ──
+  socket.on('admin_alert', ({ roomId, type, pseudo }) => {
+    // Send to all connected admin sockets
+    io.sockets.sockets.forEach(s => {
+      if (s.isAdmin) {
+        s.emit('admin_alert_received', { roomId, type, pseudo });
+      }
+    });
+  });
+
+  // ── ADMIN JOIN ROOM ──
+  socket.on('admin_join_room', ({ roomId }) => {
+    if (!socket.isAdmin) return;
+    const room = rooms[roomId];
+    if (!room) return socket.emit('notify_error', 'Room introuvable');
+    socket.join('room_' + roomId);
+    socket.adminRoomId = roomId;
+    socket.emit('admin_joined_room', {
+      roomId,
+      mode: room.mode,
+      team1: room.teams[0].map(p => ({ pseudo: p.pseudo, elo: p.elo })),
+      team2: room.teams[1].map(p => ({ pseudo: p.pseudo, elo: p.elo }))
+    });
+    io.to('room_' + roomId).emit('chat_msg', { author: 'Système', team: 'system', text: '👁️ Un admin a rejoint la room en spectateur.' });
+  });
+
+  // ── ADMIN DECIDE ──
+  socket.on('admin_decide', ({ roomId, winner }) => {
+    if (!socket.isAdmin) return;
+    const room = rooms[roomId];
+    if (!room || room.resultDeclared) return;
+    room.resultDeclared = true;
+    room.status = 'finished';
+    clearTimeout(room.banTimer);
+    const winTeam = winner === 1 ? room.teams[0] : room.teams[1];
+    const loseTeam = winner === 1 ? room.teams[1] : room.teams[0];
+    winTeam.filter(p => !p.isBot).forEach(p => db.updateUserElo(p.id, +20, true, room.mode));
+    loseTeam.filter(p => !p.isBot).forEach(p => db.updateUserElo(p.id, -20, false, room.mode));
+    io.to('room_' + roomId).emit('chat_msg', { author: 'Système', team: 'system', text: `⚖️ Décision admin : Équipe ${winner} gagne !` });
+    io.to('room_' + roomId).emit('game_result', { winner, winTeam: winTeam.map(p => p.pseudo), loseTeam: loseTeam.map(p => p.pseudo), mode: room.mode });
+    setTimeout(() => { delete rooms[roomId]; }, 30000);
   });
 });
 

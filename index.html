@@ -209,7 +209,34 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 .result-btn{background:var(--accent);color:white;border:none;border-radius:12px;padding:12px 28px;font-family:'Syne',sans-serif;font-weight:700;font-size:14px;cursor:pointer;transition:all 0.2s;}
 .result-btn:hover{background:var(--accent2);}
 
-.notify{position:fixed;top:20px;right:20px;z-index:400;background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:12px;padding:12px 16px;font-size:13px;font-weight:500;max-width:280px;transform:translateX(120%);transition:transform 0.3s ease;pointer-events:none;}
+.chat-img-btn{background:var(--surface2);border:1px solid var(--border);border-radius:9px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;flex-shrink:0;transition:all 0.2s;}
+.chat-img-btn:hover{border-color:var(--accent);}
+.chat-msg-img{max-width:100%;border-radius:8px;margin-top:4px;cursor:pointer;}
+.room-action-btns{display:flex;gap:6px;padding:8px 12px;border-top:1px solid var(--border);}
+.btn-report{flex:1;background:rgba(255,70,85,0.08);border:1px solid rgba(255,70,85,0.3);color:var(--accent);border-radius:8px;padding:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Syne',sans-serif;transition:all 0.2s;}
+.btn-report:hover{background:rgba(255,70,85,0.15);}
+.btn-decision{flex:1;background:rgba(255,209,102,0.08);border:1px solid rgba(255,209,102,0.3);color:var(--gold);border-radius:8px;padding:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Syne',sans-serif;transition:all 0.2s;}
+.btn-decision:hover{background:rgba(255,209,102,0.15);}
+
+/* ADMIN PANEL */
+.admin-panel{position:fixed;bottom:20px;right:20px;z-index:350;background:var(--surface);border:1px solid var(--gold);border-radius:14px;padding:16px;width:260px;display:none;animation:fadeUp 0.3s ease;}
+.admin-panel.show{display:block;}
+.admin-panel-title{font-family:'Syne',sans-serif;font-weight:800;font-size:12px;color:var(--gold);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:10px;}
+.admin-alert{background:rgba(255,70,85,0.1);border:1px solid rgba(255,70,85,0.3);border-radius:8px;padding:10px;margin-bottom:8px;font-size:12px;}
+.admin-alert-room{font-family:'Syne',sans-serif;font-weight:700;color:var(--accent);margin-bottom:4px;}
+.admin-alert-msg{color:var(--muted);font-size:11px;margin-bottom:8px;}
+.btn-admin-join{width:100%;background:var(--gold);border:none;color:var(--bg);border-radius:8px;padding:8px;font-family:'Syne',sans-serif;font-weight:800;font-size:12px;cursor:pointer;transition:all 0.2s;}
+.btn-admin-join:hover{opacity:0.85;}
+
+/* ADMIN SPECTATOR MODE */
+.admin-spectator-bar{display:none;position:fixed;bottom:0;left:0;right:0;z-index:400;background:rgba(255,209,102,0.95);padding:12px 24px;display:flex;align-items:center;gap:12px;}
+.admin-spectator-bar.show{display:flex;}
+.admin-spec-label{font-family:'Syne',sans-serif;font-weight:800;font-size:13px;color:var(--bg);flex:1;}
+.btn-admin-win1{background:#1a1a1a;color:var(--green);border:2px solid var(--green);border-radius:8px;padding:8px 16px;font-family:'Syne',sans-serif;font-weight:800;font-size:12px;cursor:pointer;}
+.btn-admin-win2{background:#1a1a1a;color:var(--blue);border:2px solid var(--blue);border-radius:8px;padding:8px 16px;font-family:'Syne',sans-serif;font-weight:800;font-size:12px;cursor:pointer;}
+.btn-admin-close{background:transparent;border:none;color:var(--bg);font-size:18px;cursor:pointer;margin-left:8px;}
+
+.notify{position:fixed;top:20px;right:20px;z-index:500;background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:12px;padding:12px 16px;font-size:13px;font-weight:500;max-width:280px;transform:translateX(120%);transition:transform 0.3s ease;pointer-events:none;}
 .notify.show{transform:translateX(0);}
 
 @keyframes fadeUp{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
@@ -256,12 +283,13 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
     <div class="nav-right">
       <div class="elo-badge">⚡ <span id="nav-elo">500</span></div>
       <div class="avatar" id="nav-avatar" onclick="toggleGroupDropdown()">?</div>
-      <span class="nav-pseudo" id="nav-pseudo" onclick="openProfile()"></span>
+      <span class="nav-pseudo" id="nav-pseudo" onclick="openProfile()" title="Voir mon profil"></span>
       <div class="group-dropdown" id="group-dropdown">
         <div class="group-code-mini" id="group-code-mini">——</div>
         <div class="group-code-label">Partage à ton pote</div>
         <div id="group-members-mini"></div>
         <button class="btn-mini" style="width:100%;margin-bottom:6px;" onclick="copyCode()">📋 Copier le code</button>
+        <button class="btn-mini" style="width:100%;margin-bottom:6px;border-color:var(--accent);color:var(--accent);" onclick="leaveGroup()">🚪 Quitter le groupe</button>
         <div class="join-mini">
           <input type="text" id="join-code-mini" placeholder="CODE" maxlength="6"/>
           <button class="btn-mini" onclick="joinGroup()">Rejoindre</button>
@@ -336,8 +364,8 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
       <div class="declare-section" id="declare-section" style="display:none;">
         <div class="declare-title">Déclarer le résultat</div>
         <div class="declare-btns">
-          <button class="btn-win" onclick="declareResult(1)">✅ Gagné</button>
-          <button class="btn-lose" onclick="declareResult(2)">❌ Perdu</button>
+          <button class="btn-win" onclick="declareResult('win')">✅ On a gagné</button>
+          <button class="btn-lose" onclick="declareResult('lose')">❌ On a perdu</button>
         </div>
       </div>
     </div>
@@ -355,8 +383,14 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
         <div class="chat-header">💬 Chat</div>
         <div class="chat-messages" id="chat-messages"></div>
         <div class="chat-input-row">
+          <input type="file" id="chat-img-input" accept="image/*" style="display:none" onchange="sendChatImage(event)"/>
+          <button class="chat-img-btn" onclick="document.getElementById('chat-img-input').click()" title="Envoyer une image">🖼️</button>
           <input class="chat-input" id="chat-input" placeholder="Écrire…" onkeydown="if(event.key==='Enter')sendChat()"/>
           <button class="chat-send" onclick="sendChat()"><svg viewBox="0 0 24 24"><path d="M2 21L23 12 2 3v7l15 2-15 2v7z"/></svg></button>
+        </div>
+        <div class="room-action-btns">
+          <button class="btn-report" onclick="reportRoom()">🚨 Report</button>
+          <button class="btn-decision" onclick="requestDecision()">⚖️ Demander une décision</button>
         </div>
       </div>
     </div>
@@ -400,6 +434,20 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
     <div class="result-map" id="result-map"></div>
     <button class="result-btn" onclick="backToLobby()">Retour au Lobby</button>
   </div>
+</div>
+
+<!-- ADMIN PANEL (visible seulement pour admins) -->
+<div class="admin-panel" id="admin-panel">
+  <div class="admin-panel-title">🔐 Admin — Alertes</div>
+  <div id="admin-alerts"></div>
+</div>
+
+<!-- ADMIN SPECTATOR BAR -->
+<div class="admin-spectator-bar" id="admin-spectator-bar" style="display:none;">
+  <div class="admin-spec-label">👁️ MODE ADMIN — <span id="admin-spec-room"></span></div>
+  <button class="btn-admin-win1" onclick="adminDecide(1)">✅ Équipe 1 gagne</button>
+  <button class="btn-admin-win2" onclick="adminDecide(2)">✅ Équipe 2 gagne</button>
+  <button class="btn-admin-close" onclick="adminLeave()">✕</button>
 </div>
 
 <div class="notify" id="notify"></div>
@@ -547,15 +595,46 @@ function initSocket() {
 
   socket.on('chat_msg', ({ author, team, text, time }) => addMsg(author, team || 'system', text, time));
 
+  socket.on('chat_img', ({ author, team, img, time }) => addMsgImg(author, team, img, time));
+
+  socket.on('admin_alert_received', ({ roomId, type, pseudo }) => {
+    if (!state.isAdmin) return;
+    const panel = document.getElementById('admin-panel');
+    panel.classList.add('show');
+    const alerts = document.getElementById('admin-alerts');
+    const alertEl = document.createElement('div');
+    alertEl.className = 'admin-alert';
+    alertEl.innerHTML = `
+      <div class="admin-alert-room">ROOM #${roomId}</div>
+      <div class="admin-alert-msg">${pseudo} — ${type === 'report' ? '🚨 Report' : '⚖️ Demande de décision'}</div>
+      <button class="btn-admin-join" onclick="adminJoinRoom('${roomId}')">👁️ Rejoindre en spectateur</button>
+    `;
+    alerts.appendChild(alertEl);
+    playBeep(660, 0.3);
+    notify('🔔 Alerte admin — ROOM #' + roomId);
+  });
+
+  socket.on('admin_joined_room', ({ roomId, team1, team2, mode }) => {
+    document.getElementById('admin-spectator-bar').style.display = 'flex';
+    document.getElementById('admin-spec-room').textContent = 'ROOM #' + roomId;
+    // Show room screen in spectator mode
+    setupRoom(roomId, mode, team1, team2, false);
+    document.getElementById('declare-section').style.display = 'none';
+  });
+
   socket.on('countdown_start', ({ seconds }) => {
     document.getElementById('countdown-overlay').classList.add('show');
     document.getElementById('countdown-number').textContent = seconds;
     document.getElementById('room-status-text').textContent = 'Démarrage…';
+    playBeep(440, 0.15);
   });
 
   socket.on('countdown_tick', ({ seconds }) => {
     document.getElementById('countdown-number').textContent = seconds;
-    if (seconds <= 0) {
+    if (seconds > 0) {
+      playBeep(seconds <= 2 ? 880 : 440, 0.1);
+    } else {
+      playBeep(1200, 0.3);
       document.getElementById('countdown-overlay').classList.remove('show');
       document.getElementById('room-status-dot').classList.remove('waiting');
       document.getElementById('room-status-dot2').classList.remove('waiting');
@@ -593,12 +672,14 @@ function initSocket() {
     document.getElementById('ban-banner-t2').textContent = '🗺️ Map : ' + map;
     document.getElementById('ban-banner-t2').className = 'ban-banner';
     document.getElementById('room-status-text').textContent = 'En jeu — ' + map;
-    if (state.myTeam === 1) setTimeout(() => { document.getElementById('declare-section').style.display = ''; }, 500);
+    // Both teams can declare result
+    setTimeout(() => { document.getElementById('declare-section').style.display = ''; }, 500);
   });
 
   socket.on('game_start', ({ mode }) => {
     document.getElementById('room-status-text').textContent = 'En jeu — 1v1';
-    if (state.myTeam === 1) setTimeout(() => { document.getElementById('declare-section').style.display = ''; }, 500);
+    // Both teams can declare result
+    setTimeout(() => { document.getElementById('declare-section').style.display = ''; }, 500);
   });
 
   socket.on('game_result', ({ winner, winTeam, loseTeam, mode }) => {
@@ -609,6 +690,13 @@ function initSocket() {
     document.getElementById('result-elo').textContent = (iWon ? '+20' : '-20') + ' ELO → ' + state.elo;
     document.getElementById('result-map').textContent = 'Mode ' + mode + ' — Gagnants : ' + winTeam.join(' & ');
     document.getElementById('result-overlay').classList.add('show');
+    document.getElementById('nav-elo').textContent = state.elo;
+    // Auto retour après 30s si personne clique
+    setTimeout(() => {
+      if (document.getElementById('result-overlay').classList.contains('show')) {
+        backToLobby();
+      }
+    }, 30000);
   });
 
   socket.on('profile_data', (data) => {
@@ -794,7 +882,7 @@ function setupRoom(roomId, mode, team1, team2, waiting) {
 
   document.getElementById('chat-messages').innerHTML = '';
 
-  if (mode === '1v1') {
+  if (mode === '1v1' || mode === '2v2') {
     document.getElementById('map-ban-t1-section').style.display = 'none';
     document.getElementById('map-ban-t2-section').style.display = 'none';
   } else {
@@ -856,7 +944,9 @@ function banMap(map) {
   MAPS.forEach(m => { const b = document.getElementById('mapbtn-' + myT + '-' + m); if(b) b.disabled = true; });
 }
 
-function declareResult(winner) {
+function declareResult(result) {
+  // Convert win/lose to winner team number based on myTeam
+  const winner = result === 'win' ? state.myTeam : (state.myTeam === 1 ? 2 : 1);
   socket.emit('declare_result', { winner });
   document.getElementById('declare-section').style.display = 'none';
 }
@@ -883,12 +973,90 @@ function sendChat() {
   input.value = '';
 }
 
+function leaveGroup() {
+  if (!socket) return;
+  socket.emit('leave_group');
+  document.getElementById('group-dropdown').classList.remove('open');
+  notify('Vous avez quitté le groupe');
+}
+
+function sendChatImage(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  if (file.size > 2 * 1024 * 1024) { notify('❌ Image trop grande (max 2MB)'); return; }
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    socket.emit('chat_img', { img: e.target.result });
+    event.target.value = '';
+  };
+  reader.readAsDataURL(file);
+}
+
+function reportRoom() {
+  if (!socket || !state.roomId) return;
+  socket.emit('admin_alert', { roomId: state.roomId, type: 'report', pseudo: state.pseudo });
+  notify('🚨 Report envoyé à l\'admin !');
+}
+
+function requestDecision() {
+  if (!socket || !state.roomId) return;
+  socket.emit('admin_alert', { roomId: state.roomId, type: 'decision', pseudo: state.pseudo });
+  notify('⚖️ Demande de décision envoyée !');
+}
+
+function adminDecide(winner) {
+  if (!socket) return;
+  const roomId = document.getElementById('admin-spec-room').textContent.replace('ROOM #','');
+  socket.emit('admin_decide', { roomId, winner });
+  adminLeave();
+}
+
+function adminLeave() {
+  document.getElementById('admin-spectator-bar').style.display = 'none';
+  showScreen('main');
+}
+
+function adminJoinRoom(roomId) {
+  if (!socket) return;
+  socket.emit('admin_join_room', { roomId });
+  document.getElementById('admin-panel').classList.remove('show');
+}
+
+function addMsgImg(author, team, img, time) {
+  const box = document.getElementById('chat-messages');
+  const t = time ? new Date(time) : new Date();
+  const ts = t.getHours().toString().padStart(2,'0') + ':' + t.getMinutes().toString().padStart(2,'0');
+  const div = document.createElement('div');
+  div.className = 'msg';
+  div.innerHTML = `<div class="msg-header"><span class="msg-author ${team}">${author}</span><span class="msg-time">${ts}</span></div><img src="${img}" class="chat-msg-img" onclick="window.open(this.src)">`;
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+}
+
+// Countdown sound (beep using Web Audio API)
+function playBeep(freq = 440, duration = 0.1) {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = freq;
+    osc.type = 'sine';
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + duration);
+  } catch(e) {}
+}
+
 function spawnBots() {
   if (!socket) return;
   socket.emit('spawn_bots', { mode: state.mode });
   document.getElementById('admin-bot-btn').textContent = '⏳ Bots en route…';
   document.getElementById('admin-bot-btn').disabled = true;
 }
+
 
 async function uploadAvatar(event) {
   const file = event.target.files[0];
