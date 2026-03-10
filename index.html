@@ -340,7 +340,7 @@ function switchTab(tab) {
 // ── INIT SOCKET ──
 function initSocket() {
   if (socket) return;
-  socket = io();
+  socket = io({ transports: ['polling'] });
 
   socket.on('auth_ok', ({ pseudo, elo, wins }) => {
     state.pseudo = pseudo; state.elo = elo; state.wins = wins;
