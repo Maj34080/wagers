@@ -27,7 +27,6 @@
   .screen { display:none; min-height:100vh; }
   .screen.active { display:flex; }
 
-  /* ── AUTH ── */
   #screen-auth { align-items:center; justify-content:center; flex-direction:column; }
   .auth-bg { position:fixed; inset:0; z-index:0; background:radial-gradient(ellipse 80% 60% at 50% -10%, rgba(255,70,85,0.12) 0%, transparent 70%); }
   .auth-card { position:relative; z-index:1; background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:48px 40px; width:380px; animation:fadeUp 0.5s ease; }
@@ -45,7 +44,6 @@
   .btn-primary:hover { background:var(--accent2); transform:translateY(-1px); }
   .auth-error { color:var(--accent); font-size:12px; margin-top:10px; text-align:center; min-height:18px; }
 
-  /* ── NAVBAR ── */
   .navbar { display:flex; align-items:center; justify-content:space-between; padding:16px 32px; border-bottom:1px solid var(--border); background:var(--surface); position:sticky; top:0; z-index:100; }
   .nav-logo { font-family:'Syne',sans-serif; font-weight:800; font-size:18px; letter-spacing:-0.5px; }
   .nav-logo span { color:var(--accent); }
@@ -53,7 +51,6 @@
   .elo-badge { background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:6px 12px; font-size:13px; font-weight:600; color:var(--gold); font-family:'Syne',sans-serif; }
   .avatar { width:34px; height:34px; background:var(--accent); border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; font-family:'Syne',sans-serif; }
 
-  /* ── LOBBY ── */
   #screen-lobby { flex-direction:column; }
   .lobby-body { flex:1; display:grid; grid-template-columns:1fr 1fr; gap:24px; padding:32px; max-width:1000px; margin:0 auto; width:100%; }
   .panel { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:24px; }
@@ -80,7 +77,6 @@
 
   .btn-sm { background:var(--surface2); border:1px solid var(--border); color:var(--text); border-radius:10px; padding:10px 16px; font-size:13px; font-weight:600; cursor:pointer; font-family:'DM Sans',sans-serif; transition:all 0.2s; white-space:nowrap; }
   .btn-sm:hover { border-color:var(--accent); color:var(--accent); }
-  .btn-sm:disabled { opacity:0.4; cursor:not-allowed; }
 
   .btn-create-room { width:100%; background:linear-gradient(135deg, var(--accent), #c0392b); border:none; color:white; border-radius:10px; padding:13px; font-family:'Syne',sans-serif; font-weight:800; font-size:14px; letter-spacing:0.08em; cursor:pointer; transition:all 0.2s; text-transform:uppercase; }
   .btn-create-room:hover { transform:translateY(-1px); box-shadow:0 8px 24px rgba(255,70,85,0.3); }
@@ -89,7 +85,6 @@
   .divider { height:1px; background:var(--border); margin:12px 0; }
   .text-muted { color:var(--muted); font-size:12px; }
 
-  /* Leaderboard */
   .lb-row { display:flex; align-items:center; padding:10px 14px; border-radius:10px; gap:12px; transition:background 0.15s; margin-bottom:4px; }
   .lb-row:hover { background:var(--surface2); }
   .lb-row.me { background:rgba(255,70,85,0.07); border:1px solid rgba(255,70,85,0.15); }
@@ -101,11 +96,9 @@
   .lb-elo { font-family:'Syne',sans-serif; font-weight:700; font-size:14px; color:var(--gold); }
   .lb-wins { font-size:12px; color:var(--muted); }
 
-  /* waiting */
   .waiting-banner { background:rgba(255,209,102,0.08); border:1px solid rgba(255,209,102,0.2); border-radius:10px; padding:12px 16px; text-align:center; color:var(--gold); font-size:13px; font-weight:500; margin-top:12px; display:none; }
   .waiting-banner.show { display:block; }
 
-  /* ── ROOM ── */
   #screen-room { flex-direction:column; }
   .room-body { flex:1; display:grid; grid-template-columns:270px 1fr 270px; gap:20px; padding:24px 28px; max-width:1200px; margin:0 auto; width:100%; }
 
@@ -121,7 +114,6 @@
   .player-info .pname { font-size:14px; font-weight:600; }
   .player-info .pelo { font-size:12px; color:var(--gold); font-weight:600; }
 
-  /* map ban */
   .map-ban-section { margin-top:auto; padding-top:16px; border-top:1px solid var(--border); }
   .map-ban-title { font-size:11px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:10px; }
   .map-phase-banner { background:rgba(255,70,85,0.08); border:1px solid rgba(255,70,85,0.2); border-radius:10px; padding:10px 14px; font-size:13px; color:var(--accent); font-weight:500; margin-bottom:8px; text-align:center; }
@@ -132,7 +124,6 @@
   .map-btn.selected { background:rgba(58,255,160,0.1); border-color:var(--green); color:var(--green); }
   .map-btn:disabled { cursor:not-allowed; opacity:0.5; }
 
-  /* chat */
   .center-panel { display:flex; flex-direction:column; gap:16px; }
   .room-status { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:16px 20px; display:flex; align-items:center; justify-content:space-between; }
   .status-dot { width:8px; height:8px; border-radius:50%; background:var(--green); box-shadow:0 0 8px var(--green); animation:pulse 2s infinite; }
@@ -160,7 +151,6 @@
   .chat-send:hover { background:var(--accent2); }
   .chat-send svg { width:16px; height:16px; fill:white; }
 
-  /* result */
   .result-overlay { display:none; position:fixed; inset:0; z-index:200; background:rgba(10,10,15,0.85); backdrop-filter:blur(8px); align-items:center; justify-content:center; }
   .result-overlay.show { display:flex; }
   .result-card { background:var(--surface); border:1px solid var(--border); border-radius:24px; padding:48px 40px; text-align:center; width:420px; animation:scaleIn 0.4s cubic-bezier(0.34,1.56,0.64,1); }
@@ -172,7 +162,6 @@
   .result-btn { background:var(--accent); color:white; border:none; border-radius:12px; padding:13px 32px; font-family:'Syne',sans-serif; font-weight:700; font-size:14px; letter-spacing:0.05em; cursor:pointer; transition:all 0.2s; }
   .result-btn:hover { background:var(--accent2); }
 
-  /* declare result buttons */
   .declare-section { margin-top:16px; }
   .declare-title { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:8px; font-weight:600; }
   .declare-btns { display:flex; gap:8px; }
@@ -181,7 +170,6 @@
   .btn-lose { flex:1; background:rgba(255,70,85,0.1); border:1px solid var(--accent); color:var(--accent); border-radius:10px; padding:10px; font-family:'Syne',sans-serif; font-weight:700; font-size:12px; cursor:pointer; transition:all 0.2s; }
   .btn-lose:hover { background:rgba(255,70,85,0.2); }
 
-  /* notify */
   .notify { position:fixed; top:20px; right:20px; z-index:300; background:var(--surface); border:1px solid var(--border); border-left:3px solid var(--accent); border-radius:12px; padding:14px 18px; font-size:13px; font-weight:500; max-width:280px; transform:translateX(120%); transition:transform 0.3s ease; pointer-events:none; }
   .notify.show { transform:translateX(0); }
 
@@ -265,7 +253,6 @@
     <div class="room-id-badge" id="room-id-badge">ROOM #——</div>
   </nav>
   <div class="room-body">
-    <!-- TEAM 1 -->
     <div class="team-panel">
       <div class="team-label team1">⚔ Équipe 1 — Vous</div>
       <div class="player-card"><div class="av t1" id="t1p1-av">?</div><div class="player-info"><div class="pname" id="t1p1-name">—</div><div class="pelo" id="t1p1-elo">— ELO</div></div></div>
@@ -284,7 +271,6 @@
       </div>
     </div>
 
-    <!-- CENTER -->
     <div class="center-panel">
       <div class="room-status">
         <div style="display:flex;align-items:center;gap:8px;">
@@ -303,7 +289,6 @@
       </div>
     </div>
 
-    <!-- TEAM 2 -->
     <div class="team-panel">
       <div class="team-label team2">⚔ Équipe 2</div>
       <div class="player-card"><div class="av t2" id="t2p1-av">?</div><div class="player-info"><div class="pname" id="t2p1-name">—</div><div class="pelo" id="t2p1-elo">— ELO</div></div></div>
@@ -317,7 +302,6 @@
   </div>
 </div>
 
-<!-- RESULT -->
 <div class="result-overlay" id="result-overlay">
   <div class="result-card">
     <div class="result-title" id="result-title">VICTOIRE</div>
@@ -332,9 +316,8 @@
 <script>
 const MAPS = ['Ascent','Bind','Haven','Icebox','Lotus','Pearl','Split'];
 let socket = null;
-let state = { token: null, pseudo: '', elo: 500, wins: 0, groupCode: null, roomId: null, myTeam: null };
+let state = { pseudo: '', elo: 500, wins: 0, groupCode: null, roomId: null, myTeam: null };
 
-// ── UTILS ──
 function notify(msg) {
   const el = document.getElementById('notify');
   el.textContent = msg;
@@ -354,16 +337,22 @@ function switchTab(tab) {
   document.getElementById('form-register').style.display = tab === 'register' ? '' : 'none';
 }
 
-// ── SOCKET ──
+// ── INIT SOCKET ──
 function initSocket() {
+  if (socket) return;
   socket = io();
 
   socket.on('auth_ok', ({ pseudo, elo, wins }) => {
     state.pseudo = pseudo; state.elo = elo; state.wins = wins;
+    document.getElementById('login-error').textContent = '';
+    document.getElementById('reg-error').textContent = '';
     enterLobby();
   });
 
-  socket.on('auth_error', (msg) => notify(msg));
+  socket.on('auth_error', (msg) => {
+    document.getElementById('login-error').textContent = msg;
+    document.getElementById('reg-error').textContent = msg;
+  });
 
   socket.on('group_created', ({ code, players }) => {
     state.groupCode = code;
@@ -414,15 +403,12 @@ function initSocket() {
     addMsg(author, team || 'system', text, time);
   });
 
-  socket.on('ban_phase', ({ turn }) => {
-    updateBanPhase(turn);
-  });
+  socket.on('ban_phase', ({ turn }) => { updateBanPhase(turn); });
 
   socket.on('map_banned', ({ team, map }) => {
     const t = team === 1 ? 't1' : 't2';
     const btn = document.getElementById('mapbtn-' + t + '-' + map);
     if (btn) btn.classList.add('banned');
-    // Disable all buttons of that team after ban
     MAPS.forEach(m => {
       const b = document.getElementById('mapbtn-' + t + '-' + m);
       if (b) b.disabled = true;
@@ -433,14 +419,11 @@ function initSocket() {
     MAPS.forEach(m => {
       ['t1','t2'].forEach(t => {
         const b = document.getElementById('mapbtn-' + t + '-' + m);
-        if (b && !b.classList.contains('banned')) {
-          if (m === map) b.classList.add('selected');
-        }
+        if (b && !b.classList.contains('banned') && m === map) b.classList.add('selected');
       });
     });
     document.getElementById('ban-banner-t1').textContent = '🗺️ Map : ' + map;
     document.getElementById('ban-banner-t2').textContent = '🗺️ Map : ' + map;
-    // Show declare section after map chosen (team 1 only)
     if (state.myTeam === 1) {
       setTimeout(() => { document.getElementById('declare-section').style.display = ''; }, 1000);
     }
@@ -448,10 +431,8 @@ function initSocket() {
 
   socket.on('game_result', ({ winner, winTeam, loseTeam }) => {
     const iWon = winTeam.includes(state.pseudo);
-    const eloChange = iWon ? +20 : -20;
-    state.elo += eloChange;
+    state.elo += iWon ? 20 : -20;
     state.wins += iWon ? 1 : 0;
-
     document.getElementById('result-title').textContent = iWon ? 'VICTOIRE' : 'DÉFAITE';
     document.getElementById('result-title').className = 'result-title ' + (iWon ? 'win' : 'lose');
     document.getElementById('result-elo').textContent = (iWon ? '+20' : '-20') + ' ELO → ' + state.elo + ' ELO';
@@ -460,47 +441,27 @@ function initSocket() {
   });
 
   socket.on('ban_error', (msg) => notify('❌ ' + msg));
-
-  // Authenticate
-  socket.emit('auth', { token: state.token });
 }
 
 // ── AUTH ──
-async function doLogin() {
+function doLogin() {
   const pseudo = document.getElementById('login-pseudo').value.trim();
   const password = document.getElementById('login-pass').value;
   document.getElementById('login-error').textContent = '';
   if (!pseudo || !password) { document.getElementById('login-error').textContent = 'Remplis tous les champs.'; return; }
-  try {
-    const r = await fetch('/api/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ pseudo, password }) });
-    const data = await r.json();
-    if (data.error) { document.getElementById('login-error').textContent = data.error; return; }
-    state.token = data.token;
-    state.pseudo = data.pseudo;
-    state.elo = data.elo;
-    state.wins = data.wins;
-    initSocket();
-  } catch(e) { document.getElementById('login-error').textContent = 'Erreur de connexion au serveur.'; }
+  initSocket();
+  socket.emit('login', { pseudo, password });
 }
 
-async function doRegister() {
+function doRegister() {
   const pseudo = document.getElementById('reg-pseudo').value.trim();
   const password = document.getElementById('reg-pass').value;
   const password2 = document.getElementById('reg-pass2').value;
   document.getElementById('reg-error').textContent = '';
   if (!pseudo || !password) { document.getElementById('reg-error').textContent = 'Remplis tous les champs.'; return; }
   if (password !== password2) { document.getElementById('reg-error').textContent = 'Les mots de passe ne correspondent pas.'; return; }
-  try {
-    const r = await fetch('/api/register', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ pseudo, password }) });
-    const data = await r.json();
-    if (data.error) { document.getElementById('reg-error').textContent = data.error; return; }
-    state.token = data.token;
-    state.pseudo = data.pseudo;
-    state.elo = data.elo;
-    state.wins = data.wins;
-    notify('Compte créé ! Bienvenue ' + pseudo);
-    initSocket();
-  } catch(e) { document.getElementById('reg-error').textContent = 'Erreur de connexion au serveur.'; }
+  initSocket();
+  socket.emit('register', { pseudo, password });
 }
 
 // ── LOBBY ──
@@ -523,7 +484,7 @@ async function loadLeaderboard() {
 
 function renderLeaderboard(data) {
   const lb = document.getElementById('leaderboard-list');
-  if (!data.length) { lb.innerHTML = '<div class="text-muted" style="text-align:center;padding:20px;">Aucun joueur encore</div>'; return; }
+  if (!data || !data.length) { lb.innerHTML = '<div class="text-muted" style="text-align:center;padding:20px;">Aucun joueur encore</div>'; return; }
   lb.innerHTML = data.map((r, i) => {
     const rankClass = i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : '';
     const rankIcon = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '#' + (i+1);
@@ -577,11 +538,8 @@ function createRoom() {
 function setupRoom(roomId, team1, team2) {
   document.getElementById('room-id-badge').textContent = 'ROOM #' + roomId;
   document.getElementById('room-badge2').textContent = 'ROOM #' + roomId;
-
-  // Determine my team
   state.myTeam = team1.some(p => p.pseudo === state.pseudo) ? 1 : 2;
 
-  // Fill team 1
   document.getElementById('t1p1-av').textContent = team1[0].pseudo[0].toUpperCase();
   document.getElementById('t1p1-name').textContent = team1[0].pseudo;
   document.getElementById('t1p1-elo').textContent = team1[0].elo + ' ELO';
@@ -589,7 +547,6 @@ function setupRoom(roomId, team1, team2) {
   document.getElementById('t1p2-name').textContent = team1[1]?.pseudo || '—';
   document.getElementById('t1p2-elo').textContent = (team1[1]?.elo || '—') + ' ELO';
 
-  // Fill team 2
   document.getElementById('t2p1-av').textContent = team2[0]?.pseudo[0].toUpperCase() || '?';
   document.getElementById('t2p1-name').textContent = team2[0]?.pseudo || '—';
   document.getElementById('t2p1-elo').textContent = (team2[0]?.elo || '—') + ' ELO';
@@ -597,10 +554,7 @@ function setupRoom(roomId, team1, team2) {
   document.getElementById('t2p2-name').textContent = team2[1]?.pseudo || '—';
   document.getElementById('t2p2-elo').textContent = (team2[1]?.elo || '—') + ' ELO';
 
-  // Clear chat
   document.getElementById('chat-messages').innerHTML = '';
-
-  // Render map grids
   renderMapGrids();
   showScreen('room');
 }
@@ -616,18 +570,15 @@ function updateBanPhase(turn) {
   if (turn === 1) {
     document.getElementById('ban-banner-t1').textContent = state.myTeam === 1 ? "🎯 C'est votre tour de ban !" : "En attente du ban équipe 1…";
     document.getElementById('ban-banner-t2').textContent = "En attente…";
-    if (state.myTeam === 1) {
-      MAPS.forEach(m => { const b = document.getElementById('mapbtn-t1-' + m); if(b) b.disabled = false; });
-    }
+    if (state.myTeam === 1) MAPS.forEach(m => { const b = document.getElementById('mapbtn-t1-' + m); if(b) b.disabled = false; });
   } else if (turn === 2) {
     document.getElementById('ban-banner-t1').textContent = "Ban effectué ✓";
     document.getElementById('ban-banner-t2').textContent = state.myTeam === 2 ? "🎯 C'est votre tour de ban !" : "En attente du ban équipe 2…";
     if (state.myTeam === 2) {
-      const banned = [];
-      MAPS.forEach(m => { const b = document.getElementById('mapbtn-t1-' + m); if(b && b.classList.contains('banned')) banned.push(m); });
       MAPS.forEach(m => {
         const b = document.getElementById('mapbtn-t2-' + m);
-        if (b && !banned.includes(m)) b.disabled = false;
+        const banned = document.getElementById('mapbtn-t1-' + m)?.classList.contains('banned');
+        if (b && !banned) b.disabled = false;
       });
     }
   }
@@ -635,11 +586,7 @@ function updateBanPhase(turn) {
 
 function banMap(team, map) {
   socket.emit('ban_map', { map });
-  // Disable immediately for UX
-  MAPS.forEach(m => {
-    const b = document.getElementById('mapbtn-' + team + '-' + m);
-    if(b) b.disabled = true;
-  });
+  MAPS.forEach(m => { const b = document.getElementById('mapbtn-' + team + '-' + m); if(b) b.disabled = true; });
 }
 
 function declareResult(winner) {
@@ -647,7 +594,6 @@ function declareResult(winner) {
   document.getElementById('declare-section').style.display = 'none';
 }
 
-// ── CHAT ──
 function addMsg(author, team, text, time) {
   const box = document.getElementById('chat-messages');
   const isSystem = team === 'system' || author === 'Système';
@@ -658,12 +604,7 @@ function addMsg(author, team, text, time) {
   if (isSystem) {
     div.innerHTML = `<div class="msg-text">${text}</div>`;
   } else {
-    div.innerHTML = `
-      <div class="msg-header">
-        <span class="msg-author ${team}">${author}</span>
-        <span class="msg-time">${timeStr}</span>
-      </div>
-      <div class="msg-text">${text}</div>`;
+    div.innerHTML = `<div class="msg-header"><span class="msg-author ${team}">${author}</span><span class="msg-time">${timeStr}</span></div><div class="msg-text">${text}</div>`;
   }
   box.appendChild(div);
   box.scrollTop = box.scrollHeight;
@@ -680,8 +621,7 @@ function sendChat() {
 async function backToLobby() {
   document.getElementById('result-overlay').classList.remove('show');
   document.getElementById('nav-elo').textContent = state.elo;
-  state.roomId = null;
-  state.myTeam = null;
+  state.roomId = null; state.myTeam = null;
   document.getElementById('declare-section').style.display = 'none';
   await loadLeaderboard();
   socket.emit('create_group');

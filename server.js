@@ -11,48 +11,24 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: '*' } });
 
-const JWT_SECRET = 'wagers_secret_2024';
+const JWT_SECRET = process.env.JWT_SECRET || 'wagers_secret_2024';
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname), { index: 'index.html' }));
 
-// ─── REST API ───────────────────────────────────
-
-// Inscription
-app.post('/api/register', async (req, res) => {
-  const { pseudo, password } = req.body;
-  if (!pseudo || !password) return res.status(400).json({ error: 'Champs manquants' });
-  if (pseudo.length < 3) return res.status(400).json({ error: 'Pseudo trop court (3 min)' });
-  if (db.getUserByPseudo(pseudo)) return res.status(400).json({ error: 'Pseudo déjà pris' });
-  const hashed = await bcrypt.hash(password, 10);
-  const user = db.createUser(pseudo, hashed);
-  const token = jwt.sign({ id: user.id }, JWT_SECRET);
-  res.json({ token, pseudo: user.pseudo, elo: user.elo, wins: user.wins });
+// Serve static files
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// Connexion
-app.post('/api/login', async (req, res) => {
-  const { pseudo, password } = req.body;
-  const user = db.getUserByPseudo(pseudo);
-  if (!user) return res.status(400).json({ error: 'Pseudo introuvable' });
-  const valid = await bcrypt.compare(password, user.password);
-  if (!valid) return res.status(400).json({ error: 'Mot de passe incorrect' });
-  const token = jwt.sign({ id: user.id }, JWT_SECRET);
-  res.json({ token, pseudo: user.pseudo, elo: user.elo, wins: user.wins });
-});
-
-// Classement
+// Leaderboard API
 app.get('/api/leaderboard', (req, res) => {
   res.json(db.getLeaderboard());
 });
 
 // ─── SOCKET.IO ──────────────────────────────────
-
-// groupes en mémoire : { code: { players: [{id, pseudo, elo, socketId}] } }
 const groups = {};
-// rooms en mémoire : { roomId: { teams: [[p1,p2],[p3,p4]], chat:[], mapBans:{t1,t2}, banPhase, status } }
 const rooms = {};
 
 function generateCode(len = 6) {
@@ -69,27 +45,43 @@ function getRoomBySocket(socketId) {
   );
 }
 
-function verifyToken(token) {
-  try { return jwt.verify(token, JWT_SECRET); } catch { return null; }
-}
-
 io.on('connection', (socket) => {
 
-  // ── AUTH ──
-  socket.on('auth', ({ token }) => {
-    const payload = verifyToken(token);
-    if (!payload) return socket.emit('auth_error', 'Token invalide');
-    const user = db.getUserById(payload.id);
-    if (!user) return socket.emit('auth_error', 'Utilisateur introuvable');
-    socket.userId = user.id;
-    socket.pseudo = user.pseudo;
-    socket.elo = user.elo;
-    socket.emit('auth_ok', { pseudo: user.pseudo, elo: user.elo, wins: user.wins });
+  // ── REGISTER ──
+  socket.on('register', async ({ pseudo, password }) => {
+    try {
+      if (!pseudo || !password) return socket.emit('auth_error', 'Champs manquants');
+      if (pseudo.length < 3) return socket.emit('auth_error', 'Pseudo trop court (3 min)');
+      if (db.getUserByPseudo(pseudo)) return socket.emit('auth_error', 'Pseudo déjà pris');
+      const hashed = await bcrypt.hash(password, 10);
+      const user = db.createUser(pseudo, hashed);
+      socket.userId = user.id;
+      socket.pseudo = user.pseudo;
+      socket.elo = user.elo;
+      socket.emit('auth_ok', { pseudo: user.pseudo, elo: user.elo, wins: user.wins });
+    } catch(e) {
+      socket.emit('auth_error', 'Erreur serveur: ' + e.message);
+    }
+  });
+
+  // ── LOGIN ──
+  socket.on('login', async ({ pseudo, password }) => {
+    try {
+      const user = db.getUserByPseudo(pseudo);
+      if (!user) return socket.emit('auth_error', 'Pseudo introuvable');
+      const valid = await bcrypt.compare(password, user.password);
+      if (!valid) return socket.emit('auth_error', 'Mot de passe incorrect');
+      socket.userId = user.id;
+      socket.pseudo = user.pseudo;
+      socket.elo = user.elo;
+      socket.emit('auth_ok', { pseudo: user.pseudo, elo: user.elo, wins: user.wins });
+    } catch(e) {
+      socket.emit('auth_error', 'Erreur serveur: ' + e.message);
+    }
   });
 
   // ── CRÉER UN GROUPE ──
   socket.on('create_group', () => {
-    // Quitter l'ancien groupe si besoin
     const existing = getGroupBySocket(socket.id);
     if (existing) {
       const [code, group] = existing;
@@ -113,7 +105,6 @@ io.on('connection', (socket) => {
     if (group.players.length >= 2) return socket.emit('group_error', 'Groupe complet');
     if (group.players.some(p => p.id === socket.userId)) return socket.emit('group_error', 'Déjà dans ce groupe');
 
-    // Quitter l'ancien groupe
     const existing = getGroupBySocket(socket.id);
     if (existing) {
       const [oldCode, oldGroup] = existing;
@@ -137,7 +128,6 @@ io.on('connection', (socket) => {
     const [code, group] = entry;
     if (group.players.length < 2) return socket.emit('room_error', 'Il faut 2 joueurs dans le groupe');
 
-    // Chercher une room en attente d'adversaires
     let roomId = null;
     let room = null;
 
@@ -159,14 +149,12 @@ io.on('connection', (socket) => {
       rooms[roomId] = room;
     }
 
-    // Faire rejoindre le channel socket.io
     group.players.forEach(p => {
       const s = io.sockets.sockets.get(p.socketId);
       if (s) { s.join('room_' + roomId); s.roomId = roomId; }
     });
 
     if (room.status === 'ban_phase') {
-      // Les 4 sont là, on démarre
       const payload = {
         roomId,
         team1: room.teams[0].map(p => ({ pseudo: p.pseudo, elo: p.elo })),
@@ -233,13 +221,11 @@ io.on('connection', (socket) => {
     }
   });
 
-  // ── DÉCLARER UN RÉSULTAT ──
+  // ── RÉSULTAT ──
   socket.on('declare_result', ({ winner }) => {
     if (!socket.roomId) return;
     const room = rooms[socket.roomId];
     if (!room || room.status !== 'playing') return;
-
-    // Simple : le premier à déclarer gagne (à améliorer avec vote)
     if (room.resultDeclared) return;
     room.resultDeclared = true;
     room.status = 'finished';
@@ -256,7 +242,6 @@ io.on('connection', (socket) => {
       loseTeam: loseTeam.map(p => p.pseudo),
     });
 
-    // Nettoyer la room après 30s
     setTimeout(() => { delete rooms[socket.roomId]; }, 30000);
   });
 
