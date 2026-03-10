@@ -16,10 +16,19 @@ const PORT = process.env.PORT || 3000;
 const MAPS = ['Ascent', 'Bind', 'Haven', 'Icebox', 'Lotus', 'Pearl', 'Split'];
 const BAN_TIMEOUT = 15000;
 const START_COUNTDOWN = 10000;
+const ADMIN_PSEUDOS = ['Karim34']; // ← ajoute ton pseudo ici
 
 app.use(express.json());
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 app.get('/api/leaderboard/:mode', (req, res) => res.json(db.getLeaderboard(req.params.mode)));
+
+// Avatar upload
+app.post('/api/avatar', express.json({ limit: '2mb' }), (req, res) => {
+  const { userId, avatar } = req.body;
+  if (!userId || !avatar) return res.status(400).json({ error: 'Manquant' });
+  db.updateAvatar(userId, avatar);
+  res.json({ ok: true });
+});
 
 const groups = {};
 const rooms = {};
@@ -120,14 +129,24 @@ io.on('connection', (socket) => {
       if (!pseudo || !password) return socket.emit('auth_error', 'Champs manquants');
       if (pseudo.length < 3) return socket.emit('auth_error', 'Pseudo trop court (3 min)');
       if (db.getUserByPseudo(pseudo)) return socket.emit('auth_error', 'Pseudo déjà pris');
+
+      // Anti double compte par IP
+      const ip = socket.handshake.headers['x-forwarded-for']?.split(',')[0] || socket.handshake.address;
+      const existing = db.getIpAccounts(ip);
+      if (existing.length >= 2) return socket.emit('auth_error', 'Trop de comptes créés depuis cette adresse');
+
       const hashed = await bcrypt.hash(password, 10);
-      const user = db.createUser(pseudo, hashed);
+      const user = db.createUser(pseudo, hashed, ip);
       socket.userId = user.id;
       socket.pseudo = user.pseudo;
+      socket.isAdmin = ADMIN_PSEUDOS.includes(pseudo);
       socket.emit('auth_ok', {
         pseudo: user.pseudo,
         elo: user.stats['2v2'].elo,
-        stats: user.stats
+        stats: user.stats,
+        isAdmin: socket.isAdmin,
+        avatar: user.avatar || null,
+        userId: user.id
       });
     } catch(e) { socket.emit('auth_error', 'Erreur: ' + e.message); }
   });
@@ -141,11 +160,15 @@ io.on('connection', (socket) => {
       if (!valid) return socket.emit('auth_error', 'Mot de passe incorrect');
       socket.userId = user.id;
       socket.pseudo = user.pseudo;
+      socket.isAdmin = ADMIN_PSEUDOS.includes(pseudo);
       const stats = user.stats || db.defaultStats();
       socket.emit('auth_ok', {
         pseudo: user.pseudo,
         elo: stats['2v2']?.elo || 500,
-        stats
+        stats,
+        isAdmin: socket.isAdmin,
+        avatar: user.avatar || null,
+        userId: user.id
       });
     } catch(e) { socket.emit('auth_error', 'Erreur: ' + e.message); }
   });
@@ -159,7 +182,61 @@ io.on('connection', (socket) => {
     const totalLosses = Object.values(stats).reduce((a, s) => a + (s.losses||0), 0);
     const total = totalWins + totalLosses;
     const winrate = total > 0 ? Math.round((totalWins / total) * 100) : 0;
-    socket.emit('profile_data', { pseudo: user.pseudo, stats, winrate, totalWins, totalLosses });
+    socket.emit('profile_data', { pseudo: user.pseudo, stats, winrate, totalWins, totalLosses, avatar: user.avatar || null });
+  });
+
+  // ── ADMIN: SPAWN BOTS ──
+  socket.on('spawn_bots', ({ mode }) => {
+    if (!socket.isAdmin) return socket.emit('notify_error', 'Accès refusé');
+    const entry = getGroupBySocket(socket.id);
+    if (!entry) return socket.emit('notify_error', 'Pas dans un groupe');
+    const [code, group] = entry;
+    const teamSize = getTeamSize(mode || group.mode);
+
+    // Fill group to teamSize with bots
+    while (group.players.length < teamSize) {
+      const botNum = group.players.filter(p => p.isBot).length + 1;
+      group.players.push({ id: 'bot_' + Date.now(), pseudo: 'Bot' + botNum, elo: 500, socketId: null, isBot: true });
+    }
+    io.to('group_' + code).emit('group_updated', { players: group.players.map(p => ({ pseudo: p.pseudo, elo: p.elo })), mode: group.mode });
+    socket.emit('group_created', { code, mode: group.mode, players: group.players.map(p => ({ pseudo: p.pseudo, elo: p.elo })) });
+
+    // Also create a fake opponent group and trigger room
+    const oppGroupCode = generateCode();
+    const oppPlayers = [];
+    for (let i = 0; i < teamSize; i++) {
+      oppPlayers.push({ id: 'bot_opp_' + i, pseudo: 'Adversaire' + (i+1), elo: 500, socketId: null, isBot: true });
+    }
+    groups[oppGroupCode] = { mode: group.mode, players: oppPlayers };
+
+    // Find or create room
+    let roomId, room;
+    const waiting = Object.entries(rooms).find(([, r]) => r.status === 'waiting' && r.mode === group.mode);
+    if (waiting) {
+      [roomId, room] = waiting;
+      room.teams[1] = oppPlayers;
+    } else {
+      roomId = 'R' + generateCode(4);
+      room = { id: roomId, mode: group.mode, teams: [group.players, oppPlayers], chat: [], mapBans: [], banTurn: 0, status: 'waiting', chosenMap: null, banTimer: null };
+      rooms[roomId] = room;
+    }
+
+    // Join real players to room
+    group.players.filter(p => !p.isBot).forEach(p => {
+      const s = io.sockets.sockets.get(p.socketId);
+      if (s) { s.join('room_' + roomId); s.roomId = roomId; }
+    });
+
+    room.teams[1] = oppPlayers;
+    const payload = {
+      roomId, mode: room.mode,
+      team1: room.teams[0].map(p => ({ pseudo: p.pseudo, elo: p.elo })),
+      team2: room.teams[1].map(p => ({ pseudo: p.pseudo, elo: p.elo })),
+      waiting: false
+    };
+    io.to('room_' + roomId).emit('room_ready', payload);
+    io.to('room_' + roomId).emit('chat_msg', { author: 'Système', team: 'system', text: '🤖 Bots adverses ajoutés ! Début dans 10 secondes…' });
+    startRoomCountdown(roomId);
   });
 
   // ── CREATE GROUP ──

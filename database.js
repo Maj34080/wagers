@@ -38,18 +38,32 @@ function getUserById(id) {
   return loadDB().users.find(u => u.id === id);
 }
 
-function createUser(pseudo, hashedPassword) {
+function createUser(pseudo, hashedPassword, ip) {
   const db = loadDB();
   const user = {
     id: Date.now().toString(),
     pseudo,
     password: hashedPassword,
     stats: defaultStats(),
+    avatar: null,
+    ip: ip || null,
     createdAt: new Date().toISOString()
   };
   db.users.push(user);
   saveDB(db);
   return user;
+}
+
+function updateAvatar(id, avatarBase64) {
+  const db = loadDB();
+  const user = db.users.find(u => u.id === id);
+  if (user) { user.avatar = avatarBase64; saveDB(db); }
+  return user;
+}
+
+function getIpAccounts(ip) {
+  if (!ip) return [];
+  return loadDB().users.filter(u => u.ip === ip);
 }
 
 function updateUserElo(id, eloChange, won, mode) {
@@ -77,4 +91,4 @@ function getLeaderboard(mode) {
     .slice(0, 20);
 }
 
-module.exports = { getUserByPseudo, getUserById, createUser, updateUserElo, getLeaderboard };
+module.exports = { getUserByPseudo, getUserById, createUser, updateUserElo, getLeaderboard, updateAvatar, getIpAccounts, defaultStats };
