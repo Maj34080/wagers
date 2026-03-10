@@ -1,0 +1,14 @@
+{
+  "users": [
+    {
+      "id": "1773159592691",
+      "pseudo": "Karim34",
+      "password": "$2b$10$1Rs0egGajHrm749FXg6iv.E/wm6xrYkiSl2L4STB.v5XI11qdqgcm",
+      "elo": 500,
+      "wins": 0,
+      "losses": 0,
+      "createdAt": "2026-03-10T16:19:52.691Z"
+    }
+  ],
+  "rooms": []
+}
