@@ -408,6 +408,16 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
       </div>
       </div><!-- end chat-box-wrap -->
 
+      <!-- MAP BAN SECTION (5v5 only, shown after countdown) -->
+      <div id="map-ban-center-section" style="display:none;margin-top:10px;">
+        <div class="map-ban-section">
+          <div class="map-ban-title">Phase de ban</div>
+          <div class="ban-timer-bar"><div class="ban-timer-fill" id="ban-timer-t1"></div></div>
+          <div class="ban-banner waiting" id="ban-banner-t1">En attente…</div>
+          <div class="map-grid" id="map-grid-t1"></div>
+        </div>
+      </div>
+
       <div class="declare-section" id="declare-section" style="display:none;">
         <div class="declare-title">⚖️ Décision Admin</div>
         <div class="declare-btns">
@@ -552,14 +562,17 @@ socket && socket.on && socket.on('room_logs', (logs) => {
     return;
   }
   container.innerHTML = logs.map(r => {
-    const ago = r.createdAt ? Math.round((Date.now() - r.createdAt) / 60000) : '?';
+    const ago = r.createdAt ? (() => {
+      const mins = Math.round((Date.now() - r.createdAt) / 60000);
+      return mins < 60 ? `il y a ${mins}min` : `il y a ${Math.round(mins/60)}h`;
+    })() : '?';
     const statusColor = r.status === 'finished' ? 'var(--muted)' : r.status === 'playing' ? 'var(--green)' : 'var(--gold)';
     const statusLabel = r.status === 'finished' ? 'Terminée' : r.status === 'playing' ? 'En jeu' : 'En attente';
     const t1 = (r.teams[0] || []).map(p => p.pseudo).join(', ') || '—';
     const t2 = (r.teams[1] || []).map(p => p.pseudo).join(', ') || 'En attente…';
     return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-        <div style="font-family:'Syne',sans-serif;font-weight:800;">ROOM #${r.id} <span style="font-size:11px;color:var(--muted);font-weight:400;">— ${r.mode}${ago !== '?' ? ` — il y a ${ago}min` : ''}</span></div>
+        <div style="font-family:'Syne',sans-serif;font-weight:800;">ROOM #${r.id} <span style="font-size:11px;color:var(--muted);font-weight:400;">— ${r.mode}${ago !== '?' ? ` — ${ago}` : ''}</span></div>
         <span style="font-size:11px;font-weight:700;color:${statusColor};background:${statusColor}22;padding:3px 8px;border-radius:6px;">${statusLabel}</span>
       </div>
       <div style="display:flex;gap:12px;font-size:13px;color:var(--muted);margin-bottom:10px;">
@@ -735,7 +748,10 @@ function initSocket() {
     }
   });
 
-  socket.on('ban_phase', ({ turn, team, mapsLeft }) => updateBanPhase(team, mapsLeft));
+  socket.on('ban_phase', ({ turn, team, mapsLeft }) => {
+    document.getElementById('map-ban-center-section').style.display = '';
+    updateBanPhase(team, mapsLeft);
+  });
 
   socket.on('ban_timer_start', ({ seconds }) => startBanTimerBar(seconds));
 
@@ -756,6 +772,7 @@ function initSocket() {
       const b = document.getElementById('mapbtn-t1-' + m);
       if (b) { b.disabled = true; if (m === map) b.classList.add('chosen'); }
     });
+    document.getElementById('map-ban-center-section').style.display = 'none';
     addMsg('Système', 'system', `🗺️ Map jouée : ${map} — Bonne chance !`, null);
     document.getElementById('room-status-text').textContent = 'En jeu — ' + map;
     if (state.isAdmin && state.isSpectator) setTimeout(() => { document.getElementById('declare-section').style.display = ''; }, 500);
@@ -958,8 +975,9 @@ function setupRoom(roomId, mode, team1, team2, waiting) {
   document.getElementById('chat-messages').innerHTML = '';
 
   if (mode === '1v1' || mode === '2v2') {
-    // no ban phase needed
+    document.getElementById('map-ban-center-section').style.display = 'none';
   } else {
+    document.getElementById('map-ban-center-section').style.display = '';
     renderMapGrids();
   }
 
@@ -1201,6 +1219,9 @@ async function backToLobby() {
   socket.emit('create_group', { mode: state.mode });
   state.groupSize = 1;
   updateRoomBtn();
+  // Reset admin bot button
+  const adminBtn = document.getElementById('admin-bot-btn');
+  if (adminBtn) { adminBtn.textContent = '🤖 Admin — Lancer avec des Bots'; adminBtn.disabled = false; }
   showScreen('main');
 }
 </script>

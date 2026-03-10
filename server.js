@@ -32,6 +32,17 @@ app.post('/api/avatar', express.json({ limit: '2mb' }), (req, res) => {
 
 const groups = {};
 const rooms = {};
+const archivedRooms = {}; // rooms terminées, gardées 24h
+
+function archiveRoom(roomId) {
+  const room = rooms[roomId];
+  if (!room) return;
+  room.archivedAt = Date.now();
+  archivedRooms[roomId] = room;
+  delete rooms[roomId];
+  // Nettoyage auto après 24h
+  setTimeout(() => { delete archivedRooms[roomId]; }, 24 * 60 * 60 * 1000);
+}
 
 function generateCode(len = 6) {
   return Math.random().toString(36).substring(2, 2 + len).toUpperCase();
@@ -433,7 +444,7 @@ io.on('connection', (socket) => {
       mode: room.mode
     });
 
-    setTimeout(() => { delete rooms[socket.roomId]; }, 30000);
+    setTimeout(() => { archiveRoom(socket.roomId); }, 30000);
   });
 
   // ── DISCONNECT ──
@@ -470,8 +481,9 @@ io.on('connection', (socket) => {
   // ── GET ROOM LOGS (admin) ──
   socket.on('get_room_logs', () => {
     if (!socket.isAdmin) return;
-    const cutoff = Date.now() - 30 * 60 * 1000;
-    const logs = Object.values(rooms)
+    const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+    const allRooms = [...Object.values(rooms), ...Object.values(archivedRooms)];
+    const logs = allRooms
       .filter(r => !r.createdAt || r.createdAt > cutoff)
       .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
       .map(r => ({
@@ -537,17 +549,19 @@ io.on('connection', (socket) => {
   // ── ADMIN JOIN ROOM ──
   socket.on('admin_join_room', ({ roomId }) => {
     if (!socket.isAdmin) return;
-    const room = rooms[roomId];
+    const room = rooms[roomId] || archivedRooms[roomId];
     if (!room) return socket.emit('notify_error', 'Room introuvable');
     socket.join('room_' + roomId);
     socket.adminRoomId = roomId;
     socket.emit('admin_joined_room', {
       roomId,
       mode: room.mode,
-      team1: room.teams[0].map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null })),
-      team2: room.teams[1].map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null }))
+      team1: (room.teams[0] || []).map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null })),
+      team2: (room.teams[1] || []).map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null }))
     });
-    io.to('room_' + roomId).emit('chat_msg', { author: 'Système', team: 'system', text: '👁️ Un admin a rejoint la room en spectateur.' });
+    if (rooms[roomId]) {
+      io.to('room_' + roomId).emit('chat_msg', { author: 'Système', team: 'system', text: '👁️ Un admin a rejoint la room en spectateur.' });
+    }
   });
 
   // ── ADMIN DECIDE ──
@@ -564,7 +578,7 @@ io.on('connection', (socket) => {
     loseTeam.filter(p => !p.isBot).forEach(p => db.updateUserElo(p.id, -20, false, room.mode));
     io.to('room_' + roomId).emit('chat_msg', { author: 'Système', team: 'system', text: `⚖️ Décision admin : Équipe ${winner} gagne !` });
     io.to('room_' + roomId).emit('game_result', { winner, winTeam: winTeam.map(p => p.pseudo), loseTeam: loseTeam.map(p => p.pseudo), mode: room.mode });
-    setTimeout(() => { delete rooms[roomId]; }, 30000);
+    setTimeout(() => { archiveRoom(roomId); }, 30000);
   });
 });
 
