@@ -14,6 +14,8 @@ const io = new Server(server, {
 
 const PORT = process.env.PORT || 3000;
 const MAPS = ['Ascent', 'Bind', 'Haven', 'Icebox', 'Lotus', 'Pearl', 'Split'];
+const WEAPONS = ['Vandal/Phantom', 'Sheriff', 'Operator', 'Marshall', 'Ghost'];
+const WEAPON_VOTE_TIMEOUT = 20000; // 20s pour voter
 const BAN_TIMEOUT = 15000;
 const START_COUNTDOWN = 5000;
 const ADMIN_PSEUDOS = ['Karim34']; // ← ajoute ton pseudo ici
@@ -33,6 +35,28 @@ app.post('/api/avatar', express.json({ limit: '2mb' }), (req, res) => {
 const groups = {};
 const rooms = {};
 const archivedRooms = {}; // rooms terminées, gardées 24h
+
+function resolveWeaponVote(roomId) {
+  const room = rooms[roomId];
+  if (!room || room.status !== 'weapon_vote') return;
+  clearTimeout(room.weaponTimer);
+  const v1 = room.weaponVotes.team1;
+  const v2 = room.weaponVotes.team2;
+  let chosen;
+  if (v1 && v2 && v1 === v2) {
+    chosen = v1;
+  } else {
+    chosen = WEAPONS[Math.floor(Math.random() * WEAPONS.length)];
+  }
+  room.chosenWeapon = chosen;
+  room.status = 'playing';
+  const msg = (v1 && v2 && v1 === v2)
+    ? `✅ Accord trouvé ! Arme jouée : **${chosen}**`
+    : `🎲 Pas d'accord — arme choisie aléatoirement : **${chosen}**`;
+  io.to('room_' + roomId).emit('weapon_chosen', { weapon: chosen, agreed: v1 === v2 && !!v1 });
+  io.to('room_' + roomId).emit('chat_msg', { author: 'Système', team: 'system', text: msg });
+  io.to('room_' + roomId).emit('game_start', { mode: room.mode, weapon: chosen });
+}
 
 function archiveRoom(roomId) {
   const room = rooms[roomId];
@@ -120,8 +144,11 @@ function startRoomCountdown(roomId) {
       if (!room) return;
 
       if (room.mode === '1v1' || room.mode === '2v2' || room.mode === '3v3') {
-        room.status = 'playing';
-        io.to('room_' + roomId).emit('game_start', { mode: room.mode });
+        room.status = 'weapon_vote';
+        room.weaponVotes = {}; // { team1: 'Vandal/Phantom', team2: null }
+        io.to('room_' + roomId).emit('weapon_vote_start', { weapons: WEAPONS });
+        io.to('room_' + roomId).emit('chat_msg', { author: 'Système', team: 'system', text: '🔫 Choisissez votre arme ! 20 secondes pour voter.' });
+        room.weaponTimer = setTimeout(() => resolveWeaponVote(roomId), WEAPON_VOTE_TIMEOUT);
       } else {
         room.status = 'ban_phase';
         io.to('room_' + roomId).emit('ban_phase', { turn: 0, team: 1, mapsLeft: MAPS.length });
@@ -387,6 +414,27 @@ io.on('connection', (socket) => {
   });
 
   // ── BAN MAP ──
+  // ── VOTE ARME ──
+  socket.on('vote_weapon', ({ weapon }) => {
+    if (!socket.roomId) return;
+    const room = rooms[socket.roomId];
+    if (!room || room.status !== 'weapon_vote') return;
+    if (!WEAPONS.includes(weapon)) return;
+    const inTeam1 = room.teams[0].some(p => p.id === socket.userId);
+    const inTeam2 = room.teams[1] && room.teams[1].some(p => p.id === socket.userId);
+    if (!inTeam1 && !inTeam2) return;
+    const teamKey = inTeam1 ? 'team1' : 'team2';
+    // Un vote par équipe (premier joueur à voter compte)
+    if (room.weaponVotes[teamKey]) return;
+    room.weaponVotes[teamKey] = weapon;
+    const teamNum = inTeam1 ? 1 : 2;
+    io.to('room_' + socket.roomId).emit('chat_msg', { author: 'Système', team: 'system', text: `🗳️ Équipe ${teamNum} a voté : ${weapon}` });
+    // Si les deux équipes ont voté → résoudre immédiatement
+    if (room.weaponVotes.team1 && room.weaponVotes.team2) {
+      resolveWeaponVote(socket.roomId);
+    }
+  });
+
   socket.on('ban_map', ({ map }) => {
     if (!socket.roomId) return;
     const room = rooms[socket.roomId];

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>REVENGE — Valorant</title>
 <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root {
   --bg:#0a0a0f; --surface:#111118; --surface2:#17171f; --border:#1e1e2a;
@@ -410,6 +410,17 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
       </div>
       </div><!-- end chat-box-wrap -->
 
+      <!-- WEAPON VOTE SECTION (1v1/2v2/3v3) -->
+      <div id="weapon-vote-section" style="display:none;margin-top:10px;">
+        <div class="map-ban-section">
+          <div class="map-ban-title" style="font-size:15px;">🔫 Choisissez votre arme</div>
+          <div id="weapon-vote-status" class="ban-banner waiting" style="margin-bottom:12px;">En attente des votes…</div>
+          <div id="weapon-vote-timer-bar" class="ban-timer-bar"><div class="ban-timer-fill" id="weapon-timer-fill" style="width:100%;background:var(--accent);"></div></div>
+          <div id="weapon-vote-buttons" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;justify-content:center;"></div>
+          <div id="weapon-voted-label" style="display:none;text-align:center;margin-top:10px;font-size:13px;color:var(--green);font-weight:600;">✅ Vote enregistré — en attente de l'adversaire…</div>
+        </div>
+      </div>
+
       <!-- MAP BAN SECTION (5v5 only, shown after countdown) -->
       <div id="map-ban-center-section" style="display:none;margin-top:10px;">
         <div class="map-ban-section">
@@ -525,6 +536,18 @@ function showMainTab(tab) {
   if (tab === 'admin') refreshAdminLogs();
 }
 
+function voteWeapon(weapon) {
+  if (!socket) return;
+  socket.emit('vote_weapon', { weapon });
+  // Disable all buttons after vote
+  document.querySelectorAll('#weapon-vote-buttons button').forEach(b => { b.disabled = true; b.style.opacity = '0.4'; });
+  // Highlight chosen
+  document.querySelectorAll('#weapon-vote-buttons button').forEach(b => {
+    if (b.textContent === weapon) { b.style.opacity = '1'; b.style.borderColor = 'var(--accent)'; b.style.color = 'var(--accent)'; }
+  });
+  document.getElementById('weapon-voted-label').style.display = '';
+}
+
 function cancelQueueFromRoom() {
   if (!socket) return;
   socket.emit('cancel_queue');
@@ -556,36 +579,6 @@ function refreshAdminLogs() {
   socket.emit('get_room_logs');
 }
 
-socket && socket.on && socket.on('room_logs', (logs) => {
-  const container = document.getElementById('admin-room-logs');
-  if (!container) return;
-  if (!logs || logs.length === 0) {
-    container.innerHTML = '<div style="color:var(--muted);text-align:center;padding:40px;">Aucune room active en ce moment</div>';
-    return;
-  }
-  container.innerHTML = logs.map(r => {
-    const ago = r.createdAt ? (() => {
-      const mins = Math.round((Date.now() - r.createdAt) / 60000);
-      return mins < 60 ? `il y a ${mins}min` : `il y a ${Math.round(mins/60)}h`;
-    })() : '?';
-    const statusColor = r.status === 'finished' ? 'var(--muted)' : r.status === 'playing' ? 'var(--green)' : 'var(--gold)';
-    const statusLabel = r.status === 'finished' ? 'Terminée' : r.status === 'playing' ? 'En jeu' : 'En attente';
-    const t1 = (r.teams[0] || []).map(p => p.pseudo).join(', ') || '—';
-    const t2 = (r.teams[1] || []).map(p => p.pseudo).join(', ') || 'En attente…';
-    return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-        <div style="font-family:'Syne',sans-serif;font-weight:800;">ROOM #${r.id} <span style="font-size:11px;color:var(--muted);font-weight:400;">— ${r.mode}${ago !== '?' ? ` — ${ago}` : ''}</span></div>
-        <span style="font-size:11px;font-weight:700;color:${statusColor};background:${statusColor}22;padding:3px 8px;border-radius:6px;">${statusLabel}</span>
-      </div>
-      <div style="display:flex;gap:12px;font-size:13px;color:var(--muted);margin-bottom:10px;">
-        <span>🔴 ${t1}</span><span style="color:var(--muted2);">vs</span><span>🔵 ${t2}</span>
-      </div>
-      ${r.chosenMap ? `<div style="font-size:12px;color:var(--blue);margin-bottom:8px;">🗺️ Map : ${r.chosenMap}</div>` : ''}
-      <button class="btn-admin-join" onclick="adminJoinRoom('${r.id}')">👁️ Rejoindre en spectateur</button>
-    </div>`;
-  }).join('');
-});
-
 function toggleGroupDropdown() {
   document.getElementById('group-dropdown').classList.toggle('open');
 }
@@ -612,7 +605,7 @@ function selectLbMode(mode, el) {
 }
 
 function getTeamSize(mode) {
-  return mode === '1v1' ? 1 : mode === '5v5' ? 5 : 2;
+  return mode === '1v1' ? 1 : mode === '3v3' ? 3 : mode === '5v5' ? 5 : 2;
 }
 
 function updateRoomBtn() {
@@ -750,12 +743,81 @@ function initSocket() {
     }
   });
 
+  socket.on('weapon_vote_start', ({ weapons }) => {
+    const section = document.getElementById('weapon-vote-section');
+    section.style.display = '';
+    document.getElementById('weapon-voted-label').style.display = 'none';
+    document.getElementById('weapon-vote-status').textContent = 'Votez pour votre arme !';
+    document.getElementById('weapon-vote-status').className = 'ban-banner';
+    document.getElementById('weapon-vote-status').style.background = 'rgba(255,209,102,0.1)';
+    document.getElementById('weapon-vote-status').style.borderColor = 'var(--gold)';
+    document.getElementById('weapon-vote-status').style.color = 'var(--gold)';
+    const btns = document.getElementById('weapon-vote-buttons');
+    btns.innerHTML = weapons.map(w =>
+      `<button onclick="voteWeapon('${w}')" style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 18px;font-size:14px;font-weight:700;color:var(--text);cursor:pointer;font-family:'Space Grotesk',sans-serif;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)';" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text)';">${w}</button>`
+    ).join('');
+    // Timer visuel 20s
+    let secs = 20;
+    const fill = document.getElementById('weapon-timer-fill');
+    fill.style.transition = 'none'; fill.style.width = '100%';
+    const wTimer = setInterval(() => {
+      secs--;
+      fill.style.transition = '1s linear';
+      fill.style.width = (secs / 20 * 100) + '%';
+      if (secs <= 0) clearInterval(wTimer);
+    }, 1000);
+    section._wTimer = wTimer;
+  });
+
+  socket.on('weapon_chosen', ({ weapon, agreed }) => {
+    const section = document.getElementById('weapon-vote-section');
+    clearInterval(section._wTimer);
+    document.getElementById('weapon-vote-buttons').innerHTML =
+      `<div style="font-size:22px;font-weight:800;color:var(--accent);font-family:'Space Grotesk',sans-serif;padding:10px;">${weapon}</div>`;
+    document.getElementById('weapon-vote-status').textContent = agreed ? `✅ Accord — Arme : ${weapon}` : `🎲 Random — Arme : ${weapon}`;
+    document.getElementById('weapon-vote-status').style.background = agreed ? 'rgba(58,255,160,0.1)' : 'rgba(255,209,102,0.1)';
+    document.getElementById('weapon-vote-status').style.borderColor = agreed ? 'var(--green)' : 'var(--gold)';
+    document.getElementById('weapon-vote-status').style.color = agreed ? 'var(--green)' : 'var(--gold)';
+    document.getElementById('weapon-voted-label').style.display = 'none';
+    setTimeout(() => { section.style.display = 'none'; }, 4000);
+  });
+
   socket.on('ban_phase', ({ turn, team, mapsLeft }) => {
     document.getElementById('map-ban-center-section').style.display = '';
     updateBanPhase(team, mapsLeft);
   });
 
   socket.on('ban_timer_start', ({ seconds }) => startBanTimerBar(seconds));
+
+  socket.on('room_logs', (logs) => {
+    const container = document.getElementById('admin-room-logs');
+    if (!container) return;
+    if (!logs || logs.length === 0) {
+      container.innerHTML = '<div style="color:var(--muted);text-align:center;padding:40px;">Aucune room pour le moment</div>';
+      return;
+    }
+    container.innerHTML = logs.map(r => {
+      const ago = r.createdAt ? (() => {
+        const mins = Math.round((Date.now() - r.createdAt) / 60000);
+        return mins < 60 ? `il y a ${mins}min` : `il y a ${Math.round(mins/60)}h`;
+      })() : '?';
+      const statusColor = r.status === 'finished' ? 'var(--muted)' : r.status === 'playing' ? 'var(--green)' : 'var(--gold)';
+      const statusLabel = r.status === 'finished' ? 'Terminée' : r.status === 'playing' ? 'En jeu' : 'En attente';
+      const t1 = (r.teams[0] || []).map(p => p.pseudo).join(', ') || '—';
+      const t2 = (r.teams[1] || []).map(p => p.pseudo).join(', ') || 'En attente…';
+      return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <div style="font-family:'Syne',sans-serif;font-weight:800;">ROOM #${r.id} <span style="font-size:11px;color:var(--muted);font-weight:400;">— ${r.mode}${ago !== '?' ? ` — ${ago}` : ''}</span></div>
+          <span style="font-size:11px;font-weight:700;color:${statusColor};background:${statusColor}22;padding:3px 8px;border-radius:6px;">${statusLabel}</span>
+        </div>
+        <div style="display:flex;gap:12px;font-size:13px;color:var(--muted);margin-bottom:10px;">
+          <span>🔴 ${t1}</span><span style="color:var(--muted2);">vs</span><span>🔵 ${t2}</span>
+        </div>
+        ${r.chosenMap ? `<div style="font-size:12px;color:var(--blue);margin-bottom:8px;">🗺️ Map : ${r.chosenMap}</div>` : ''}
+        <button class="btn-admin-join" onclick="adminJoinRoom('${r.id}')">👁️ Rejoindre en spectateur</button>
+      </div>`;
+    }).join('');
+  });
 
   socket.on('map_banned', ({ team, map, remainingMaps, auto }) => {
     clearBanTimerBar();
@@ -1152,9 +1214,17 @@ function addMsgImg(author, team, img, time) {
 }
 
 // Countdown sound (beep using Web Audio API)
+let _audioCtx = null;
+function getAudioCtx() {
+  if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (_audioCtx.state === 'suspended') _audioCtx.resume();
+  return _audioCtx;
+}
+document.addEventListener('click', () => { if (_audioCtx && _audioCtx.state === 'suspended') _audioCtx.resume(); }, { once: false });
+
 function playBeep(freq = 440, duration = 0.1) {
   try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const ctx = getAudioCtx();
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.connect(gain);
@@ -1218,7 +1288,8 @@ async function backToLobby() {
   document.getElementById('declare-section').style.display = 'none';
   document.getElementById('admin-spectator-bar').style.display = 'none';
   clearBanTimerBar();
-  socket.emit('create_group', { mode: state.mode });
+  document.getElementById('weapon-vote-section').style.display = 'none';
+  document.getElementById('map-ban-center-section').style.display = 'none';
   state.groupSize = 1;
   updateRoomBtn();
   // Reset admin bot button
