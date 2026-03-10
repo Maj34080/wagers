@@ -291,23 +291,29 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
     </div>
     <div class="nav-right">
       <div class="elo-badge">🔥 <span id="nav-elo">500</span></div>
-      <!-- Groupe inline — toujours visible -->
-      <div id="nav-group-inline" style="display:flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:6px 12px;">
-        <div style="display:flex;flex-direction:column;align-items:flex-start;gap:2px;">
-          <div style="display:flex;align-items:center;gap:6px;">
-            <span style="font-size:11px;color:var(--muted);font-weight:500;">Groupe</span>
-            <span id="nav-group-code" style="font-size:12px;font-weight:800;color:var(--accent);letter-spacing:2px;">——</span>
-            <button onclick="copyCode()" title="Copier le code" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:12px;padding:0;line-height:1;">📋</button>
+
+      <!-- Groupe inline redesigné -->
+      <div id="nav-group-inline" style="display:flex;align-items:stretch;gap:0;background:var(--surface2);border:1px solid var(--border);border-radius:12px;overflow:hidden;">
+        <!-- Code + membres -->
+        <div style="display:flex;flex-direction:column;justify-content:center;padding:8px 14px;gap:3px;border-right:1px solid var(--border);">
+          <div style="display:flex;align-items:center;gap:7px;">
+            <span style="font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Groupe</span>
+            <span id="nav-group-code" style="font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:800;color:var(--accent);letter-spacing:3px;">——</span>
+            <button onclick="copyCode()" title="Copier" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:13px;padding:0;opacity:0.7;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.7">📋</button>
           </div>
-          <div id="nav-group-members-inline" style="font-size:11px;color:var(--muted);"></div>
+          <div id="nav-group-members-inline" style="font-size:11px;color:var(--muted);line-height:1.3;"></div>
         </div>
-        <div style="width:1px;height:28px;background:var(--border);"></div>
-        <div style="display:flex;flex-direction:column;gap:3px;">
-          <input type="text" id="join-code-mini" placeholder="CODE" maxlength="6" style="width:70px;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:4px 7px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:11px;outline:none;letter-spacing:2px;font-weight:700;text-transform:uppercase;"/>
-          <button onclick="joinGroup()" style="background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:3px 7px;font-size:10px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;">Rejoindre</button>
+        <!-- Join input -->
+        <div style="display:flex;align-items:center;gap:6px;padding:8px 12px;border-right:1px solid var(--border);">
+          <input type="text" id="join-code-mini" placeholder="CODE" maxlength="6"
+            style="width:72px;background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:6px 8px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:12px;outline:none;letter-spacing:2px;font-weight:700;text-transform:uppercase;"
+            onkeydown="if(event.key==='Enter')joinGroup()"/>
+          <button onclick="joinGroup()" style="background:var(--accent);color:white;border:none;border-radius:7px;padding:6px 11px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Space Grotesk',sans-serif;white-space:nowrap;">Rejoindre</button>
         </div>
-        <button onclick="leaveGroup()" title="Quitter le groupe" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:14px;padding:2px;">🚪</button>
+        <!-- Quitter -->
+        <button onclick="leaveGroup()" title="Quitter le groupe" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:15px;padding:0 12px;transition:color 0.2s;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--muted)'">🚪</button>
       </div>
+
       <div class="avatar" id="nav-avatar" onclick="openProfile()">?</div>
       <span class="nav-pseudo" id="nav-pseudo" style="font-size:14px;font-weight:700;"></span>
     </div>
@@ -666,7 +672,7 @@ async function loadMyTickets() {
   try {
     const r = await fetch('/api/tickets', { headers: { 'x-admin-key': ADMIN_KEY } });
     const all = await r.json();
-    const mine = all.filter(t => t.userId === state.userId);
+    const mine = all.filter(t => t.userId === state.userId && t.status === 'open');
     if (!mine.length) { container.innerHTML = ''; return; }
     container.innerHTML = `<div style="font-weight:700;margin-bottom:10px;font-size:15px;">Mes tickets :</div>` + mine.map(t => `
       <div style="background:var(--surface);border:1px solid ${t.status==='open'?'var(--accent)':'var(--border)'};border-radius:12px;padding:14px;margin-bottom:10px;">
@@ -924,11 +930,21 @@ function initSocket() {
   socket.on('group_error', (msg) => notify('❌ ' + msg));
 
   socket.on('room_ready', ({ roomId, mode, team1, team2, waiting }) => {
+    if (!waiting && state.roomId === roomId) {
+      // Mise à jour équipe 2 qui vient de rejoindre
+      const t2el = document.getElementById('team2-players');
+      if (t2el) t2el.innerHTML = team2.map(p => makePlayerCard(p, 't2')).join('');
+      const total = getTeamSize(mode) * 2;
+      document.getElementById('room-players-count').textContent = `${total} / ${total} joueur${total > 1 ? 's' : ''}`;
+      document.getElementById('room-cancel-btn').style.display = 'none';
+      return;
+    }
     state.roomId = roomId;
     document.getElementById('searching-box').classList.remove('show');
     document.getElementById('btn-find-room').disabled = false;
-    document.getElementById('group-dropdown').classList.remove('open');
+    document.getElementById('btn-find-room').style.display = '';
     setupRoom(roomId, mode, team1, team2, waiting);
+    showScreen('room');
   });
 
   socket.on('room_error', (msg) => {
@@ -1308,17 +1324,6 @@ function setupRoom(roomId, mode, team1, team2, waiting) {
   document.getElementById('declare-section').style.display = 'none';
   showScreen('room');
 }
-
-// Update team 2 when they join
-socket && socket.on && socket.on('room_ready', ({ roomId, mode, team1, team2, waiting }) => {
-  if (!waiting && state.roomId === roomId) {
-    const t2el = document.getElementById('team2-players');
-    t2el.innerHTML = team2.map(p => makePlayerCard(p, 't2')).join('');
-    const total = getTeamSize(mode) * 2;
-    document.getElementById('room-players-count').textContent = `${total} / ${total} joueur${total > 1 ? 's' : ''}`;
-    document.getElementById('room-cancel-btn').style.display = 'none';
-  }
-});
 
 function makePlayerCard(p, teamClass) {
   const avContent = p.avatar
