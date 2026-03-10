@@ -146,8 +146,8 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 .ban-banner.your-turn{background:rgba(58,255,160,0.08);border-color:rgba(58,255,160,0.3);color:var(--green);}
 .ban-banner.waiting{background:rgba(90,90,114,0.08);border-color:var(--muted2);color:var(--muted);}
 .map-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;}
-.map-btn{background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:0;font-size:10px;font-weight:600;color:var(--text);cursor:pointer;text-align:center;font-family:'Syne',sans-serif;transition:all 0.2s;overflow:hidden;display:flex;flex-direction:column;align-items:center;}
-.map-btn span{padding:5px 4px;display:block;}
+.map-btn{background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:0;font-size:14px;font-weight:700;color:var(--text);cursor:pointer;text-align:center;font-family:'Syne',sans-serif;transition:all 0.2s;overflow:hidden;display:flex;flex-direction:column;align-items:center;}
+.map-btn span{padding:10px 8px;display:block;}
 .map-btn:hover:not(:disabled){border-color:var(--accent);color:var(--accent);}
 .map-btn:disabled{opacity:0.4;cursor:not-allowed;}
 .map-btn.banned{background:rgba(255,70,85,0.1);border-color:var(--accent);color:var(--accent);text-decoration:line-through;opacity:0.5;}
@@ -313,6 +313,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
         <div class="mode-selector" id="mode-selector">
           <div class="mode-btn" onclick="selectMode('1v1',this)">1v1</div>
           <div class="mode-btn active" onclick="selectMode('2v2',this)">2v2</div>
+          <div class="mode-btn" onclick="selectMode('3v3',this)">3v3</div>
           <div class="mode-btn" onclick="selectMode('5v5',this)">5v5</div>
         </div>
         <button class="btn-find" id="btn-find-room" onclick="createRoom()" disabled>🔍 Rechercher une Room</button>
@@ -332,6 +333,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
         <div class="mode-selector" style="margin-bottom:0;gap:6px;max-width:240px;" id="lb-mode-selector">
           <div class="mode-btn active" onclick="selectLbMode('1v1',this)">1v1</div>
           <div class="mode-btn" onclick="selectLbMode('2v2',this)">2v2</div>
+          <div class="mode-btn" onclick="selectLbMode('3v3',this)">3v3</div>
           <div class="mode-btn" onclick="selectLbMode('5v5',this)">5v5</div>
         </div>
       </div>
@@ -974,7 +976,7 @@ function setupRoom(roomId, mode, team1, team2, waiting) {
 
   document.getElementById('chat-messages').innerHTML = '';
 
-  if (mode === '1v1' || mode === '2v2') {
+  if (mode === '1v1' || mode === '2v2' || mode === '3v3') {
     document.getElementById('map-ban-center-section').style.display = 'none';
   } else {
     document.getElementById('map-ban-center-section').style.display = '';

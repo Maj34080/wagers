@@ -53,7 +53,7 @@ function getGroupBySocket(socketId) {
 }
 
 function getTeamSize(mode) {
-  return mode === '1v1' ? 1 : mode === '5v5' ? 5 : 2;
+  return mode === '1v1' ? 1 : mode === '3v3' ? 3 : mode === '5v5' ? 5 : 2;
 }
 
 function getModeElo(userId, mode) {
@@ -119,7 +119,7 @@ function startRoomCountdown(roomId) {
       const room = rooms[roomId];
       if (!room) return;
 
-      if (room.mode === '1v1' || room.mode === '2v2') {
+      if (room.mode === '1v1' || room.mode === '2v2' || room.mode === '3v3') {
         room.status = 'playing';
         io.to('room_' + roomId).emit('game_start', { mode: room.mode });
       } else {
@@ -553,6 +553,7 @@ io.on('connection', (socket) => {
     if (!room) return socket.emit('notify_error', 'Room introuvable');
     socket.join('room_' + roomId);
     socket.adminRoomId = roomId;
+    socket.roomId = roomId; // pour que le badge [ADMIN] fonctionne dans le chat
     socket.emit('admin_joined_room', {
       roomId,
       mode: room.mode,

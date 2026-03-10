@@ -26,6 +26,7 @@ function defaultStats() {
   return {
     '1v1': { wins: 0, losses: 0, elo: 500 },
     '2v2': { wins: 0, losses: 0, elo: 500 },
+    '3v3': { wins: 0, losses: 0, elo: 500 },
     '5v5': { wins: 0, losses: 0, elo: 500 }
   };
 }
