@@ -283,8 +283,10 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   <nav class="navbar">
     <div class="nav-logo" onclick="showMainTab('room')">REVENGE<span>.</span></div>
     <div class="nav-tabs">
-      <button class="nav-tab active" id="ntab-room" onclick="showMainTab('room')">🏆 Ranked</button>
+      <button class="nav-tab active" id="ntab-room" onclick="showMainTab('room')">🎮 Ranked</button>
       <button class="nav-tab" id="ntab-lb" onclick="showMainTab('lb')">🏆 Classement</button>
+      <button class="nav-tab" id="ntab-tournois" onclick="showMainTab('tournois')">🎯 Tournois</button>
+      <button class="nav-tab" id="ntab-tickets" onclick="showMainTab('tickets')">🎫 Support</button>
       <button class="nav-tab" id="ntab-admin" onclick="showMainTab('admin')" style="display:none;color:var(--gold);">🔐 Admin</button>
     </div>
     <div class="nav-right">
@@ -330,25 +332,74 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
     <div class="room-tab-content" id="tab-content-lb">
       <div class="lb-header">
         <div class="lb-title">Classement</div>
-        <div class="mode-selector" style="margin-bottom:0;gap:6px;max-width:240px;" id="lb-mode-selector">
-          <div class="mode-btn active" onclick="selectLbMode('1v1',this)">1v1</div>
-          <div class="mode-btn" onclick="selectLbMode('2v2',this)">2v2</div>
-          <div class="mode-btn" onclick="selectLbMode('3v3',this)">3v3</div>
-          <div class="mode-btn" onclick="selectLbMode('5v5',this)">5v5</div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+          <input id="lb-search" placeholder="🔍 Rechercher un joueur…" oninput="filterLeaderboard()" style="background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:8px 14px;color:var(--text);font-family:'Inter',sans-serif;font-size:13px;outline:none;width:200px;"/>
+          <div class="mode-selector" style="margin-bottom:0;gap:6px;" id="lb-mode-selector">
+            <div class="mode-btn active" onclick="selectLbMode('1v1',this)">1v1</div>
+            <div class="mode-btn" onclick="selectLbMode('2v2',this)">2v2</div>
+            <div class="mode-btn" onclick="selectLbMode('3v3',this)">3v3</div>
+            <div class="mode-btn" onclick="selectLbMode('5v5',this)">5v5</div>
+          </div>
         </div>
       </div>
       <div id="leaderboard-list"></div>
+    </div>
+
+    <!-- TOURNOIS TAB -->
+    <div class="room-tab-content" id="tab-content-tournois">
+      <div style="max-width:700px;margin:0 auto;text-align:center;padding:40px 20px;">
+        <div style="font-size:48px;margin-bottom:16px;">🏆</div>
+        <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:28px;margin-bottom:10px;">Tournois</div>
+        <div style="color:var(--muted);font-size:15px;max-width:400px;margin:0 auto 32px;">Les tournois avec entrée payante arrivent bientôt. Prépare toi à affronter les meilleurs joueurs de la plateforme.</div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px;display:inline-block;min-width:320px;">
+          <div style="font-size:32px;margin-bottom:12px;">🚧</div>
+          <div style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:16px;margin-bottom:8px;">En construction</div>
+          <div style="color:var(--muted);font-size:13px;">Brackets • Prize Pool • Entrée payante</div>
+          <div style="margin-top:20px;background:rgba(255,70,85,0.08);border:1px solid rgba(255,70,85,0.2);border-radius:10px;padding:12px;color:var(--accent);font-size:13px;font-weight:600;">
+            🔔 Sois prêt — les tournois arrivent
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SUPPORT / TICKETS TAB -->
+    <div class="room-tab-content" id="tab-content-tickets">
+      <div style="max-width:620px;margin:0 auto;">
+        <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:20px;margin-bottom:16px;">🎫 Support</div>
+        <div id="ticket-my-list" style="margin-bottom:20px;"></div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;">
+          <div style="font-weight:700;font-size:15px;margin-bottom:14px;">✉️ Nouveau ticket</div>
+          <div style="margin-bottom:10px;">
+            <input id="ticket-subject" placeholder="Sujet (ex: problème de résultat, bug…)" style="width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:10px 13px;color:var(--text);font-family:'Inter',sans-serif;font-size:13px;outline:none;"/>
+          </div>
+          <div style="margin-bottom:12px;">
+            <textarea id="ticket-message" placeholder="Décris ton problème en détail…" rows="4" style="width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:10px 13px;color:var(--text);font-family:'Inter',sans-serif;font-size:13px;outline:none;resize:vertical;"></textarea>
+          </div>
+          <button onclick="submitTicket()" style="background:var(--accent);color:white;border:none;border-radius:9px;padding:11px 24px;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:14px;cursor:pointer;">Envoyer le ticket</button>
+        </div>
+      </div>
     </div>
 
     <!-- ADMIN TAB -->
     <div class="room-tab-content" id="tab-content-admin">
       <div style="max-width:700px;margin:0 auto;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-          <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:20px;">🔐 Panel Admin</div>
-          <button onclick="refreshAdminLogs()" class="btn-mini">🔄 Actualiser</button>
+          <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:20px;">🔐 Panel Admin</div>
+          <div style="display:flex;gap:8px;">
+            <button onclick="showAdminSection('rooms')" id="admin-sec-rooms" class="btn-mini" style="color:var(--accent);">🕹️ Rooms</button>
+            <button onclick="showAdminSection('tickets')" id="admin-sec-tickets" class="btn-mini">🎫 Tickets</button>
+            <button onclick="refreshAdminLogs()" class="btn-mini">🔄 Actualiser</button>
+          </div>
         </div>
-        <div id="admin-room-logs" style="display:flex;flex-direction:column;gap:10px;">
-          <div style="color:var(--muted);text-align:center;padding:40px;">Chargement…</div>
+        <div id="admin-section-rooms">
+          <div id="admin-room-logs" style="display:flex;flex-direction:column;gap:10px;">
+            <div style="color:var(--muted);text-align:center;padding:40px;">Chargement…</div>
+          </div>
+        </div>
+        <div id="admin-section-tickets" style="display:none;">
+          <div id="admin-tickets-list" style="display:flex;flex-direction:column;gap:10px;">
+            <div style="color:var(--muted);text-align:center;padding:40px;">Chargement…</div>
+          </div>
         </div>
       </div>
     </div>
@@ -526,15 +577,181 @@ function switchTab(tab) {
   document.getElementById('form-register').style.display = tab==='register' ? '' : 'none';
 }
 
+const ADMIN_KEY = 'revenge_admin_secret';
+
 function showMainTab(tab) {
-  ['room','lb','admin'].forEach(t => {
+  ['room','lb','admin','tournois','tickets'].forEach(t => {
     const btn = document.getElementById('ntab-' + t);
     const content = document.getElementById('tab-content-' + t);
     if (btn) btn.classList.toggle('active', tab === t);
     if (content) content.classList.toggle('active', tab === t);
   });
   if (tab === 'lb') loadLeaderboard(state.lbMode);
-  if (tab === 'admin') refreshAdminLogs();
+  if (tab === 'admin') { refreshAdminLogs(); refreshAdminTickets(); }
+  if (tab === 'tickets') loadMyTickets();
+}
+
+// ── ADMIN SECTIONS ──
+function showAdminSection(sec) {
+  document.getElementById('admin-section-rooms').style.display = sec === 'rooms' ? '' : 'none';
+  document.getElementById('admin-section-tickets').style.display = sec === 'tickets' ? '' : 'none';
+  document.getElementById('admin-sec-rooms').style.color = sec === 'rooms' ? 'var(--accent)' : '';
+  document.getElementById('admin-sec-tickets').style.color = sec === 'tickets' ? 'var(--accent)' : '';
+  if (sec === 'tickets') refreshAdminTickets();
+}
+
+async function refreshAdminTickets() {
+  if (!state.isAdmin) return;
+  const container = document.getElementById('admin-tickets-list');
+  if (!container) return;
+  container.innerHTML = '<div style="color:var(--muted);text-align:center;padding:20px;">Chargement…</div>';
+  try {
+    const r = await fetch('/api/tickets', { headers: { 'x-admin-key': ADMIN_KEY } });
+    const tickets = await r.json();
+    if (!tickets.length) { container.innerHTML = '<div style="color:var(--muted);text-align:center;padding:20px;">Aucun ticket</div>'; return; }
+    container.innerHTML = tickets.map(t => `
+      <div style="background:var(--surface);border:1px solid ${t.status==='open'?'var(--accent)':'var(--border)'};border-radius:12px;padding:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <div style="font-weight:700;">🎫 ${t.subject}</div>
+          <span style="font-size:11px;padding:3px 8px;border-radius:6px;font-weight:700;background:${t.status==='open'?'rgba(255,70,85,0.15)':'rgba(100,100,100,0.15)'};color:${t.status==='open'?'var(--accent)':'var(--muted)'};">${t.status==='open'?'Ouvert':'Fermé'}</span>
+        </div>
+        <div style="color:var(--muted);font-size:12px;margin-bottom:6px;">Par <strong>${t.pseudo}</strong> · ${new Date(t.createdAt).toLocaleDateString('fr-FR')}</div>
+        <div style="font-size:13px;margin-bottom:10px;">${t.message}</div>
+        ${t.replies.map(r => `<div style="background:var(--surface2);border-radius:8px;padding:8px 12px;margin-bottom:6px;font-size:12px;"><strong>${r.author}</strong>: ${r.message}</div>`).join('')}
+        ${t.status==='open'?`
+        <div style="display:flex;gap:8px;margin-top:8px;">
+          <input id="reply-${t.id}" placeholder="Répondre…" style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:7px 10px;color:var(--text);font-size:12px;outline:none;"/>
+          <button onclick="adminReplyTicket('${t.id}')" class="btn-mini">Envoyer</button>
+          <button onclick="adminCloseTicket('${t.id}')" class="btn-mini" style="color:var(--muted);">Fermer</button>
+        </div>`:''}
+      </div>`).join('');
+  } catch(e) { container.innerHTML = '<div style="color:var(--accent);text-align:center;padding:20px;">Erreur</div>'; }
+}
+
+async function adminReplyTicket(id) {
+  const input = document.getElementById('reply-' + id);
+  const message = input?.value.trim();
+  if (!message) return;
+  await fetch(`/api/tickets/${id}/reply`, { method:'POST', headers:{'Content-Type':'application/json','x-admin-key':ADMIN_KEY}, body: JSON.stringify({ author: 'Admin', message }) });
+  refreshAdminTickets();
+}
+
+async function adminCloseTicket(id) {
+  await fetch(`/api/tickets/${id}/close`, { method:'POST', headers:{'x-admin-key':ADMIN_KEY} });
+  refreshAdminTickets();
+}
+
+// ── TICKETS JOUEUR ──
+async function submitTicket() {
+  if (!state.userId) return notify('Connecte-toi d\'abord');
+  const subject = document.getElementById('ticket-subject').value.trim();
+  const message = document.getElementById('ticket-message').value.trim();
+  if (!subject || !message) return notify('Remplis tous les champs');
+  await fetch('/api/tickets', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: state.userId, pseudo: state.pseudo, subject, message }) });
+  document.getElementById('ticket-subject').value = '';
+  document.getElementById('ticket-message').value = '';
+  notify('✅ Ticket envoyé !');
+  loadMyTickets();
+}
+
+async function loadMyTickets() {
+  // Côté joueur: affiche ses propres tickets via admin key — si pas admin, on filtre côté client
+  const container = document.getElementById('ticket-my-list');
+  if (!container || !state.userId) return;
+  try {
+    const r = await fetch('/api/tickets', { headers: { 'x-admin-key': ADMIN_KEY } });
+    const all = await r.json();
+    const mine = all.filter(t => t.userId === state.userId);
+    if (!mine.length) { container.innerHTML = ''; return; }
+    container.innerHTML = `<div style="font-weight:700;margin-bottom:10px;">Mes tickets :</div>` + mine.map(t => `
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:8px;">
+        <div style="display:flex;justify-content:space-between;"><div style="font-weight:600;">${t.subject}</div><span style="font-size:11px;color:${t.status==='open'?'var(--accent)':'var(--muted)'};">${t.status==='open'?'Ouvert':'Fermé'}</span></div>
+        ${t.replies.map(r => `<div style="margin-top:8px;background:var(--surface2);border-radius:8px;padding:8px 12px;font-size:12px;"><strong>${r.author}</strong>: ${r.message}</div>`).join('')}
+      </div>`).join('');
+  } catch(e) {}
+}
+
+// ── LEADERBOARD SEARCH ──
+let _lbData = [];
+function filterLeaderboard() {
+  const q = document.getElementById('lb-search')?.value.trim().toLowerCase() || '';
+  renderLeaderboard(_lbData.filter(p => p.pseudo.toLowerCase().includes(q)));
+}
+
+// ── ADMIN BAN/MUTE ──
+async function adminBanPlayer(pseudo) {
+  const reason = prompt(`Raison du ban de ${pseudo} :`);
+  if (reason === null) return;
+  await fetch('/api/admin/ban', { method:'POST', headers:{'Content-Type':'application/json','x-admin-key':ADMIN_KEY}, body: JSON.stringify({ pseudo, reason }) });
+  notify(`🚫 ${pseudo} banni`);
+  loadLeaderboard(state.lbMode);
+}
+async function adminUnbanPlayer(pseudo) {
+  await fetch('/api/admin/unban', { method:'POST', headers:{'Content-Type':'application/json','x-admin-key':ADMIN_KEY}, body: JSON.stringify({ pseudo }) });
+  notify(`✅ ${pseudo} débanni`);
+  loadLeaderboard(state.lbMode);
+}
+async function adminMutePlayer(pseudo) {
+  await fetch('/api/admin/mute', { method:'POST', headers:{'Content-Type':'application/json','x-admin-key':ADMIN_KEY}, body: JSON.stringify({ pseudo }) });
+  notify(`🔇 ${pseudo} mute`);
+  loadLeaderboard(state.lbMode);
+}
+async function adminUnmutePlayer(pseudo) {
+  await fetch('/api/admin/unmute', { method:'POST', headers:{'Content-Type':'application/json','x-admin-key':ADMIN_KEY}, body: JSON.stringify({ pseudo }) });
+  notify(`🔊 ${pseudo} unmute`);
+  loadLeaderboard(state.lbMode);
+}
+
+// ── PROFIL JOUEUR (modal dans classement) ──
+async function showPlayerProfile(pseudo) {
+  try {
+    const r = await fetch('/api/profile/' + encodeURIComponent(pseudo));
+    const p = await r.json();
+    const modes = ['1v1','2v2','3v3','5v5'];
+    const statsHtml = modes.map(m => {
+      const s = p.stats?.[m] || { wins:0, losses:0, elo:500 };
+      const games = s.wins + s.losses;
+      const wr = games > 0 ? Math.round(s.wins / games * 100) : 0;
+      return `<div style="background:var(--surface2);border-radius:10px;padding:12px;text-align:center;">
+        <div style="font-weight:800;font-size:13px;color:var(--muted);margin-bottom:6px;">${m.toUpperCase()}</div>
+        <div style="font-weight:800;font-size:20px;color:var(--gold);">${s.elo} ELO</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px;">${s.wins}V ${s.losses}D · ${wr}% WR</div>
+      </div>`;
+    }).join('');
+    const adminActions = state.isAdmin ? `
+      <div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap;">
+        ${p.banned
+          ? `<button onclick="adminUnbanPlayer('${pseudo}');closeProfileModal()" style="background:rgba(58,255,160,0.1);border:1px solid var(--green);color:var(--green);border-radius:8px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;">✅ Débannir</button>`
+          : `<button onclick="adminBanPlayer('${pseudo}');closeProfileModal()" style="background:rgba(255,70,85,0.1);border:1px solid var(--accent);color:var(--accent);border-radius:8px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;">🚫 Bannir</button>`
+        }
+        ${p.muted
+          ? `<button onclick="adminUnmutePlayer('${pseudo}');closeProfileModal()" style="background:rgba(58,255,160,0.1);border:1px solid var(--green);color:var(--green);border-radius:8px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;">🔊 Unmute</button>`
+          : `<button onclick="adminMutePlayer('${pseudo}');closeProfileModal()" style="background:rgba(255,209,102,0.1);border:1px solid var(--gold);color:var(--gold);border-radius:8px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;">🔇 Mute</button>`
+        }
+      </div>` : '';
+    const modal = document.createElement('div');
+    modal.id = 'player-profile-modal';
+    modal.style.cssText = 'position:fixed;inset:0;z-index:500;background:rgba(10,10,15,0.85);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;';
+    modal.innerHTML = `<div style="background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:28px;max-width:480px;width:90%;position:relative;">
+      <button onclick="closeProfileModal()" style="position:absolute;top:14px;right:14px;background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;">✕</button>
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px;">
+        ${p.avatar ? `<img src="${p.avatar}" style="width:54px;height:54px;border-radius:50%;object-fit:cover;border:2px solid var(--accent);">` : `<div style="width:54px;height:54px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:22px;">${pseudo[0].toUpperCase()}</div>`}
+        <div>
+          <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:20px;">${pseudo}</div>
+          <div style="font-size:12px;color:var(--muted);">Membre depuis ${p.createdAt ? new Date(p.createdAt).toLocaleDateString('fr-FR') : '—'}${p.banned?'&nbsp;<span style="color:var(--accent);">🚫 Banni</span>':''}${p.muted?'&nbsp;<span style="color:var(--gold);">🔇 Mute</span>':''}</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">${statsHtml}</div>
+      ${adminActions}
+    </div>`;
+    modal.addEventListener('click', e => { if (e.target === modal) closeProfileModal(); });
+    document.body.appendChild(modal);
+  } catch(e) { notify('Erreur lors du chargement du profil'); }
+}
+
+function closeProfileModal() {
+  const m = document.getElementById('player-profile-modal');
+  if (m) m.remove();
 }
 
 function voteWeapon(weapon) {
@@ -951,20 +1168,27 @@ async function loadLeaderboard(mode) {
   try {
     const r = await fetch('/api/leaderboard/' + mode);
     const data = await r.json();
-    const lb = document.getElementById('leaderboard-list');
-    if (!data.length) { lb.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted);">Aucun joueur encore</div>'; return; }
-    lb.innerHTML = data.map((r, i) => {
-      const rc = i===0?'gold':i===1?'silver':i===2?'bronze':'';
-      const ri = i===0?'🥇':i===1?'🥈':i===2?'🥉':'#'+(i+1);
-      const isMe = r.pseudo === state.pseudo;
-      return `<div class="lb-row${isMe?' me':''}">
-        <div class="lb-rank ${rc}">${ri}</div>
-        <div class="lb-name">${r.pseudo}${isMe?' <span class="you-badge">toi</span>':''}</div>
-        <div class="lb-wins">${r.wins}W</div>
-        <div class="lb-elo">${r.elo}</div>
-      </div>`;
-    }).join('');
+    _lbData = data;
+    renderLeaderboard(data);
   } catch(e) {}
+}
+
+function renderLeaderboard(data) {
+  const lb = document.getElementById('leaderboard-list');
+  if (!data.length) { lb.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted);">Aucun joueur encore</div>'; return; }
+  lb.innerHTML = data.map((r, i) => {
+    const rc = i===0?'gold':i===1?'silver':i===2?'bronze':'';
+    const ri = i===0?'🥇':i===1?'🥈':i===2?'🥉':'#'+(i+1);
+    const isMe = r.pseudo === state.pseudo;
+    const games = r.wins + r.losses;
+    const wr = games > 0 ? Math.round(r.wins / games * 100) : 0;
+    return `<div class="lb-row${isMe?' me':''}" onclick="showPlayerProfile('${r.pseudo}')" style="cursor:pointer;" title="Voir le profil de ${r.pseudo}">
+      <div class="lb-rank ${rc}">${ri}</div>
+      <div class="lb-name">${r.pseudo}${isMe?' <span class="you-badge">toi</span>':''}</div>
+      <div class="lb-wins" style="font-size:12px;color:var(--muted);">${r.wins}V ${r.losses}D · ${wr}%</div>
+      <div class="lb-elo">${r.elo}</div>
+    </div>`;
+  }).join('');
 }
 
 function renderGroupMembers(players) {

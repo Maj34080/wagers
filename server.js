@@ -23,6 +23,72 @@ const ADMIN_PSEUDOS = ['Karim34']; // ← ajoute ton pseudo ici
 app.use(express.json());
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 app.get('/api/leaderboard/:mode', (req, res) => res.json(db.getLeaderboard(req.params.mode)));
+app.get('/api/profile/:pseudo', (req, res) => {
+  const user = db.getUserByPseudo(req.params.pseudo);
+  if (!user) return res.status(404).json({ error: 'Introuvable' });
+  res.json({ pseudo: user.pseudo, stats: user.stats, avatar: user.avatar || null, banned: !!user.banned, muted: !!user.muted, createdAt: user.createdAt });
+});
+
+// Admin actions
+const ADMIN_KEY = process.env.ADMIN_KEY || 'revenge_admin_secret';
+function isAdminReq(req) { return req.headers['x-admin-key'] === ADMIN_KEY; }
+app.post('/api/admin/ban', (req, res) => {
+  if (!isAdminReq(req)) return res.status(403).json({ error: 'Interdit' });
+  const { pseudo, reason } = req.body;
+  const user = db.getUserByPseudo(pseudo);
+  if (!user) return res.status(404).json({ error: 'Introuvable' });
+  db.banUser(user.id, reason);
+  res.json({ ok: true });
+});
+app.post('/api/admin/unban', (req, res) => {
+  if (!isAdminReq(req)) return res.status(403).json({ error: 'Interdit' });
+  const { pseudo } = req.body;
+  const user = db.getUserByPseudo(pseudo);
+  if (!user) return res.status(404).json({ error: 'Introuvable' });
+  db.unbanUser(user.id);
+  res.json({ ok: true });
+});
+app.post('/api/admin/mute', (req, res) => {
+  if (!isAdminReq(req)) return res.status(403).json({ error: 'Interdit' });
+  const { pseudo } = req.body;
+  const user = db.getUserByPseudo(pseudo);
+  if (!user) return res.status(404).json({ error: 'Introuvable' });
+  db.muteUser(user.id);
+  res.json({ ok: true });
+});
+app.post('/api/admin/unmute', (req, res) => {
+  if (!isAdminReq(req)) return res.status(403).json({ error: 'Interdit' });
+  const { pseudo } = req.body;
+  const user = db.getUserByPseudo(pseudo);
+  if (!user) return res.status(404).json({ error: 'Introuvable' });
+  db.unmuteUser(user.id);
+  res.json({ ok: true });
+});
+
+// Tickets
+app.get('/api/tickets', (req, res) => {
+  if (!isAdminReq(req)) return res.status(403).json({ error: 'Interdit' });
+  res.json(db.getTickets());
+});
+app.post('/api/tickets', (req, res) => {
+  const { userId, pseudo, subject, message } = req.body;
+  if (!userId || !pseudo || !subject || !message) return res.status(400).json({ error: 'Manquant' });
+  const ticket = db.createTicket(userId, pseudo, subject, message);
+  res.json(ticket);
+});
+app.post('/api/tickets/:id/reply', (req, res) => {
+  if (!isAdminReq(req)) return res.status(403).json({ error: 'Interdit' });
+  const { author, message } = req.body;
+  const ticket = db.replyTicket(req.params.id, author, message);
+  if (!ticket) return res.status(404).json({ error: 'Introuvable' });
+  res.json(ticket);
+});
+app.post('/api/tickets/:id/close', (req, res) => {
+  if (!isAdminReq(req)) return res.status(403).json({ error: 'Interdit' });
+  const ticket = db.closeTicket(req.params.id);
+  if (!ticket) return res.status(404).json({ error: 'Introuvable' });
+  res.json(ticket);
+});
 
 // Avatar upload
 app.post('/api/avatar', express.json({ limit: '2mb' }), (req, res) => {
@@ -194,11 +260,13 @@ io.on('connection', (socket) => {
     try {
       const user = db.getUserByPseudo(pseudo);
       if (!user) return socket.emit('auth_error', 'Pseudo introuvable');
+      if (user.banned) return socket.emit('auth_error', '🚫 Compte banni. Raison : ' + (user.banReason || 'violation des règles'));
       const valid = await bcrypt.compare(password, user.password);
       if (!valid) return socket.emit('auth_error', 'Mot de passe incorrect');
       socket.userId = user.id;
       socket.pseudo = user.pseudo;
       socket.isAdmin = ADMIN_PSEUDOS.includes(pseudo);
+      socket.isMuted = !!user.muted;
       const stats = user.stats || db.defaultStats();
       socket.emit('auth_ok', {
         pseudo: user.pseudo,
@@ -402,6 +470,7 @@ io.on('connection', (socket) => {
   socket.on('chat_msg', ({ text }) => {
     if (!socket.roomId) return;
     if (!text || text.trim().length === 0 || text.length > 200) return;
+    if (socket.isMuted) return socket.emit('chat_msg', { author: 'Système', team: 'system', text: '🔇 Vous êtes mute et ne pouvez pas envoyer de messages.' });
     const room = rooms[socket.roomId];
     if (!room) return;
     const inTeam = room.teams[0].some(p => p.id === socket.userId) || (room.teams[1] && room.teams[1].some(p => p.id === socket.userId));

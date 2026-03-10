@@ -81,15 +81,83 @@ function updateUserElo(id, eloChange, won, mode) {
   return user;
 }
 
+function banUser(id, reason) {
+  const db = loadDB();
+  const user = db.users.find(u => u.id === id);
+  if (user) { user.banned = true; user.banReason = reason || ''; saveDB(db); }
+  return user;
+}
+
+function unbanUser(id) {
+  const db = loadDB();
+  const user = db.users.find(u => u.id === id);
+  if (user) { user.banned = false; user.banReason = ''; saveDB(db); }
+  return user;
+}
+
+function muteUser(id) {
+  const db = loadDB();
+  const user = db.users.find(u => u.id === id);
+  if (user) { user.muted = true; saveDB(db); }
+  return user;
+}
+
+function unmuteUser(id) {
+  const db = loadDB();
+  const user = db.users.find(u => u.id === id);
+  if (user) { user.muted = false; saveDB(db); }
+  return user;
+}
+
+function createTicket(userId, pseudo, subject, message) {
+  const db = loadDB();
+  if (!db.tickets) db.tickets = [];
+  const ticket = {
+    id: Date.now().toString(),
+    userId, pseudo, subject, message,
+    status: 'open', // open | closed
+    createdAt: new Date().toISOString(),
+    replies: []
+  };
+  db.tickets.push(ticket);
+  saveDB(db);
+  return ticket;
+}
+
+function getTickets() {
+  const db = loadDB();
+  return (db.tickets || []).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+}
+
+function replyTicket(ticketId, author, message) {
+  const db = loadDB();
+  if (!db.tickets) return null;
+  const ticket = db.tickets.find(t => t.id === ticketId);
+  if (ticket) {
+    ticket.replies.push({ author, message, createdAt: new Date().toISOString() });
+    saveDB(db);
+  }
+  return ticket;
+}
+
+function closeTicket(ticketId) {
+  const db = loadDB();
+  if (!db.tickets) return null;
+  const ticket = db.tickets.find(t => t.id === ticketId);
+  if (ticket) { ticket.status = 'closed'; saveDB(db); }
+  return ticket;
+}
+
 function getLeaderboard(mode) {
   const db = loadDB();
   return db.users
+    .filter(u => !u.banned)
     .map(u => {
       const s = u.stats?.[mode] || { wins: 0, losses: 0, elo: 500 };
-      return { pseudo: u.pseudo, elo: s.elo, wins: s.wins, losses: s.losses };
+      return { id: u.id, pseudo: u.pseudo, elo: s.elo, wins: s.wins, losses: s.losses, avatar: u.avatar || null, banned: !!u.banned, muted: !!u.muted, stats: u.stats };
     })
     .sort((a, b) => b.elo - a.elo)
-    .slice(0, 20);
+    .slice(0, 50);
 }
 
-module.exports = { getUserByPseudo, getUserById, createUser, updateUserElo, getLeaderboard, updateAvatar, getIpAccounts, defaultStats };
+module.exports = { getUserByPseudo, getUserById, createUser, updateUserElo, getLeaderboard, updateAvatar, getIpAccounts, defaultStats, banUser, unbanUser, muteUser, unmuteUser, createTicket, getTickets, replyTicket, closeTicket };
