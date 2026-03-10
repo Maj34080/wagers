@@ -385,7 +385,10 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
           <div class="status-dot" id="room-status-dot2"></div>
           <span style="font-size:12px;color:var(--muted);" id="room-players-count">En attente…</span>
         </div>
-        <div class="room-id-badge" id="room-badge2">ROOM #——</div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <button id="room-cancel-btn" onclick="cancelQueueFromRoom()" style="display:none;background:rgba(255,70,85,0.1);border:1px solid rgba(255,70,85,0.4);color:var(--accent);border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Syne',sans-serif;">✕ Annuler</button>
+          <div class="room-id-badge" id="room-badge2">ROOM #——</div>
+        </div>
       </div>
 
       <div id="chat-box-wrap">
@@ -508,6 +511,18 @@ function showMainTab(tab) {
   });
   if (tab === 'lb') loadLeaderboard(state.lbMode);
   if (tab === 'admin') refreshAdminLogs();
+}
+
+function cancelQueueFromRoom() {
+  if (!socket) return;
+  socket.emit('cancel_queue');
+  state.roomId = null;
+  state.myTeam = null;
+  socket.emit('create_group', { mode: state.mode });
+  state.groupSize = 1;
+  updateRoomBtn();
+  showScreen('main');
+  notify('File d\'attente annulée');
 }
 
 function cancelQueue() {
@@ -917,12 +932,14 @@ function setupRoom(roomId, mode, team1, team2, waiting) {
     document.getElementById('room-status-dot2').classList.add('waiting');
     const total = getTeamSize(mode) * 2;
     document.getElementById('room-players-count').textContent = `${team1.length} / ${total} joueur${total > 1 ? 's' : ''}`;
+    document.getElementById('room-cancel-btn').style.display = '';
   } else {
     document.getElementById('room-status-text').textContent = 'Démarrage…';
     document.getElementById('room-status-dot').classList.remove('waiting');
     document.getElementById('room-status-dot2').classList.remove('waiting');
     const total = getTeamSize(mode) * 2;
     document.getElementById('room-players-count').textContent = `${total} / ${total} joueur${total > 1 ? 's' : ''}`;
+    document.getElementById('room-cancel-btn').style.display = 'none';
   }
 
   // Team 1
@@ -957,6 +974,7 @@ socket && socket.on && socket.on('room_ready', ({ roomId, mode, team1, team2, wa
     t2el.innerHTML = team2.map(p => makePlayerCard(p, 't2')).join('');
     const total = getTeamSize(mode) * 2;
     document.getElementById('room-players-count').textContent = `${total} / ${total} joueur${total > 1 ? 's' : ''}`;
+    document.getElementById('room-cancel-btn').style.display = 'none';
   }
 });
 
