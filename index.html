@@ -71,7 +71,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 
 /* MAIN */
 #screen-main{flex-direction:column;}
-.main-body{flex:1;padding:28px;max-width:1000px;margin:0 auto;width:100%;}
+.main-body{flex:1;padding:28px;max-width:1200px;margin:0 auto;width:100%;}
 .room-tab-content{display:none;}
 .room-tab-content.active{display:block;}
 
@@ -82,7 +82,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 .mode-btn:hover:not(.active){border-color:var(--muted);color:var(--text);}
 
 /* FIND ROOM */
-.find-room-panel{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:32px;max-width:480px;margin:0 auto;text-align:center;}
+.find-room-panel{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:32px;text-align:center;}
 .find-title{font-family:'Syne',sans-serif;font-weight:800;font-size:22px;margin-bottom:6px;}
 .find-sub{color:var(--muted);font-size:13px;margin-bottom:24px;}
 .btn-find{width:100%;background:linear-gradient(135deg,var(--accent),#c0392b);border:none;color:white;border-radius:12px;padding:16px;font-family:'Syne',sans-serif;font-weight:800;font-size:15px;letter-spacing:0.08em;cursor:pointer;transition:all 0.2s;text-transform:uppercase;}
@@ -295,13 +295,13 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
       <!-- Groupe inline redesigné -->
       <div id="nav-group-inline" style="display:flex;align-items:stretch;gap:0;background:var(--surface2);border:1px solid var(--border);border-radius:12px;overflow:hidden;">
         <!-- Code + membres -->
-        <div style="display:flex;flex-direction:column;justify-content:center;padding:8px 14px;gap:3px;border-right:1px solid var(--border);">
-          <div style="display:flex;align-items:center;gap:7px;">
+        <div style="display:flex;flex-direction:column;justify-content:center;padding:8px 16px;gap:4px;border-right:1px solid var(--border);">
+          <div style="display:flex;align-items:center;gap:8px;">
             <span style="font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Groupe</span>
-            <span id="nav-group-code" style="font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:800;color:var(--accent);letter-spacing:3px;">——</span>
+            <span id="nav-group-code" style="font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:800;color:var(--accent);letter-spacing:3px;">——</span>
             <button onclick="copyCode()" title="Copier" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:13px;padding:0;opacity:0.7;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.7">📋</button>
           </div>
-          <div id="nav-group-members-inline" style="font-size:11px;color:var(--muted);line-height:1.3;"></div>
+          <div id="nav-group-members-inline" style="font-size:12px;color:var(--text);font-weight:600;line-height:1.4;"></div>
         </div>
         <!-- Join input -->
         <div style="display:flex;align-items:center;gap:6px;padding:8px 12px;border-right:1px solid var(--border);">
@@ -321,7 +321,10 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 
   <div class="main-body">
     <div class="room-tab-content active" id="tab-content-room">
-      <div class="find-room-panel">
+      <div style="display:flex;gap:20px;align-items:flex-start;max-width:1100px;margin:0 auto;">
+        <!-- Panel gauche : trouver une room -->
+        <div style="flex:0 0 400px;">
+          <div class="find-room-panel">
         <div class="find-title">Trouver une Room</div>
         <div class="find-sub">Choisis ton mode, forme ton équipe et lance la recherche.</div>
         <div class="mode-selector" id="mode-selector">
@@ -338,7 +341,20 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
           <button onclick="cancelQueue()" style="margin-top:12px;width:100%;background:rgba(255,70,85,0.1);border:1px solid rgba(255,70,85,0.4);color:var(--accent);border-radius:8px;padding:9px;font-family:'Syne',sans-serif;font-weight:700;font-size:12px;cursor:pointer;">✕ Quitter la file d'attente</button>
         </div>
         <button id="admin-bot-btn" style="display:none;margin-top:12px;width:100%;background:rgba(255,209,102,0.1);border:1px solid var(--gold);color:var(--gold);border-radius:10px;padding:10px;font-family:'Syne',sans-serif;font-weight:700;font-size:12px;cursor:pointer;letter-spacing:0.05em;" onclick="spawnBots()">🤖 Admin — Lancer avec des Bots</button>
-      </div>
+          </div><!-- end find-room-panel -->
+        </div><!-- end left col -->
+
+        <!-- Panel droit : rooms actives en live -->
+        <div style="flex:1;min-width:0;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+            <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:16px;">🟢 Rooms en direct</div>
+            <div id="live-rooms-count" style="font-size:12px;color:var(--muted);"></div>
+          </div>
+          <div id="live-rooms-list" style="display:flex;flex-direction:column;gap:10px;">
+            <div style="color:var(--muted);font-size:13px;text-align:center;padding:30px 0;">Aucune room active</div>
+          </div>
+        </div>
+      </div><!-- end two-col -->
     </div>
 
     <div class="room-tab-content" id="tab-content-lb">
@@ -599,6 +615,7 @@ function showMainTab(tab) {
     if (content) content.classList.toggle('active', tab === t);
   });
   if (tab === 'lb') loadLeaderboard(state.lbMode);
+  if (tab === 'room') fetchLiveRooms();
   if (tab === 'admin') { refreshAdminLogs(); refreshAdminTickets(); }
   if (tab === 'tickets') loadMyTickets();
 }
@@ -1060,6 +1077,8 @@ function initSocket() {
 
   socket.on('ban_timer_start', ({ seconds }) => startBanTimerBar(seconds));
 
+  socket.on('active_rooms_update', (rooms) => renderLiveRooms(rooms));
+
   socket.on('room_logs', (logs) => {
     const container = document.getElementById('admin-room-logs');
     if (!container) return;
@@ -1239,19 +1258,69 @@ function renderLeaderboard(data) {
   }).join('');
 }
 
-function renderGroupMembers(players) {
-  // Ancien dropdown (peut rester vide)
+function renderLiveRooms(rooms) {
+  const container = document.getElementById('live-rooms-list');
+  const countEl = document.getElementById('live-rooms-count');
+  if (!container) return;
+  const active = rooms.filter(r => r.status !== 'finished');
+  if (countEl) countEl.textContent = active.length > 0 ? `${active.length} room${active.length > 1 ? 's' : ''} active${active.length > 1 ? 's' : ''}` : '';
+  if (!active.length) {
+    container.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:30px 0;">Aucune room active</div>';
+    return;
+  }
+  const statusLabel = s => s === 'waiting' ? '⏳ En attente' : s === 'weapon_vote' ? '🔫 Vote arme' : s === 'ban_phase' ? '🗺️ Ban maps' : s === 'playing' ? '⚔️ En jeu' : s;
+  const statusColor = s => s === 'waiting' ? 'var(--gold)' : s === 'playing' ? 'var(--green)' : 'var(--blue)';
+  const modeBadgeColor = m => m === '1v1' ? '#ff4655' : m === '2v2' ? '#4f8ef7' : m === '3v3' ? '#9b59b6' : '#2ecc71';
+  container.innerHTML = active.map(r => `
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;transition:border-color 0.2s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:12px;padding:3px 8px;border-radius:6px;background:${modeBadgeColor(r.mode)}22;color:${modeBadgeColor(r.mode)};border:1px solid ${modeBadgeColor(r.mode)}44;">${r.mode.toUpperCase()}</span>
+          <span style="font-size:11px;font-weight:700;color:${statusColor(r.status)};">${statusLabel(r.status)}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          ${r.weapon ? `<span style="font-size:11px;color:var(--muted);">🔫 ${r.weapon}</span>` : ''}
+          ${r.map ? `<span style="font-size:11px;color:var(--muted);">🗺️ ${r.map}</span>` : ''}
+          <span style="font-size:11px;color:var(--muted);">⏱ ${r.duration}</span>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+        <div style="display:flex;gap:4px;flex-wrap:wrap;">
+          ${r.team1.map(p => `<span style="background:rgba(255,70,85,0.1);border:1px solid rgba(255,70,85,0.25);border-radius:6px;padding:3px 8px;font-size:12px;font-weight:600;color:var(--accent);">${p}</span>`).join('')}
+        </div>
+        <span style="color:var(--muted);font-size:13px;font-weight:700;">vs</span>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;">
+          ${r.team2.length ? r.team2.map(p => `<span style="background:rgba(79,142,247,0.1);border:1px solid rgba(79,142,247,0.25);border-radius:6px;padding:3px 8px;font-size:12px;font-weight:600;color:var(--blue);">${p}</span>`).join('') : `<span style="color:var(--border);font-size:12px;">En attente…</span>`}
+        </div>
+        <span style="margin-left:auto;font-size:11px;color:var(--muted);">${r.total}/${r.max} joueurs</span>
+      </div>
+    </div>`).join('');
+}
+
+// Fetch rooms on ranked tab open
+const _origShowMainTab = showMainTab;
+async function fetchLiveRooms() {
+  try {
+    const r = await fetch('/api/active-rooms');
+    const data = await r.json();
+    renderLiveRooms(data);
+  } catch(e) {}
+}
   const list = document.getElementById('group-members-mini');
   if (list) list.innerHTML = '';
 
-  // Inline navbar
   const inlineMembers = document.getElementById('nav-group-members-inline');
   if (inlineMembers) {
     const teamSize = getTeamSize(state.mode);
-    const names = players.map(p => p.pseudo === state.pseudo ? `<span style="color:var(--text);font-weight:600;">${p.pseudo}</span>` : p.pseudo);
-    const slots = teamSize - players.length;
-    for (let i = 0; i < slots; i++) names.push('<span style="color:var(--border);">…</span>');
-    inlineMembers.innerHTML = names.join(' · ') + ` <span style="color:var(--border);">(${players.length}/${teamSize})</span>`;
+    const parts = players.map(p =>
+      p.pseudo === state.pseudo
+        ? `<span style="color:var(--accent);">⚡ ${p.pseudo}</span>`
+        : `<span style="color:var(--text);">• ${p.pseudo}</span>`
+    );
+    for (let i = players.length; i < teamSize; i++) {
+      parts.push(`<span style="color:var(--border);">• En attente</span>`);
+    }
+    inlineMembers.innerHTML = parts.join('  ') + `<span style="color:var(--muted);font-weight:400;font-size:11px;"> (${players.length}/${teamSize})</span>`;
   }
 }
 

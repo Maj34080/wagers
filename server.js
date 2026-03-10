@@ -702,3 +702,32 @@ io.on('connection', (socket) => {
 });
 
 server.listen(PORT, () => console.log(`✅ WAGERS sur http://localhost:${PORT}`));
+
+// Broadcast active rooms every 5s
+function getActiveRoomsPayload() {
+  return Object.values(rooms).map(r => {
+    const elapsed = Math.floor((Date.now() - (r.createdAt || Date.now())) / 1000);
+    const mins = Math.floor(elapsed / 60);
+    const secs = elapsed % 60;
+    const duration = mins > 0 ? `${mins}m${secs.toString().padStart(2,'0')}s` : `${secs}s`;
+    const blur = (pseudo) => pseudo.slice(0,2) + '***';
+    return {
+      id: r.id,
+      mode: r.mode,
+      status: r.status,
+      duration,
+      weapon: r.chosenWeapon || null,
+      map: r.chosenMap || null,
+      team1: (r.teams[0] || []).map(p => blur(p.pseudo)),
+      team2: (r.teams[1] || []).map(p => blur(p.pseudo)),
+      total: ((r.teams[0]||[]).length + (r.teams[1]||[]).length),
+      max: (getTeamSize(r.mode) * 2)
+    };
+  }).filter(r => r.status !== 'finished');
+}
+
+setInterval(() => {
+  io.emit('active_rooms_update', getActiveRoomsPayload());
+}, 5000);
+
+app.get('/api/active-rooms', (req, res) => res.json(getActiveRoomsPayload()));
