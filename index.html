@@ -145,8 +145,13 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 .ban-banner{background:rgba(255,70,85,0.08);border:1px solid rgba(255,70,85,0.2);border-radius:8px;padding:8px 12px;font-size:12px;color:var(--accent);font-weight:500;margin-bottom:8px;text-align:center;}
 .ban-banner.your-turn{background:rgba(58,255,160,0.08);border-color:rgba(58,255,160,0.3);color:var(--green);}
 .ban-banner.waiting{background:rgba(90,90,114,0.08);border-color:var(--muted2);color:var(--muted);}
-.map-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;}
-.map-btn{background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:7px 4px;font-size:10px;font-weight:600;color:var(--text);cursor:pointer;text-align:center;font-family:'Syne',sans-serif;transition:all 0.2s;}
+.map-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;}
+.map-btn{background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:0;font-size:10px;font-weight:600;color:var(--text);cursor:pointer;text-align:center;font-family:'Syne',sans-serif;transition:all 0.2s;overflow:hidden;display:flex;flex-direction:column;align-items:center;}
+.map-btn span{padding:5px 4px;display:block;}
+.map-btn:hover:not(:disabled){border-color:var(--accent);color:var(--accent);}
+.map-btn:disabled{opacity:0.4;cursor:not-allowed;}
+.map-btn.banned{background:rgba(255,70,85,0.1);border-color:var(--accent);color:var(--accent);text-decoration:line-through;opacity:0.5;}
+.map-btn.chosen{background:rgba(58,255,160,0.1);border-color:var(--green);color:var(--green);}
 .map-btn:hover:not(:disabled):not(.banned):not(.chosen){border-color:var(--accent);color:var(--accent);}
 .map-btn.banned{opacity:0.25;text-decoration:line-through;cursor:not-allowed;background:var(--bg);}
 .map-btn.chosen{background:rgba(58,255,160,0.1);border-color:var(--green);color:var(--green);}
@@ -383,7 +388,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
         <div class="room-id-badge" id="room-badge2">ROOM #——</div>
       </div>
 
-      <!-- SINGLE MAP BAN SECTION (center) -->
+      <!-- SINGLE MAP BAN SECTION (center, replaces chat during ban) -->
       <div class="map-ban-section" id="map-ban-center-section" style="display:none;margin-bottom:10px;">
         <div class="map-ban-title">Phase de ban</div>
         <div class="ban-timer-bar"><div class="ban-timer-fill" id="ban-timer-t1"></div></div>
@@ -391,7 +396,8 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
         <div class="map-grid" id="map-grid-t1"></div>
       </div>
 
-      <div class="chat-box">
+      <div id="chat-box-wrap">
+        <div class="chat-box">
         <div class="chat-header">💬 Chat</div>
         <div class="chat-messages" id="chat-messages"></div>
         <div class="chat-input-row">
@@ -405,6 +411,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
           <button class="btn-decision" onclick="requestDecision()">⚖️ Demander une décision</button>
         </div>
       </div>
+      </div><!-- end chat-box-wrap -->
 
       <div class="declare-section" id="declare-section" style="display:none;">
         <div class="declare-title">⚖️ Décision Admin</div>
@@ -468,6 +475,15 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 
 <script>
 const MAPS = ['Ascent','Bind','Haven','Icebox','Lotus','Pearl','Split'];
+const MAP_IMGS = {
+  'Ascent': 'https://media.valorant-api.com/maps/7eaecc1b-4337-bbf6-6ab9-04b8f06b3319/splash.png',
+  'Bind':   'https://media.valorant-api.com/maps/2c9d57ec-4431-9c5e-4a6c-8d7a762bd57b/splash.png',
+  'Haven':  'https://media.valorant-api.com/maps/2fb9a4fd-47b8-4e7d-a969-74b4046ebd53/splash.png',
+  'Icebox': 'https://media.valorant-api.com/maps/e2ad5c54-4114-a870-9641-8ea21279579a/splash.png',
+  'Lotus':  'https://media.valorant-api.com/maps/2fe4ed3a-450a-01bc-1426-0f963cc846ab/splash.png',
+  'Pearl':  'https://media.valorant-api.com/maps/fd267378-4d1d-484f-ff52-77821f9e4c26/splash.png',
+  'Split':  'https://media.valorant-api.com/maps/d960549e-485c-e861-8d71-aa9d1aebe674/splash.png',
+};
 let socket = null;
 let state = { pseudo:'', elo:500, stats:{}, isAdmin:false, isSpectator:false, avatar:null, userId:null, groupCode:null, roomId:null, myTeam:null, mode:'2v2', lbMode:'1v1', groupSize:0 };
 let banTimerInterval = null;
@@ -728,8 +744,9 @@ function initSocket() {
       const b = document.getElementById('mapbtn-t1-' + m);
       if (b) { b.disabled = true; if (m === map) b.classList.add('chosen'); }
     });
-    document.getElementById('ban-banner-t1').textContent = '🗺️ Map jouée : ' + map;
-    document.getElementById('ban-banner-t1').className = 'ban-banner';
+    hideBanPhase();
+    // Show chosen map in chat as system message
+    addMsg('Système', 'system', `🗺️ Map jouée : <strong>${map}</strong> — Bonne chance !`, null);
     document.getElementById('room-status-text').textContent = 'En jeu — ' + map;
     if (state.isAdmin && state.isSpectator) setTimeout(() => { document.getElementById('declare-section').style.display = ''; }, 500);
   });
@@ -929,9 +946,9 @@ function setupRoom(roomId, mode, team1, team2, waiting) {
   document.getElementById('chat-messages').innerHTML = '';
 
   if (mode === '1v1' || mode === '2v2') {
-    document.getElementById('map-ban-center-section').style.display = 'none';
+    hideBanPhase();
   } else {
-    document.getElementById('map-ban-center-section').style.display = '';
+    showBanPhase();
     renderMapGrids();
   }
 
@@ -958,7 +975,21 @@ function makePlayerCard(p, teamClass) {
 
 function renderMapGrids() {
   const grid = document.getElementById('map-grid-t1');
-  if (grid) grid.innerHTML = MAPS.map(m => `<button class="map-btn" id="mapbtn-t1-${m}" onclick="banMap('${m}')" disabled>${m}</button>`).join('');
+  if (grid) grid.innerHTML = MAPS.map(m => `
+    <button class="map-btn" id="mapbtn-t1-${m}" onclick="banMap('${m}')" disabled>
+      <img src="${MAP_IMGS[m]}" onerror="this.style.display='none'" style="width:100%;height:56px;object-fit:cover;border-radius:4px;display:block;margin-bottom:4px;"/>
+      <span>${m}</span>
+    </button>`).join('');
+}
+
+function showBanPhase() {
+  document.getElementById('map-ban-center-section').style.display = '';
+  document.getElementById('chat-box-wrap').style.display = 'none';
+}
+
+function hideBanPhase() {
+  document.getElementById('map-ban-center-section').style.display = 'none';
+  document.getElementById('chat-box-wrap').style.display = '';
 }
 
 function updateBanPhase(teamTurn, mapsLeft) {
