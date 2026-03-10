@@ -36,18 +36,18 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 .auth-error{color:var(--accent);font-size:12px;margin-top:10px;text-align:center;min-height:18px;}
 
 /* NAVBAR */
-.navbar{display:flex;align-items:center;justify-content:space-between;padding:0 28px;height:60px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:100;}
-.nav-logo{font-family:'Syne',sans-serif;font-weight:800;font-size:18px;letter-spacing:-0.5px;cursor:pointer;position:absolute;left:50%;transform:translateX(-50%);}
+.navbar{display:flex;align-items:center;justify-content:space-between;padding:0 32px;height:70px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:100;}
+.nav-logo{font-family:'Syne',sans-serif;font-weight:800;font-size:22px;letter-spacing:-0.5px;cursor:pointer;position:absolute;left:50%;transform:translateX(-50%);}
 .navbar{position:relative;}
 .nav-logo span{color:var(--accent);}
-.nav-tabs{display:flex;gap:4px;}
-.nav-tab{padding:6px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;background:none;color:var(--muted);font-family:'DM Sans',sans-serif;transition:all 0.2s;}
+.nav-tabs{display:flex;gap:6px;}
+.nav-tab{padding:8px 20px;border-radius:9px;font-size:14px;font-weight:600;cursor:pointer;border:none;background:none;color:var(--muted);font-family:'DM Sans',sans-serif;transition:all 0.2s;}
 .nav-tab.active{background:var(--surface2);color:var(--text);}
 .nav-tab:hover:not(.active){color:var(--text);}
-.nav-right{display:flex;align-items:center;gap:10px;position:relative;}
-.elo-badge{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:5px 10px;font-size:12px;font-weight:600;color:var(--gold);font-family:'Syne',sans-serif;}
-.avatar{width:32px;height:32px;background:var(--accent);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;font-family:'Syne',sans-serif;cursor:pointer;}
-.nav-pseudo{font-size:13px;font-weight:600;cursor:pointer;}
+.nav-right{display:flex;align-items:center;gap:12px;position:relative;}
+.elo-badge{background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:7px 13px;font-size:13px;font-weight:700;color:var(--gold);font-family:'Syne',sans-serif;}
+.avatar{width:38px;height:38px;background:var(--accent);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;font-family:'Syne',sans-serif;cursor:pointer;}
+.nav-pseudo{font-size:14px;font-weight:700;cursor:pointer;}
 .nav-pseudo:hover{color:var(--accent);}
 
 /* GROUP DROPDOWN */
@@ -113,7 +113,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 
 /* ROOM SCREEN */
 #screen-room{flex-direction:column;}
-.room-navbar{display:flex;align-items:center;justify-content:space-between;padding:0 28px;height:60px;border-bottom:1px solid var(--border);background:var(--surface);}
+.room.navbar{display:flex;align-items:center;justify-content:space-between;padding:0 32px;height:70px;border-bottom:1px solid var(--border);background:var(--surface);}
 .room-body{flex:1;display:grid;grid-template-columns:240px 1fr 240px;gap:16px;padding:20px 24px;max-width:1200px;margin:0 auto;width:100%;}
 
 /* COUNTDOWN OVERLAY */
@@ -174,18 +174,18 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 
 .chat-box{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:14px;display:flex;flex-direction:column;overflow:hidden;min-height:380px;}
 .chat-header{padding:12px 16px;border-bottom:1px solid var(--border);font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;}
-.chat-messages{flex:1;padding:14px;overflow-y:auto;display:flex;flex-direction:column;gap:7px;max-height:340px;}
+.chat-messages{flex:1;padding:14px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;max-height:340px;}
 .chat-messages::-webkit-scrollbar{width:3px;}
 .chat-messages::-webkit-scrollbar-thumb{background:var(--muted2);border-radius:2px;}
-.msg{display:flex;flex-direction:column;gap:2px;animation:fadeUp 0.2s ease;}
+.msg{display:flex;flex-direction:column;gap:3px;animation:fadeUp 0.2s ease;}
 .msg-header{display:flex;align-items:center;gap:7px;}
-.msg-author{font-size:11px;font-weight:700;font-family:'Syne',sans-serif;}
+.msg-author{font-size:12px;font-weight:700;font-family:'Syne',sans-serif;}
 .msg-author.team1{color:var(--accent);}.msg-author.team2{color:var(--blue);}.msg-author.system{color:var(--gold);}.msg-author.admin{color:#c084fc;}
 .msg-time{font-size:10px;color:var(--muted2);}
-.msg-text{font-size:12px;color:var(--text);line-height:1.5;}
-.msg.system-msg .msg-text{color:var(--muted);font-style:italic;font-size:11px;}
+.msg-text{font-size:13px;color:var(--text);line-height:1.5;}
+.msg.system-msg .msg-text{color:var(--gold);font-style:italic;font-size:12px;font-weight:500;}
 .chat-input-row{display:flex;gap:7px;padding:10px 12px;border-top:1px solid var(--border);}
-.chat-input{flex:1;background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:9px 12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:12px;outline:none;transition:border-color 0.2s;}
+.chat-input{flex:1;background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:10px 14px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;outline:none;transition:border-color 0.2s;}
 .chat-input:focus{border-color:var(--accent);}
 .chat-send{background:var(--accent);border:none;border-radius:9px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all 0.2s;flex-shrink:0;}
 .chat-send:hover{background:var(--accent2);}
@@ -288,7 +288,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
       <button class="nav-tab" id="ntab-admin" onclick="showMainTab('admin')" style="display:none;color:var(--gold);">🔐 Admin</button>
     </div>
     <div class="nav-right">
-      <div class="elo-badge">⚡ <span id="nav-elo">500</span></div>
+      <div class="elo-badge">🔥 <span id="nav-elo">500</span></div>
       <div class="avatar" id="nav-avatar" onclick="openProfile()">?</div>
       <span class="nav-pseudo" id="nav-pseudo" onclick="toggleGroupDropdown()" title="Mon groupe" style="cursor:pointer;"></span>
       <div class="group-dropdown" id="group-dropdown">
@@ -386,14 +386,6 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
           <span style="font-size:12px;color:var(--muted);" id="room-players-count">En attente…</span>
         </div>
         <div class="room-id-badge" id="room-badge2">ROOM #——</div>
-      </div>
-
-      <!-- SINGLE MAP BAN SECTION (center, replaces chat during ban) -->
-      <div class="map-ban-section" id="map-ban-center-section" style="display:none;margin-bottom:10px;">
-        <div class="map-ban-title">Phase de ban</div>
-        <div class="ban-timer-bar"><div class="ban-timer-fill" id="ban-timer-t1"></div></div>
-        <div class="ban-banner waiting" id="ban-banner-t1">En attente…</div>
-        <div class="map-grid" id="map-grid-t1"></div>
       </div>
 
       <div id="chat-box-wrap">
@@ -528,7 +520,12 @@ function cancelQueue() {
 }
 
 function refreshAdminLogs() {
-  if (!state.isAdmin || !socket) return;
+  if (!state.isAdmin) return;
+  if (!socket || !socket.connected) {
+    setTimeout(refreshAdminLogs, 500);
+    return;
+  }
+  document.getElementById('admin-room-logs').innerHTML = '<div style="color:var(--muted);text-align:center;padding:40px;">Chargement…</div>';
   socket.emit('get_room_logs');
 }
 
@@ -536,25 +533,25 @@ socket && socket.on && socket.on('room_logs', (logs) => {
   const container = document.getElementById('admin-room-logs');
   if (!container) return;
   if (!logs || logs.length === 0) {
-    container.innerHTML = '<div style="color:var(--muted);text-align:center;padding:40px;">Aucune room active ces 30 dernières minutes</div>';
+    container.innerHTML = '<div style="color:var(--muted);text-align:center;padding:40px;">Aucune room active en ce moment</div>';
     return;
   }
   container.innerHTML = logs.map(r => {
-    const ago = Math.round((Date.now() - r.createdAt) / 60000);
+    const ago = r.createdAt ? Math.round((Date.now() - r.createdAt) / 60000) : '?';
     const statusColor = r.status === 'finished' ? 'var(--muted)' : r.status === 'playing' ? 'var(--green)' : 'var(--gold)';
     const statusLabel = r.status === 'finished' ? 'Terminée' : r.status === 'playing' ? 'En jeu' : 'En attente';
     const t1 = (r.teams[0] || []).map(p => p.pseudo).join(', ') || '—';
-    const t2 = (r.teams[1] || []).map(p => p.pseudo).join(', ') || '—';
+    const t2 = (r.teams[1] || []).map(p => p.pseudo).join(', ') || 'En attente…';
     return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-        <div style="font-family:'Syne',sans-serif;font-weight:800;color:var(--text);">ROOM #${r.id} <span style="font-size:11px;color:var(--muted);font-weight:400;">— ${r.mode} — il y a ${ago}min</span></div>
+        <div style="font-family:'Syne',sans-serif;font-weight:800;">ROOM #${r.id} <span style="font-size:11px;color:var(--muted);font-weight:400;">— ${r.mode}${ago !== '?' ? ` — il y a ${ago}min` : ''}</span></div>
         <span style="font-size:11px;font-weight:700;color:${statusColor};background:${statusColor}22;padding:3px 8px;border-radius:6px;">${statusLabel}</span>
       </div>
-      <div style="display:flex;gap:12px;font-size:12px;color:var(--muted);margin-bottom:10px;">
+      <div style="display:flex;gap:12px;font-size:13px;color:var(--muted);margin-bottom:10px;">
         <span>🔴 ${t1}</span><span style="color:var(--muted2);">vs</span><span>🔵 ${t2}</span>
       </div>
-      ${r.chosenMap ? `<div style="font-size:11px;color:var(--blue);margin-bottom:8px;">🗺️ Map : ${r.chosenMap}</div>` : ''}
-      <button class="btn-admin-join" onclick="adminJoinRoom('${r.id}')" ${r.status==='finished'?'style="opacity:0.5;"':''}>👁️ Rejoindre en spectateur</button>
+      ${r.chosenMap ? `<div style="font-size:12px;color:var(--blue);margin-bottom:8px;">🗺️ Map : ${r.chosenMap}</div>` : ''}
+      <button class="btn-admin-join" onclick="adminJoinRoom('${r.id}')">👁️ Rejoindre en spectateur</button>
     </div>`;
   }).join('');
 });
@@ -744,9 +741,7 @@ function initSocket() {
       const b = document.getElementById('mapbtn-t1-' + m);
       if (b) { b.disabled = true; if (m === map) b.classList.add('chosen'); }
     });
-    hideBanPhase();
-    // Show chosen map in chat as system message
-    addMsg('Système', 'system', `🗺️ Map jouée : <strong>${map}</strong> — Bonne chance !`, null);
+    addMsg('Système', 'system', `🗺️ Map jouée : ${map} — Bonne chance !`, null);
     document.getElementById('room-status-text').textContent = 'En jeu — ' + map;
     if (state.isAdmin && state.isSpectator) setTimeout(() => { document.getElementById('declare-section').style.display = ''; }, 500);
   });
@@ -946,9 +941,8 @@ function setupRoom(roomId, mode, team1, team2, waiting) {
   document.getElementById('chat-messages').innerHTML = '';
 
   if (mode === '1v1' || mode === '2v2') {
-    hideBanPhase();
+    // no ban phase needed
   } else {
-    showBanPhase();
     renderMapGrids();
   }
 
@@ -975,11 +969,7 @@ function makePlayerCard(p, teamClass) {
 
 function renderMapGrids() {
   const grid = document.getElementById('map-grid-t1');
-  if (grid) grid.innerHTML = MAPS.map(m => `
-    <button class="map-btn" id="mapbtn-t1-${m}" onclick="banMap('${m}')" disabled>
-      <img src="${MAP_IMGS[m]}" onerror="this.style.display='none'" style="width:100%;height:56px;object-fit:cover;border-radius:4px;display:block;margin-bottom:4px;"/>
-      <span>${m}</span>
-    </button>`).join('');
+  if (grid) grid.innerHTML = MAPS.map(m => `<button class="map-btn" id="mapbtn-t1-${m}" onclick="banMap('${m}')" disabled><span>${m}</span></button>`).join('');
 }
 
 function showBanPhase() {

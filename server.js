@@ -472,16 +472,16 @@ io.on('connection', (socket) => {
     if (!socket.isAdmin) return;
     const cutoff = Date.now() - 30 * 60 * 1000;
     const logs = Object.values(rooms)
-      .filter(r => r.createdAt && r.createdAt > cutoff)
-      .sort((a, b) => b.createdAt - a.createdAt)
+      .filter(r => !r.createdAt || r.createdAt > cutoff)
+      .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
       .map(r => ({
         id: r.id,
         mode: r.mode,
         status: r.status,
-        createdAt: r.createdAt,
+        createdAt: r.createdAt || Date.now(),
         chosenMap: r.chosenMap || null,
         teams: [
-          r.teams[0].map(p => ({ pseudo: p.pseudo })),
+          (r.teams[0] || []).map(p => ({ pseudo: p.pseudo })),
           (r.teams[1] || []).map(p => ({ pseudo: p.pseudo }))
         ]
       }));
