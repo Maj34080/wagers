@@ -337,7 +337,8 @@ io.on('connection', (socket) => {
         banTurn: 0,
         status: 'waiting',
         chosenMap: null,
-        banTimer: null
+        banTimer: null,
+        createdAt: Date.now()
       };
       rooms[roomId] = room;
 
@@ -365,8 +366,10 @@ io.on('connection', (socket) => {
     if (!text || text.trim().length === 0 || text.length > 200) return;
     const room = rooms[socket.roomId];
     if (!room) return;
-    const team = socket.isAdmin ? 'admin' : (room.teams[0].some(p => p.id === socket.userId) ? 'team1' : 'team2');
-    const displayPseudo = socket.isAdmin ? `${socket.pseudo} [ADMIN]` : socket.pseudo;
+    const inTeam = room.teams[0].some(p => p.id === socket.userId) || (room.teams[1] && room.teams[1].some(p => p.id === socket.userId));
+    const isSpectatingAdmin = socket.isAdmin && !inTeam;
+    const team = isSpectatingAdmin ? 'admin' : (room.teams[0].some(p => p.id === socket.userId) ? 'team1' : 'team2');
+    const displayPseudo = isSpectatingAdmin ? `${socket.pseudo} [ADMIN]` : socket.pseudo;
     const msg = { author: displayPseudo, team, text: text.trim(), time: Date.now() };
     room.chat.push(msg);
     io.to('room_' + socket.roomId).emit('chat_msg', msg);
@@ -444,7 +447,46 @@ io.on('connection', (socket) => {
     }
   });
 
-  // ── LEAVE GROUP ──
+  // ── CANCEL QUEUE ──
+  socket.on('cancel_queue', () => {
+    // Remove from any waiting room
+    for (const [roomId, room] of Object.entries(rooms)) {
+      if (room.status === 'waiting') {
+        const inTeam0 = room.teams[0].some(p => p.id === socket.userId);
+        const inTeam1 = room.teams[1] && room.teams[1].some(p => p.id === socket.userId);
+        if (inTeam0 || inTeam1) {
+          socket.leave('room_' + roomId);
+          socket.roomId = null;
+          // If team is now empty remove room
+          if (inTeam0) room.teams[0] = room.teams[0].filter(p => p.id !== socket.userId);
+          if (inTeam1) room.teams[1] = room.teams[1].filter(p => p.id !== socket.userId);
+          if (room.teams[0].length === 0) delete rooms[roomId];
+          break;
+        }
+      }
+    }
+  });
+
+  // ── GET ROOM LOGS (admin) ──
+  socket.on('get_room_logs', () => {
+    if (!socket.isAdmin) return;
+    const cutoff = Date.now() - 30 * 60 * 1000;
+    const logs = Object.values(rooms)
+      .filter(r => r.createdAt && r.createdAt > cutoff)
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .map(r => ({
+        id: r.id,
+        mode: r.mode,
+        status: r.status,
+        createdAt: r.createdAt,
+        chosenMap: r.chosenMap || null,
+        teams: [
+          r.teams[0].map(p => ({ pseudo: p.pseudo })),
+          (r.teams[1] || []).map(p => ({ pseudo: p.pseudo }))
+        ]
+      }));
+    socket.emit('room_logs', logs);
+  });
   socket.on('leave_group', () => {
     const entry = getGroupBySocket(socket.id);
     if (!entry) return;

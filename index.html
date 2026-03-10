@@ -279,6 +279,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
     <div class="nav-tabs">
       <button class="nav-tab active" id="ntab-room" onclick="showMainTab('room')">🎮 Room</button>
       <button class="nav-tab" id="ntab-lb" onclick="showMainTab('lb')">🏆 Classement</button>
+      <button class="nav-tab" id="ntab-admin" onclick="showMainTab('admin')" style="display:none;color:var(--gold);">🔐 Admin</button>
     </div>
     <div class="nav-right">
       <div class="elo-badge">⚡ <span id="nav-elo">500</span></div>
@@ -289,10 +290,10 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
         <div class="group-code-label">Partage à ton pote</div>
         <div id="group-members-mini"></div>
         <button class="btn-mini" style="width:100%;margin-bottom:6px;" onclick="copyCode()">📋 Copier le code</button>
-        <button class="btn-mini" style="width:100%;margin-bottom:6px;border-color:var(--accent);color:var(--accent);" onclick="leaveGroup()">🚪 Quitter le groupe</button>
-        <div class="join-mini">
-          <input type="text" id="join-code-mini" placeholder="CODE" maxlength="6"/>
-          <button class="btn-mini" onclick="joinGroup()">Rejoindre</button>
+        <button class="btn-mini" style="width:100%;margin-bottom:8px;border-color:var(--accent);color:var(--accent);" onclick="leaveGroup()">🚪 Quitter le groupe</button>
+        <div style="display:flex;gap:6px;width:100%;">
+          <input type="text" id="join-code-mini" placeholder="CODE" maxlength="6" style="flex:1;min-width:0;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-family:'Syne',sans-serif;font-size:13px;outline:none;letter-spacing:3px;font-weight:700;text-transform:uppercase;"/>
+          <button class="btn-mini" onclick="joinGroup()" style="flex-shrink:0;white-space:nowrap;">Rejoindre</button>
         </div>
       </div>
     </div>
@@ -313,6 +314,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
         <div class="searching-box" id="searching-box">
           <div class="searching-dots">Recherche en cours<span>.</span><span>.</span><span>.</span></div>
           <div style="font-size:11px;color:var(--muted);margin-top:4px;" id="searching-mode"></div>
+          <button onclick="cancelQueue()" style="margin-top:12px;width:100%;background:rgba(255,70,85,0.1);border:1px solid rgba(255,70,85,0.4);color:var(--accent);border-radius:8px;padding:9px;font-family:'Syne',sans-serif;font-weight:700;font-size:12px;cursor:pointer;">✕ Quitter la file d'attente</button>
         </div>
         <button id="admin-bot-btn" style="display:none;margin-top:12px;width:100%;background:rgba(255,209,102,0.1);border:1px solid var(--gold);color:var(--gold);border-radius:10px;padding:10px;font-family:'Syne',sans-serif;font-weight:700;font-size:12px;cursor:pointer;letter-spacing:0.05em;" onclick="spawnBots()">🤖 Admin — Lancer avec des Bots</button>
       </div>
@@ -328,6 +330,19 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
         </div>
       </div>
       <div id="leaderboard-list"></div>
+    </div>
+
+    <!-- ADMIN TAB -->
+    <div class="room-tab-content" id="tab-content-admin">
+      <div style="max-width:700px;margin:0 auto;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+          <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:20px;">🔐 Panel Admin</div>
+          <button onclick="refreshAdminLogs()" class="btn-mini">🔄 Actualiser</button>
+        </div>
+        <div id="admin-room-logs" style="display:flex;flex-direction:column;gap:10px;">
+          <div style="color:var(--muted);text-align:center;padding:40px;">Chargement…</div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -455,7 +470,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 <script>
 const MAPS = ['Ascent','Bind','Haven','Icebox','Lotus','Pearl','Split'];
 let socket = null;
-let state = { pseudo:'', elo:500, stats:{}, isAdmin:false, avatar:null, userId:null, groupCode:null, roomId:null, myTeam:null, mode:'2v2', lbMode:'1v1', groupSize:0 };
+let state = { pseudo:'', elo:500, stats:{}, isAdmin:false, isSpectator:false, avatar:null, userId:null, groupCode:null, roomId:null, myTeam:null, mode:'2v2', lbMode:'1v1', groupSize:0 };
 let banTimerInterval = null;
 
 function notify(msg) {
@@ -478,12 +493,56 @@ function switchTab(tab) {
 }
 
 function showMainTab(tab) {
-  document.getElementById('ntab-room').classList.toggle('active', tab==='room');
-  document.getElementById('ntab-lb').classList.toggle('active', tab==='lb');
-  document.getElementById('tab-content-room').classList.toggle('active', tab==='room');
-  document.getElementById('tab-content-lb').classList.toggle('active', tab==='lb');
+  ['room','lb','admin'].forEach(t => {
+    const btn = document.getElementById('ntab-' + t);
+    const content = document.getElementById('tab-content-' + t);
+    if (btn) btn.classList.toggle('active', tab === t);
+    if (content) content.classList.toggle('active', tab === t);
+  });
   if (tab === 'lb') loadLeaderboard(state.lbMode);
+  if (tab === 'admin') refreshAdminLogs();
 }
+
+function cancelQueue() {
+  if (!socket) return;
+  socket.emit('cancel_queue');
+  document.getElementById('searching-box').classList.remove('show');
+  document.getElementById('btn-find-room').disabled = false;
+  document.getElementById('btn-find-room').style.display = '';
+  notify('File d\'attente annulée');
+}
+
+function refreshAdminLogs() {
+  if (!state.isAdmin || !socket) return;
+  socket.emit('get_room_logs');
+}
+
+socket && socket.on && socket.on('room_logs', (logs) => {
+  const container = document.getElementById('admin-room-logs');
+  if (!container) return;
+  if (!logs || logs.length === 0) {
+    container.innerHTML = '<div style="color:var(--muted);text-align:center;padding:40px;">Aucune room active ces 30 dernières minutes</div>';
+    return;
+  }
+  container.innerHTML = logs.map(r => {
+    const ago = Math.round((Date.now() - r.createdAt) / 60000);
+    const statusColor = r.status === 'finished' ? 'var(--muted)' : r.status === 'playing' ? 'var(--green)' : 'var(--gold)';
+    const statusLabel = r.status === 'finished' ? 'Terminée' : r.status === 'playing' ? 'En jeu' : 'En attente';
+    const t1 = (r.teams[0] || []).map(p => p.pseudo).join(', ') || '—';
+    const t2 = (r.teams[1] || []).map(p => p.pseudo).join(', ') || '—';
+    return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <div style="font-family:'Syne',sans-serif;font-weight:800;color:var(--text);">ROOM #${r.id} <span style="font-size:11px;color:var(--muted);font-weight:400;">— ${r.mode} — il y a ${ago}min</span></div>
+        <span style="font-size:11px;font-weight:700;color:${statusColor};background:${statusColor}22;padding:3px 8px;border-radius:6px;">${statusLabel}</span>
+      </div>
+      <div style="display:flex;gap:12px;font-size:12px;color:var(--muted);margin-bottom:10px;">
+        <span>🔴 ${t1}</span><span style="color:var(--muted2);">vs</span><span>🔵 ${t2}</span>
+      </div>
+      ${r.chosenMap ? `<div style="font-size:11px;color:var(--blue);margin-bottom:8px;">🗺️ Map : ${r.chosenMap}</div>` : ''}
+      <button class="btn-admin-join" onclick="adminJoinRoom('${r.id}')" ${r.status==='finished'?'style="opacity:0.5;"':''}>👁️ Rejoindre en spectateur</button>
+    </div>`;
+  }).join('');
+});
 
 function toggleGroupDropdown() {
   document.getElementById('group-dropdown').classList.toggle('open');
@@ -621,11 +680,13 @@ function initSocket() {
   });
 
   socket.on('admin_joined_room', ({ roomId, team1, team2, mode }) => {
+    state.isSpectator = true;
     document.getElementById('admin-spectator-bar').style.display = 'flex';
     document.getElementById('admin-spec-room').textContent = 'ROOM #' + roomId;
-    // Show room screen in spectator mode
+    socket.roomId = roomId;
     setupRoom(roomId, mode, team1, team2, false);
-    document.getElementById('declare-section').style.display = 'none';
+    // Admin spectator can decide result
+    document.getElementById('declare-section').style.display = '';
   });
 
   socket.on('countdown_start', ({ seconds }) => {
@@ -678,13 +739,12 @@ function initSocket() {
     document.getElementById('ban-banner-t2').textContent = '🗺️ Map : ' + map;
     document.getElementById('ban-banner-t2').className = 'ban-banner';
     document.getElementById('room-status-text').textContent = 'En jeu — ' + map;
-    // Only admin can declare result
-    if (state.isAdmin) setTimeout(() => { document.getElementById('declare-section').style.display = ''; }, 500);
+    if (state.isAdmin && state.isSpectator) setTimeout(() => { document.getElementById('declare-section').style.display = ''; }, 500);
   });
 
   socket.on('game_start', ({ mode }) => {
     document.getElementById('room-status-text').textContent = 'En jeu — ' + mode;
-    if (state.isAdmin) setTimeout(() => { document.getElementById('declare-section').style.display = ''; }, 500);
+    if (state.isAdmin && state.isSpectator) setTimeout(() => { document.getElementById('declare-section').style.display = ''; }, 500);
   });
 
   socket.on('game_result', ({ winner, winTeam, loseTeam, mode }) => {
@@ -784,11 +844,10 @@ function enterMain() {
   state.groupSize = 1;
   socket.emit('create_group', { mode: state.mode });
   updateRoomBtn();
-
-  // Show admin bot button if admin
   const adminBtn = document.getElementById('admin-bot-btn');
   if (adminBtn) adminBtn.style.display = state.isAdmin ? '' : 'none';
-
+  const adminTab = document.getElementById('ntab-admin');
+  if (adminTab) adminTab.style.display = state.isAdmin ? '' : 'none';
   showScreen('main');
 }
 
@@ -1025,6 +1084,7 @@ function adminDecide(winner) {
 }
 
 function adminLeave() {
+  state.isSpectator = false;
   document.getElementById('admin-spectator-bar').style.display = 'none';
   showScreen('main');
 }
@@ -1116,8 +1176,9 @@ function closeProfile() {
 async function backToLobby() {
   document.getElementById('result-overlay').classList.remove('show');
   document.getElementById('nav-elo').textContent = state.elo;
-  state.roomId = null; state.myTeam = null;
+  state.roomId = null; state.myTeam = null; state.isSpectator = false;
   document.getElementById('declare-section').style.display = 'none';
+  document.getElementById('admin-spectator-bar').style.display = 'none';
   clearBanTimerBar();
   socket.emit('create_group', { mode: state.mode });
   state.groupSize = 1;
