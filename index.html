@@ -916,6 +916,8 @@ function makePlayerCard(p, teamClass) {
     : p.pseudo[0].toUpperCase();
   return `<div class="player-card"><div class="pav ${teamClass}">${avContent}</div><div><div class="pname">${p.pseudo}</div><div class="pelo">${p.elo} ELO</div></div></div>`;
 }
+
+function renderMapGrids() {
   ['t1','t2'].forEach(team => {
     const grid = document.getElementById('map-grid-' + team);
     grid.innerHTML = MAPS.map(m => `<button class="map-btn" id="mapbtn-${team}-${m}" onclick="banMap('${m}')" disabled>${m}</button>`).join('');
