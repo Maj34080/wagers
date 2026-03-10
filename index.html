@@ -291,19 +291,25 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
     </div>
     <div class="nav-right">
       <div class="elo-badge">🔥 <span id="nav-elo">500</span></div>
-      <div class="avatar" id="nav-avatar" onclick="openProfile()">?</div>
-      <span class="nav-pseudo" id="nav-pseudo" onclick="toggleGroupDropdown()" title="Mon groupe" style="cursor:pointer;"></span>
-      <div class="group-dropdown" id="group-dropdown">
-        <div class="group-code-mini" id="group-code-mini">——</div>
-        <div class="group-code-label">Partage à ton pote</div>
-        <div id="group-members-mini"></div>
-        <button class="btn-mini" style="width:100%;margin-bottom:6px;" onclick="copyCode()">📋 Copier le code</button>
-        <button class="btn-mini" style="width:100%;margin-bottom:8px;border-color:var(--accent);color:var(--accent);" onclick="leaveGroup()">🚪 Quitter le groupe</button>
-        <div style="display:flex;gap:6px;width:100%;">
-          <input type="text" id="join-code-mini" placeholder="CODE" maxlength="6" style="flex:1;min-width:0;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-family:'Syne',sans-serif;font-size:13px;outline:none;letter-spacing:3px;font-weight:700;text-transform:uppercase;"/>
-          <button class="btn-mini" onclick="joinGroup()" style="flex-shrink:0;white-space:nowrap;">Rejoindre</button>
+      <!-- Groupe inline — toujours visible -->
+      <div id="nav-group-inline" style="display:flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:6px 12px;">
+        <div style="display:flex;flex-direction:column;align-items:flex-start;gap:2px;">
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span style="font-size:11px;color:var(--muted);font-weight:500;">Groupe</span>
+            <span id="nav-group-code" style="font-size:12px;font-weight:800;color:var(--accent);letter-spacing:2px;">——</span>
+            <button onclick="copyCode()" title="Copier le code" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:12px;padding:0;line-height:1;">📋</button>
+          </div>
+          <div id="nav-group-members-inline" style="font-size:11px;color:var(--muted);"></div>
         </div>
+        <div style="width:1px;height:28px;background:var(--border);"></div>
+        <div style="display:flex;flex-direction:column;gap:3px;">
+          <input type="text" id="join-code-mini" placeholder="CODE" maxlength="6" style="width:70px;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:4px 7px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:11px;outline:none;letter-spacing:2px;font-weight:700;text-transform:uppercase;"/>
+          <button onclick="joinGroup()" style="background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:3px 7px;font-size:10px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;">Rejoindre</button>
+        </div>
+        <button onclick="leaveGroup()" title="Quitter le groupe" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:14px;padding:2px;">🚪</button>
       </div>
+      <div class="avatar" id="nav-avatar" onclick="openProfile()">?</div>
+      <span class="nav-pseudo" id="nav-pseudo" style="font-size:14px;font-weight:700;"></span>
     </div>
   </nav>
 
@@ -655,7 +661,6 @@ async function submitTicket() {
 }
 
 async function loadMyTickets() {
-  // Côté joueur: affiche ses propres tickets via admin key — si pas admin, on filtre côté client
   const container = document.getElementById('ticket-my-list');
   if (!container || !state.userId) return;
   try {
@@ -663,12 +668,37 @@ async function loadMyTickets() {
     const all = await r.json();
     const mine = all.filter(t => t.userId === state.userId);
     if (!mine.length) { container.innerHTML = ''; return; }
-    container.innerHTML = `<div style="font-weight:700;margin-bottom:10px;">Mes tickets :</div>` + mine.map(t => `
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:8px;">
-        <div style="display:flex;justify-content:space-between;"><div style="font-weight:600;">${t.subject}</div><span style="font-size:11px;color:${t.status==='open'?'var(--accent)':'var(--muted)'};">${t.status==='open'?'Ouvert':'Fermé'}</span></div>
-        ${t.replies.map(r => `<div style="margin-top:8px;background:var(--surface2);border-radius:8px;padding:8px 12px;font-size:12px;"><strong>${r.author}</strong>: ${r.message}</div>`).join('')}
+    container.innerHTML = `<div style="font-weight:700;margin-bottom:10px;font-size:15px;">Mes tickets :</div>` + mine.map(t => `
+      <div style="background:var(--surface);border:1px solid ${t.status==='open'?'var(--accent)':'var(--border)'};border-radius:12px;padding:14px;margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <div style="font-weight:700;font-size:14px;">📌 ${t.subject}</div>
+          <span style="font-size:11px;padding:3px 8px;border-radius:6px;font-weight:700;background:${t.status==='open'?'rgba(255,70,85,0.12)':'rgba(100,100,100,0.12)'};color:${t.status==='open'?'var(--accent)':'var(--muted)'};">${t.status==='open'?'Ouvert':'Fermé'}</span>
+        </div>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:10px;">${t.message}</div>
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          ${t.replies.map(rep => `
+            <div style="background:${rep.author==='Admin'?'rgba(255,209,102,0.08)':'var(--surface2)'};border:1px solid ${rep.author==='Admin'?'rgba(255,209,102,0.3)':'var(--border)'};border-radius:8px;padding:8px 12px;font-size:12px;">
+              <span style="font-weight:700;color:${rep.author==='Admin'?'var(--gold)':'var(--text)'};">${rep.author==='Admin'?'🛡️ Staff':'👤 Toi'}</span>
+              <span style="color:var(--muted);margin-left:6px;font-size:11px;">${new Date(rep.createdAt).toLocaleString('fr-FR',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'})}</span>
+              <div style="margin-top:4px;">${rep.message}</div>
+            </div>`).join('')}
+        </div>
+        ${t.status==='open'?`
+        <div style="display:flex;gap:8px;margin-top:10px;">
+          <input id="player-reply-${t.id}" placeholder="Répondre au staff…" style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-family:'Inter',sans-serif;font-size:12px;outline:none;" onkeydown="if(event.key==='Enter')playerReplyTicket('${t.id}')"/>
+          <button onclick="playerReplyTicket('${t.id}')" style="background:var(--accent);color:white;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;">↩</button>
+        </div>`:'<div style="color:var(--muted);font-size:12px;margin-top:8px;text-align:center;">Ticket fermé par le staff</div>'}
       </div>`).join('');
   } catch(e) {}
+}
+
+async function playerReplyTicket(id) {
+  const input = document.getElementById('player-reply-' + id);
+  const message = input?.value.trim();
+  if (!message) return;
+  await fetch(`/api/tickets/${id}/reply`, { method:'POST', headers:{'Content-Type':'application/json','x-admin-key':ADMIN_KEY}, body: JSON.stringify({ author: state.pseudo, message }) });
+  input.value = '';
+  loadMyTickets();
 }
 
 // ── LEADERBOARD SEARCH ──
@@ -867,7 +897,8 @@ function initSocket() {
   socket.on('group_created', ({ code, mode, players }) => {
     state.groupCode = code;
     state.groupSize = players.length;
-    document.getElementById('group-code-mini').textContent = code;
+    const el = document.getElementById('nav-group-code');
+    if (el) el.textContent = code;
     renderGroupMembers(players);
     updateRoomBtn();
   });
@@ -884,7 +915,8 @@ function initSocket() {
     state.groupCode = code;
     state.mode = mode;
     state.groupSize = players.length;
-    document.getElementById('group-code-mini').textContent = code;
+    const el = document.getElementById('nav-group-code');
+    if (el) el.textContent = code;
     renderGroupMembers(players);
     updateRoomBtn();
   });
@@ -1192,21 +1224,19 @@ function renderLeaderboard(data) {
 }
 
 function renderGroupMembers(players) {
+  // Ancien dropdown (peut rester vide)
   const list = document.getElementById('group-members-mini');
-  const teamSize = getTeamSize(state.mode);
-  let html = players.map(p => `
-    <div class="member-mini">
-      <div class="member-mini-left">
-        <div class="mdot"></div>
-        <span class="mname">${p.pseudo}</span>
-        ${p.pseudo === state.pseudo ? '<span class="you-badge">toi</span>' : ''}
-      </div>
-      <span class="melo">${p.elo} ELO</span>
-    </div>`).join('');
-  for (let i = players.length; i < teamSize; i++) {
-    html += `<div class="slot-mini"><div class="mdot empty"></div><span>En attente…</span></div>`;
+  if (list) list.innerHTML = '';
+
+  // Inline navbar
+  const inlineMembers = document.getElementById('nav-group-members-inline');
+  if (inlineMembers) {
+    const teamSize = getTeamSize(state.mode);
+    const names = players.map(p => p.pseudo === state.pseudo ? `<span style="color:var(--text);font-weight:600;">${p.pseudo}</span>` : p.pseudo);
+    const slots = teamSize - players.length;
+    for (let i = 0; i < slots; i++) names.push('<span style="color:var(--border);">…</span>');
+    inlineMembers.innerHTML = names.join(' · ') + ` <span style="color:var(--border);">(${players.length}/${teamSize})</span>`;
   }
-  list.innerHTML = html;
 }
 
 function copyCode() {
