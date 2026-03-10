@@ -1,25 +1,33 @@
 const fs = require('fs');
 const path = require('path');
 
-const DB_FILE = process.env.NODE_ENV === 'production' 
-  ? '/tmp/db.json' 
+const DB_FILE = process.env.NODE_ENV === 'production'
+  ? '/tmp/db.json'
   : path.join(__dirname, 'db.json');
 
 function loadDB() {
-  if (!fs.existsSync(DB_FILE)) {
-    const initial = { users: [], rooms: [] };
-    fs.writeFileSync(DB_FILE, JSON.stringify(initial, null, 2));
-    return initial;
+  try {
+    if (!fs.existsSync(DB_FILE)) {
+      const initial = { users: [] };
+      fs.writeFileSync(DB_FILE, JSON.stringify(initial, null, 2));
+      return initial;
+    }
+    return JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+  } catch(e) {
+    return { users: [] };
   }
-  return JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
 }
 
 function saveDB(data) {
-  fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
+  try { fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2)); } catch(e) {}
 }
 
-function getUsers() {
-  return loadDB().users;
+function defaultStats() {
+  return {
+    '1v1': { wins: 0, losses: 0, elo: 500 },
+    '2v2': { wins: 0, losses: 0, elo: 500 },
+    '5v5': { wins: 0, losses: 0, elo: 500 }
+  };
 }
 
 function getUserByPseudo(pseudo) {
@@ -36,9 +44,7 @@ function createUser(pseudo, hashedPassword) {
     id: Date.now().toString(),
     pseudo,
     password: hashedPassword,
-    elo: 500,
-    wins: 0,
-    losses: 0,
+    stats: defaultStats(),
     createdAt: new Date().toISOString()
   };
   db.users.push(user);
@@ -46,27 +52,29 @@ function createUser(pseudo, hashedPassword) {
   return user;
 }
 
-function updateUserElo(id, eloChange, won) {
+function updateUserElo(id, eloChange, won, mode) {
   const db = loadDB();
   const user = db.users.find(u => u.id === id);
   if (user) {
-    user.elo = Math.max(0, user.elo + eloChange);
-    if (won) user.wins++;
-    else user.losses++;
+    if (!user.stats) user.stats = defaultStats();
+    if (!user.stats[mode]) user.stats[mode] = { wins: 0, losses: 0, elo: 500 };
+    user.stats[mode].elo = Math.max(0, user.stats[mode].elo + eloChange);
+    if (won) user.stats[mode].wins++;
+    else user.stats[mode].losses++;
     saveDB(db);
   }
   return user;
 }
 
-function getLeaderboard() {
+function getLeaderboard(mode) {
   const db = loadDB();
   return db.users
-    .map(u => ({ pseudo: u.pseudo, elo: u.elo, wins: u.wins, losses: u.losses }))
+    .map(u => {
+      const s = u.stats?.[mode] || { wins: 0, losses: 0, elo: 500 };
+      return { pseudo: u.pseudo, elo: s.elo, wins: s.wins, losses: s.losses };
+    })
     .sort((a, b) => b.elo - a.elo)
     .slice(0, 20);
 }
 
-module.exports = {
-  getUsers, getUserByPseudo, getUserById,
-  createUser, updateUserElo, getLeaderboard
-};
+module.exports = { getUserByPseudo, getUserById, createUser, updateUserElo, getLeaderboard };
