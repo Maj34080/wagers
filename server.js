@@ -198,8 +198,8 @@ io.on('connection', (socket) => {
       const botNum = group.players.filter(p => p.isBot).length + 1;
       group.players.push({ id: 'bot_' + Date.now(), pseudo: 'Bot' + botNum, elo: 500, socketId: null, isBot: true });
     }
-    io.to('group_' + code).emit('group_updated', { players: group.players.map(p => ({ pseudo: p.pseudo, elo: p.elo })), mode: group.mode });
-    socket.emit('group_created', { code, mode: group.mode, players: group.players.map(p => ({ pseudo: p.pseudo, elo: p.elo })) });
+    io.to('group_' + code).emit('group_updated', { players: group.players.map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null })), mode: group.mode });
+    socket.emit('group_created', { code, mode: group.mode, players: group.players.map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null })) });
 
     // Also create a fake opponent group and trigger room
     const oppGroupCode = generateCode();
@@ -230,8 +230,8 @@ io.on('connection', (socket) => {
     room.teams[1] = oppPlayers;
     const payload = {
       roomId, mode: room.mode,
-      team1: room.teams[0].map(p => ({ pseudo: p.pseudo, elo: p.elo })),
-      team2: room.teams[1].map(p => ({ pseudo: p.pseudo, elo: p.elo })),
+      team1: room.teams[0].map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null })),
+      team2: room.teams[1].map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null })),
       waiting: false
     };
     io.to('room_' + roomId).emit('room_ready', payload);
@@ -251,14 +251,15 @@ io.on('connection', (socket) => {
 
     const code = generateCode();
     const elo = getModeElo(socket.userId, mode);
+    const userRecord = db.getUserById(socket.userId);
     groups[code] = {
       mode,
-      players: [{ id: socket.userId, pseudo: socket.pseudo, elo, socketId: socket.id }]
+      players: [{ id: socket.userId, pseudo: socket.pseudo, elo, avatar: userRecord?.avatar || null, socketId: socket.id }]
     };
     socket.groupCode = code;
     socket.groupMode = mode;
     socket.join('group_' + code);
-    socket.emit('group_created', { code, mode, players: groups[code].players.map(p => ({ pseudo: p.pseudo, elo: p.elo })) });
+    socket.emit('group_created', { code, mode, players: groups[code].players.map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null })) });
   });
 
   // ── JOIN GROUP ──
@@ -278,12 +279,13 @@ io.on('connection', (socket) => {
     }
 
     const elo = getModeElo(socket.userId, group.mode);
-    group.players.push({ id: socket.userId, pseudo: socket.pseudo, elo, socketId: socket.id });
+    const userRecord = db.getUserById(socket.userId);
+    group.players.push({ id: socket.userId, pseudo: socket.pseudo, elo, avatar: userRecord?.avatar || null, socketId: socket.id });
     socket.groupCode = code.toUpperCase();
     socket.groupMode = group.mode;
     socket.join('group_' + code.toUpperCase());
 
-    const publicPlayers = group.players.map(p => ({ pseudo: p.pseudo, elo: p.elo }));
+    const publicPlayers = group.players.map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null }));
     io.to('group_' + code.toUpperCase()).emit('group_updated', { players: publicPlayers, mode: group.mode });
     socket.emit('group_joined', { code: code.toUpperCase(), players: publicPlayers, mode: group.mode });
   });
@@ -315,8 +317,8 @@ io.on('connection', (socket) => {
       const payload = {
         roomId,
         mode: room.mode,
-        team1: room.teams[0].map(p => ({ pseudo: p.pseudo, elo: p.elo })),
-        team2: room.teams[1].map(p => ({ pseudo: p.pseudo, elo: p.elo })),
+        team1: room.teams[0].map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null })),
+        team2: room.teams[1].map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null })),
         waiting: false
       };
       io.to('room_' + roomId).emit('room_ready', payload);
@@ -348,7 +350,7 @@ io.on('connection', (socket) => {
       const payload = {
         roomId,
         mode: room.mode,
-        team1: room.teams[0].map(p => ({ pseudo: p.pseudo, elo: p.elo })),
+        team1: room.teams[0].map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null })),
         team2: [],
         waiting: true
       };
@@ -363,8 +365,9 @@ io.on('connection', (socket) => {
     if (!text || text.trim().length === 0 || text.length > 200) return;
     const room = rooms[socket.roomId];
     if (!room) return;
-    const team = room.teams[0].some(p => p.id === socket.userId) ? 'team1' : 'team2';
-    const msg = { author: socket.pseudo, team, text: text.trim(), time: Date.now() };
+    const team = socket.isAdmin ? 'admin' : (room.teams[0].some(p => p.id === socket.userId) ? 'team1' : 'team2');
+    const displayPseudo = socket.isAdmin ? `${socket.pseudo} [ADMIN]` : socket.pseudo;
+    const msg = { author: displayPseudo, team, text: text.trim(), time: Date.now() };
     room.chat.push(msg);
     io.to('room_' + socket.roomId).emit('chat_msg', msg);
   });
@@ -437,7 +440,7 @@ io.on('connection', (socket) => {
       const [code, group] = groupEntry;
       group.players = group.players.filter(p => p.socketId !== socket.id);
       if (group.players.length === 0) delete groups[code];
-      else io.to('group_' + code).emit('group_updated', { players: group.players.map(p => ({ pseudo: p.pseudo, elo: p.elo })), mode: group.mode });
+      else io.to('group_' + code).emit('group_updated', { players: group.players.map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null })), mode: group.mode });
     }
   });
 
@@ -450,11 +453,12 @@ io.on('connection', (socket) => {
     socket.leave('group_' + code);
     socket.groupCode = null;
     if (group.players.length === 0) delete groups[code];
-    else io.to('group_' + code).emit('group_updated', { players: group.players.map(p => ({ pseudo: p.pseudo, elo: p.elo })), mode: group.mode });
+    else io.to('group_' + code).emit('group_updated', { players: group.players.map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null })), mode: group.mode });
     // Create a fresh solo group
     const newCode = generateCode();
     const elo = getModeElo(socket.userId, socket.groupMode || '2v2');
-    groups[newCode] = { mode: socket.groupMode || '2v2', players: [{ id: socket.userId, pseudo: socket.pseudo, elo, socketId: socket.id }] };
+    const userRec = db.getUserById(socket.userId);
+    groups[newCode] = { mode: socket.groupMode || '2v2', players: [{ id: socket.userId, pseudo: socket.pseudo, elo, avatar: userRec?.avatar || null, socketId: socket.id }] };
     socket.groupCode = newCode;
     socket.join('group_' + newCode);
     socket.emit('group_created', { code: newCode, mode: socket.groupMode || '2v2', players: [{ pseudo: socket.pseudo, elo }] });
@@ -471,11 +475,15 @@ io.on('connection', (socket) => {
 
   // ── ADMIN ALERT ──
   socket.on('admin_alert', ({ roomId, type, pseudo }) => {
-    // Send to all connected admin sockets
+    const room = rooms[roomId];
+    if (!room) return;
+    // Anti-spam: one alert per user per room
+    if (!room.alerts) room.alerts = new Set();
+    if (room.alerts.has(socket.userId)) return;
+    room.alerts.add(socket.userId);
+    // Send to all admin sockets
     io.sockets.sockets.forEach(s => {
-      if (s.isAdmin) {
-        s.emit('admin_alert_received', { roomId, type, pseudo });
-      }
+      if (s.isAdmin) s.emit('admin_alert_received', { roomId, type, pseudo });
     });
   });
 
@@ -489,8 +497,8 @@ io.on('connection', (socket) => {
     socket.emit('admin_joined_room', {
       roomId,
       mode: room.mode,
-      team1: room.teams[0].map(p => ({ pseudo: p.pseudo, elo: p.elo })),
-      team2: room.teams[1].map(p => ({ pseudo: p.pseudo, elo: p.elo }))
+      team1: room.teams[0].map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null })),
+      team2: room.teams[1].map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null }))
     });
     io.to('room_' + roomId).emit('chat_msg', { author: 'Système', team: 'system', text: '👁️ Un admin a rejoint la room en spectateur.' });
   });

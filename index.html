@@ -174,7 +174,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 .msg{display:flex;flex-direction:column;gap:2px;animation:fadeUp 0.2s ease;}
 .msg-header{display:flex;align-items:center;gap:7px;}
 .msg-author{font-size:11px;font-weight:700;font-family:'Syne',sans-serif;}
-.msg-author.team1{color:var(--accent);}.msg-author.team2{color:var(--blue);}.msg-author.system{color:var(--gold);}
+.msg-author.team1{color:var(--accent);}.msg-author.team2{color:var(--blue);}.msg-author.system{color:var(--gold);}.msg-author.admin{color:#c084fc;}
 .msg-time{font-size:10px;color:var(--muted2);}
 .msg-text{font-size:12px;color:var(--text);line-height:1.5;}
 .msg.system-msg .msg-text{color:var(--muted);font-style:italic;font-size:11px;}
@@ -282,8 +282,8 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
     </div>
     <div class="nav-right">
       <div class="elo-badge">⚡ <span id="nav-elo">500</span></div>
-      <div class="avatar" id="nav-avatar" onclick="toggleGroupDropdown()">?</div>
-      <span class="nav-pseudo" id="nav-pseudo" onclick="openProfile()" title="Voir mon profil"></span>
+      <div class="avatar" id="nav-avatar" onclick="openProfile()">?</div>
+      <span class="nav-pseudo" id="nav-pseudo" onclick="toggleGroupDropdown()" title="Mon groupe" style="cursor:pointer;"></span>
       <div class="group-dropdown" id="group-dropdown">
         <div class="group-code-mini" id="group-code-mini">——</div>
         <div class="group-code-label">Partage à ton pote</div>
@@ -362,10 +362,10 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
         <div class="map-grid" id="map-grid-t1"></div>
       </div>
       <div class="declare-section" id="declare-section" style="display:none;">
-        <div class="declare-title">Déclarer le résultat</div>
+        <div class="declare-title">⚖️ Décision Admin</div>
         <div class="declare-btns">
-          <button class="btn-win" onclick="declareResult('win')">✅ On a gagné</button>
-          <button class="btn-lose" onclick="declareResult('lose')">❌ On a perdu</button>
+          <button class="btn-win" onclick="declareResult('win')">✅ Équipe 1 gagne</button>
+          <button class="btn-lose" onclick="declareResult('lose')">✅ Équipe 2 gagne</button>
         </div>
       </div>
     </div>
@@ -491,8 +491,8 @@ function toggleGroupDropdown() {
 
 document.addEventListener('click', (e) => {
   const dd = document.getElementById('group-dropdown');
-  const av = document.getElementById('nav-avatar');
-  if (dd && !dd.contains(e.target) && e.target !== av) dd.classList.remove('open');
+  const pseudo = document.getElementById('nav-pseudo');
+  if (dd && !dd.contains(e.target) && e.target !== pseudo) dd.classList.remove('open');
 });
 
 function selectMode(mode, el) {
@@ -602,10 +602,16 @@ function initSocket() {
     const panel = document.getElementById('admin-panel');
     panel.classList.add('show');
     const alerts = document.getElementById('admin-alerts');
+    // Deduplicate - don't add if same roomId already shown
+    if (document.getElementById('alert-' + roomId)) return;
     const alertEl = document.createElement('div');
     alertEl.className = 'admin-alert';
+    alertEl.id = 'alert-' + roomId;
     alertEl.innerHTML = `
-      <div class="admin-alert-room">ROOM #${roomId}</div>
+      <div style="display:flex;justify-content:space-between;align-items:start;">
+        <div class="admin-alert-room">ROOM #${roomId}</div>
+        <button onclick="dismissAlert('${roomId}')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;">✕</button>
+      </div>
       <div class="admin-alert-msg">${pseudo} — ${type === 'report' ? '🚨 Report' : '⚖️ Demande de décision'}</div>
       <button class="btn-admin-join" onclick="adminJoinRoom('${roomId}')">👁️ Rejoindre en spectateur</button>
     `;
@@ -672,14 +678,13 @@ function initSocket() {
     document.getElementById('ban-banner-t2').textContent = '🗺️ Map : ' + map;
     document.getElementById('ban-banner-t2').className = 'ban-banner';
     document.getElementById('room-status-text').textContent = 'En jeu — ' + map;
-    // Both teams can declare result
-    setTimeout(() => { document.getElementById('declare-section').style.display = ''; }, 500);
+    // Only admin can declare result
+    if (state.isAdmin) setTimeout(() => { document.getElementById('declare-section').style.display = ''; }, 500);
   });
 
   socket.on('game_start', ({ mode }) => {
-    document.getElementById('room-status-text').textContent = 'En jeu — 1v1';
-    // Both teams can declare result
-    setTimeout(() => { document.getElementById('declare-section').style.display = ''; }, 500);
+    document.getElementById('room-status-text').textContent = 'En jeu — ' + mode;
+    if (state.isAdmin) setTimeout(() => { document.getElementById('declare-section').style.display = ''; }, 500);
   });
 
   socket.on('game_result', ({ winner, winTeam, loseTeam, mode }) => {
@@ -869,12 +874,12 @@ function setupRoom(roomId, mode, team1, team2, waiting) {
 
   // Team 1
   const t1el = document.getElementById('team1-players');
-  t1el.innerHTML = team1.map(p => `<div class="player-card"><div class="pav t1">${p.pseudo[0].toUpperCase()}</div><div><div class="pname">${p.pseudo}</div><div class="pelo">${p.elo} ELO</div></div></div>`).join('');
+  t1el.innerHTML = team1.map(p => makePlayerCard(p, 't1')).join('');
 
   // Team 2 (may be empty if waiting)
   const t2el = document.getElementById('team2-players');
   if (team2.length > 0) {
-    t2el.innerHTML = team2.map(p => `<div class="player-card"><div class="pav t2">${p.pseudo[0].toUpperCase()}</div><div><div class="pname">${p.pseudo}</div><div class="pelo">${p.elo} ELO</div></div></div>`).join('');
+    t2el.innerHTML = team2.map(p => makePlayerCard(p, 't2')).join('');
   } else {
     const slots = getTeamSize(mode);
     t2el.innerHTML = Array(slots).fill(0).map(() => `<div class="player-card ghost"><div class="pav t2">?</div><div><div class="pname">En attente…</div><div class="pelo">— ELO</div></div></div>`).join('');
@@ -899,12 +904,18 @@ function setupRoom(roomId, mode, team1, team2, waiting) {
 socket && socket.on && socket.on('room_ready', ({ roomId, mode, team1, team2, waiting }) => {
   if (!waiting && state.roomId === roomId) {
     const t2el = document.getElementById('team2-players');
-    t2el.innerHTML = team2.map(p => `<div class="player-card"><div class="pav t2">${p.pseudo[0].toUpperCase()}</div><div><div class="pname">${p.pseudo}</div><div class="pelo">${p.elo} ELO</div></div></div>`).join('');
-    document.getElementById('room-players-count').textContent = `${getTeamSize(mode)*2} / ${getTeamSize(mode)*2} joueurs`;
+    t2el.innerHTML = team2.map(p => makePlayerCard(p, 't2')).join('');
+    const total = getTeamSize(mode) * 2;
+    document.getElementById('room-players-count').textContent = `${total} / ${total} joueur${total > 1 ? 's' : ''}`;
   }
 });
 
-function renderMapGrids() {
+function makePlayerCard(p, teamClass) {
+  const avContent = p.avatar
+    ? `<img src="${p.avatar}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">`
+    : p.pseudo[0].toUpperCase();
+  return `<div class="player-card"><div class="pav ${teamClass}">${avContent}</div><div><div class="pname">${p.pseudo}</div><div class="pelo">${p.elo} ELO</div></div></div>`;
+}
   ['t1','t2'].forEach(team => {
     const grid = document.getElementById('map-grid-' + team);
     grid.innerHTML = MAPS.map(m => `<button class="map-btn" id="mapbtn-${team}-${m}" onclick="banMap('${m}')" disabled>${m}</button>`).join('');
@@ -1016,10 +1027,17 @@ function adminLeave() {
   showScreen('main');
 }
 
+function dismissAlert(roomId) {
+  const el = document.getElementById('alert-' + roomId);
+  if (el) el.remove();
+  const alerts = document.getElementById('admin-alerts');
+  if (!alerts.children.length) document.getElementById('admin-panel').classList.remove('show');
+}
+
 function adminJoinRoom(roomId) {
   if (!socket) return;
   socket.emit('admin_join_room', { roomId });
-  document.getElementById('admin-panel').classList.remove('show');
+  dismissAlert(roomId);
 }
 
 function addMsgImg(author, team, img, time) {
