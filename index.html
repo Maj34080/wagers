@@ -486,6 +486,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   <div class="admin-spec-label">👁️ MODE ADMIN — <span id="admin-spec-room"></span></div>
   <button class="btn-admin-win1" onclick="adminDecide(1)">✅ Équipe 1 gagne</button>
   <button class="btn-admin-win2" onclick="adminDecide(2)">✅ Équipe 2 gagne</button>
+  <button onclick="adminLeaveSpectator()" style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);color:#000;border-radius:8px;padding:7px 14px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Space Grotesk',sans-serif;">🚪 Quitter</button>
   <button class="btn-admin-close" onclick="adminLeave()">✕</button>
 </div>
 
@@ -714,13 +715,18 @@ function initSocket() {
     notify('🔔 Alerte admin — ROOM #' + roomId);
   });
 
-  socket.on('admin_joined_room', ({ roomId, team1, team2, mode }) => {
+  socket.on('admin_joined_room', ({ roomId, team1, team2, mode, chatHistory }) => {
     state.isSpectator = true;
     document.getElementById('admin-spectator-bar').style.display = 'flex';
     document.getElementById('admin-spec-room').textContent = 'ROOM #' + roomId;
     socket.roomId = roomId;
     setupRoom(roomId, mode, team1, team2, false);
-    // Admin spectator can decide result
+    // Charger l'historique du chat
+    if (chatHistory && chatHistory.length > 0) {
+      document.getElementById('chat-messages').innerHTML = '';
+      addMsg('Système', 'system', `📜 Historique du chat (${chatHistory.length} messages)`, null);
+      chatHistory.forEach(msg => addMsg(msg.author, msg.team, msg.text, msg.time));
+    }
     document.getElementById('declare-section').style.display = '';
   });
 
@@ -1194,6 +1200,18 @@ function dismissAlert(roomId) {
   if (!alerts.children.length) document.getElementById('admin-panel').classList.remove('show');
   // Reset spam block so user can send 1 more alert
   if (socket) socket.emit('reset_alert', { roomId });
+}
+
+function adminLeaveSpectator() {
+  // Quitter la room en spectateur sans donner de décision
+  document.getElementById('admin-spectator-bar').style.display = 'none';
+  document.getElementById('declare-section').style.display = 'none';
+  state.isSpectator = false;
+  state.roomId = null;
+  if (socket) socket.roomId = null;
+  showScreen('main');
+  showMainTab('admin');
+  notify('🚪 Vous avez quitté la room');
 }
 
 function adminJoinRoom(roomId) {

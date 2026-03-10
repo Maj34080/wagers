@@ -601,12 +601,13 @@ io.on('connection', (socket) => {
     if (!room) return socket.emit('notify_error', 'Room introuvable');
     socket.join('room_' + roomId);
     socket.adminRoomId = roomId;
-    socket.roomId = roomId; // pour que le badge [ADMIN] fonctionne dans le chat
+    socket.roomId = roomId;
     socket.emit('admin_joined_room', {
       roomId,
       mode: room.mode,
       team1: (room.teams[0] || []).map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null })),
-      team2: (room.teams[1] || []).map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null }))
+      team2: (room.teams[1] || []).map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null })),
+      chatHistory: (room.chat || [])
     });
     if (rooms[roomId]) {
       io.to('room_' + roomId).emit('chat_msg', { author: 'Système', team: 'system', text: '👁️ Un admin a rejoint la room en spectateur.' });
