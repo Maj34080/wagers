@@ -1306,6 +1306,8 @@ async function fetchLiveRooms() {
     renderLiveRooms(data);
   } catch(e) {}
 }
+
+function renderGroupMembers(players) {
   const list = document.getElementById('group-members-mini');
   if (list) list.innerHTML = '';
 
