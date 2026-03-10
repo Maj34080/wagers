@@ -519,14 +519,19 @@ io.on('connection', (socket) => {
   socket.on('admin_alert', ({ roomId, type, pseudo }) => {
     const room = rooms[roomId];
     if (!room) return;
-    // Anti-spam: one alert per user per room
     if (!room.alerts) room.alerts = new Set();
     if (room.alerts.has(socket.userId)) return;
     room.alerts.add(socket.userId);
-    // Send to all admin sockets
     io.sockets.sockets.forEach(s => {
       if (s.isAdmin) s.emit('admin_alert_received', { roomId, type, pseudo });
     });
+  });
+
+  // ── RESET ALERT (admin dismissed, user can send once more) ──
+  socket.on('reset_alert', ({ roomId }) => {
+    if (!socket.isAdmin) return;
+    const room = rooms[roomId];
+    if (room && room.alerts) room.alerts.clear();
   });
 
   // ── ADMIN JOIN ROOM ──

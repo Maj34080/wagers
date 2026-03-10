@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>WAGERS — Valorant</title>
+<title>REVENGE — Valorant</title>
 <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
@@ -37,7 +37,8 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 
 /* NAVBAR */
 .navbar{display:flex;align-items:center;justify-content:space-between;padding:0 28px;height:60px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:100;}
-.nav-logo{font-family:'Syne',sans-serif;font-weight:800;font-size:18px;letter-spacing:-0.5px;cursor:pointer;}
+.nav-logo{font-family:'Syne',sans-serif;font-weight:800;font-size:18px;letter-spacing:-0.5px;cursor:pointer;position:absolute;left:50%;transform:translateX(-50%);}
+.navbar{position:relative;}
 .nav-logo span{color:var(--accent);}
 .nav-tabs{display:flex;gap:4px;}
 .nav-tab{padding:6px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;background:none;color:var(--muted);font-family:'DM Sans',sans-serif;transition:all 0.2s;}
@@ -211,7 +212,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 
 .chat-img-btn{background:var(--surface2);border:1px solid var(--border);border-radius:9px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;flex-shrink:0;transition:all 0.2s;}
 .chat-img-btn:hover{border-color:var(--accent);}
-.chat-msg-img{max-width:100%;border-radius:8px;margin-top:4px;cursor:pointer;}
+.chat-msg-img{max-width:160px;max-height:120px;border-radius:6px;margin-top:4px;cursor:pointer;object-fit:cover;display:block;}
 .room-action-btns{display:flex;gap:6px;padding:8px 12px;border-top:1px solid var(--border);}
 .btn-report{flex:1;background:rgba(255,70,85,0.08);border:1px solid rgba(255,70,85,0.3);color:var(--accent);border-radius:8px;padding:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Syne',sans-serif;transition:all 0.2s;}
 .btn-report:hover{background:rgba(255,70,85,0.15);}
@@ -250,7 +251,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 <div id="screen-auth" class="screen active">
   <div class="auth-bg"></div>
   <div class="auth-card">
-    <div class="logo">WAGERS<span>.</span></div>
+    <div class="logo">REVENGE<span>.</span></div>
     <div class="auth-sub">Valorant — Compete. Rank. Dominate.</div>
     <div class="tabs">
       <button class="tab active" id="tab-login" onclick="switchTab('login')">Connexion</button>
@@ -275,7 +276,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 <!-- MAIN -->
 <div id="screen-main" class="screen">
   <nav class="navbar">
-    <div class="nav-logo" onclick="showMainTab('room')">WAGERS<span>.</span></div>
+    <div class="nav-logo" onclick="showMainTab('room')">REVENGE<span>.</span></div>
     <div class="nav-tabs">
       <button class="nav-tab active" id="ntab-room" onclick="showMainTab('room')">🎮 Room</button>
       <button class="nav-tab" id="ntab-lb" onclick="showMainTab('lb')">🏆 Classement</button>
@@ -350,7 +351,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 <!-- ROOM -->
 <div id="screen-room" class="screen">
   <nav class="room-navbar">
-    <div class="nav-logo">WAGERS<span>.</span></div>
+    <div class="nav-logo">REVENGE<span>.</span></div>
     <div style="display:flex;align-items:center;gap:8px;">
       <div class="status-dot" id="room-status-dot"></div>
       <span style="font-size:13px;color:var(--muted);" id="room-status-text">En attente…</span>
@@ -370,19 +371,6 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
     <div class="team-panel">
       <div class="team-label team1">⚔ Équipe 1 — Vous</div>
       <div id="team1-players"></div>
-      <div class="map-ban-section" id="map-ban-t1-section">
-        <div class="map-ban-title">Phase de ban</div>
-        <div class="ban-timer-bar"><div class="ban-timer-fill" id="ban-timer-t1"></div></div>
-        <div class="ban-banner waiting" id="ban-banner-t1">En attente de l'équipe adverse…</div>
-        <div class="map-grid" id="map-grid-t1"></div>
-      </div>
-      <div class="declare-section" id="declare-section" style="display:none;">
-        <div class="declare-title">⚖️ Décision Admin</div>
-        <div class="declare-btns">
-          <button class="btn-win" onclick="declareResult('win')">✅ Équipe 1 gagne</button>
-          <button class="btn-lose" onclick="declareResult('lose')">✅ Équipe 2 gagne</button>
-        </div>
-      </div>
     </div>
 
     <!-- CENTER -->
@@ -394,6 +382,15 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
         </div>
         <div class="room-id-badge" id="room-badge2">ROOM #——</div>
       </div>
+
+      <!-- SINGLE MAP BAN SECTION (center) -->
+      <div class="map-ban-section" id="map-ban-center-section" style="display:none;margin-bottom:10px;">
+        <div class="map-ban-title">Phase de ban</div>
+        <div class="ban-timer-bar"><div class="ban-timer-fill" id="ban-timer-t1"></div></div>
+        <div class="ban-banner waiting" id="ban-banner-t1">En attente…</div>
+        <div class="map-grid" id="map-grid-t1"></div>
+      </div>
+
       <div class="chat-box">
         <div class="chat-header">💬 Chat</div>
         <div class="chat-messages" id="chat-messages"></div>
@@ -408,18 +405,20 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
           <button class="btn-decision" onclick="requestDecision()">⚖️ Demander une décision</button>
         </div>
       </div>
+
+      <div class="declare-section" id="declare-section" style="display:none;">
+        <div class="declare-title">⚖️ Décision Admin</div>
+        <div class="declare-btns">
+          <button class="btn-win" onclick="declareResult('win')">✅ Équipe 1 gagne</button>
+          <button class="btn-lose" onclick="declareResult('lose')">✅ Équipe 2 gagne</button>
+        </div>
+      </div>
     </div>
 
     <!-- TEAM 2 -->
     <div class="team-panel">
       <div class="team-label team2">⚔ Équipe 2</div>
       <div id="team2-players"></div>
-      <div class="map-ban-section" id="map-ban-t2-section">
-        <div class="map-ban-title">Phase de ban</div>
-        <div class="ban-timer-bar"><div class="ban-timer-fill" id="ban-timer-t2"></div></div>
-        <div class="ban-banner waiting" id="ban-banner-t2">En attente de l'équipe adverse…</div>
-        <div class="map-grid" id="map-grid-t2"></div>
-      </div>
     </div>
   </div>
 </div>
@@ -714,14 +713,11 @@ function initSocket() {
 
   socket.on('map_banned', ({ team, map, remainingMaps, auto }) => {
     clearBanTimerBar();
-    const t = team === 1 ? 't1' : 't2';
     MAPS.forEach(m => {
-      ['t1','t2'].forEach(tt => {
-        const b = document.getElementById('mapbtn-' + tt + '-' + m);
-        if (b) b.disabled = true;
-      });
+      const b = document.getElementById('mapbtn-t1-' + m);
+      if (b) b.disabled = true;
     });
-    const btn = document.getElementById('mapbtn-' + t + '-' + map);
+    const btn = document.getElementById('mapbtn-t1-' + map);
     if (btn) btn.classList.add('banned');
     if (auto) notify(`⏱️ Auto-ban : ${map}`);
   });
@@ -729,15 +725,11 @@ function initSocket() {
   socket.on('map_chosen', ({ map }) => {
     clearBanTimerBar();
     MAPS.forEach(m => {
-      ['t1','t2'].forEach(t => {
-        const b = document.getElementById('mapbtn-' + t + '-' + m);
-        if (b) { b.disabled = true; if (m === map) b.classList.add('chosen'); }
-      });
+      const b = document.getElementById('mapbtn-t1-' + m);
+      if (b) { b.disabled = true; if (m === map) b.classList.add('chosen'); }
     });
-    document.getElementById('ban-banner-t1').textContent = '🗺️ Map : ' + map;
+    document.getElementById('ban-banner-t1').textContent = '🗺️ Map jouée : ' + map;
     document.getElementById('ban-banner-t1').className = 'ban-banner';
-    document.getElementById('ban-banner-t2').textContent = '🗺️ Map : ' + map;
-    document.getElementById('ban-banner-t2').className = 'ban-banner';
     document.getElementById('room-status-text').textContent = 'En jeu — ' + map;
     if (state.isAdmin && state.isSpectator) setTimeout(() => { document.getElementById('declare-section').style.display = ''; }, 500);
   });
@@ -789,25 +781,15 @@ function initSocket() {
 
 // ── BAN TIMER BAR ──
 function startBanTimerBar(seconds) {
-  clearBanTimerBar();
-  const fills = ['ban-timer-t1','ban-timer-t2'];
-  fills.forEach(id => {
-    const el = document.getElementById(id);
-    if (el) { el.style.transition = 'none'; el.style.width = '100%'; }
-  });
-  setTimeout(() => {
-    fills.forEach(id => {
-      const el = document.getElementById(id);
-      if (el) { el.style.transition = `width ${seconds}s linear`; el.style.width = '0%'; }
-    });
-  }, 50);
+  const el = document.getElementById('ban-timer-t1');
+  if (!el) return;
+  el.style.transition = 'none'; el.style.width = '100%';
+  setTimeout(() => { el.style.transition = `width ${seconds}s linear`; el.style.width = '0%'; }, 50);
 }
 
 function clearBanTimerBar() {
-  ['ban-timer-t1','ban-timer-t2'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) { el.style.transition = 'none'; el.style.width = '100%'; }
-  });
+  const el = document.getElementById('ban-timer-t1');
+  if (el) { el.style.transition = 'none'; el.style.width = '100%'; }
 }
 
 // ── AUTH ──
@@ -947,11 +929,9 @@ function setupRoom(roomId, mode, team1, team2, waiting) {
   document.getElementById('chat-messages').innerHTML = '';
 
   if (mode === '1v1' || mode === '2v2') {
-    document.getElementById('map-ban-t1-section').style.display = 'none';
-    document.getElementById('map-ban-t2-section').style.display = 'none';
+    document.getElementById('map-ban-center-section').style.display = 'none';
   } else {
-    document.getElementById('map-ban-t1-section').style.display = '';
-    document.getElementById('map-ban-t2-section').style.display = '';
+    document.getElementById('map-ban-center-section').style.display = '';
     renderMapGrids();
   }
 
@@ -977,10 +957,8 @@ function makePlayerCard(p, teamClass) {
 }
 
 function renderMapGrids() {
-  ['t1','t2'].forEach(team => {
-    const grid = document.getElementById('map-grid-' + team);
-    grid.innerHTML = MAPS.map(m => `<button class="map-btn" id="mapbtn-${team}-${m}" onclick="banMap('${m}')" disabled>${m}</button>`).join('');
-  });
+  const grid = document.getElementById('map-grid-t1');
+  if (grid) grid.innerHTML = MAPS.map(m => `<button class="map-btn" id="mapbtn-t1-${m}" onclick="banMap('${m}')" disabled>${m}</button>`).join('');
 }
 
 function updateBanPhase(teamTurn, mapsLeft) {
@@ -988,32 +966,31 @@ function updateBanPhase(teamTurn, mapsLeft) {
   const myT = state.myTeam === 1 ? 't1' : 't2';
 
   const b1 = document.getElementById('ban-banner-t1');
-  const b2 = document.getElementById('ban-banner-t2');
 
   if (teamTurn === 1) {
-    b1.textContent = state.myTeam === 1 ? '🎯 Votre tour — choisissez un ban !' : 'Équipe 1 choisit…';
-    b1.className = 'ban-banner' + (state.myTeam === 1 ? ' your-turn' : '');
-    b2.textContent = state.myTeam === 2 ? '⏳ En attente du ban équipe 1…' : 'En attente…';
-    b2.className = 'ban-banner waiting';
+    b1.textContent = state.myTeam === 1 ? '🎯 Votre tour (Équipe 1) — choisissez un ban !' : '⏳ Équipe 1 choisit un ban…';
+    b1.className = 'ban-banner' + (state.myTeam === 1 ? ' your-turn' : ' waiting');
   } else {
-    b1.textContent = state.myTeam === 1 ? '⏳ En attente du ban équipe 2…' : 'En attente…';
-    b1.className = 'ban-banner waiting';
-    b2.textContent = state.myTeam === 2 ? '🎯 Votre tour — choisissez un ban !' : 'Équipe 2 choisit…';
-    b2.className = 'ban-banner' + (state.myTeam === 2 ? ' your-turn' : '');
+    b1.textContent = state.myTeam === 2 ? '🎯 Votre tour (Équipe 2) — choisissez un ban !' : '⏳ Équipe 2 choisit un ban…';
+    b1.className = 'ban-banner' + (state.myTeam === 2 ? ' your-turn' : ' waiting');
   }
 
   if (isMyTurn) {
     MAPS.forEach(m => {
-      const b = document.getElementById('mapbtn-' + myT + '-' + m);
+      const b = document.getElementById('mapbtn-t1-' + m);
       if (b && !b.classList.contains('banned')) b.disabled = false;
+    });
+  } else {
+    MAPS.forEach(m => {
+      const b = document.getElementById('mapbtn-t1-' + m);
+      if (b && !b.classList.contains('banned')) b.disabled = true;
     });
   }
 }
 
 function banMap(map) {
   socket.emit('ban_map', { map });
-  const myT = state.myTeam === 1 ? 't1' : 't2';
-  MAPS.forEach(m => { const b = document.getElementById('mapbtn-' + myT + '-' + m); if(b) b.disabled = true; });
+  MAPS.forEach(m => { const b = document.getElementById('mapbtn-t1-' + m); if(b) b.disabled = true; });
 }
 
 function declareResult(result) {
@@ -1094,6 +1071,8 @@ function dismissAlert(roomId) {
   if (el) el.remove();
   const alerts = document.getElementById('admin-alerts');
   if (!alerts.children.length) document.getElementById('admin-panel').classList.remove('show');
+  // Reset spam block so user can send 1 more alert
+  if (socket) socket.emit('reset_alert', { roomId });
 }
 
 function adminJoinRoom(roomId) {
