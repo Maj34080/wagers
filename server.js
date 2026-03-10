@@ -13,22 +13,16 @@ const io = new Server(server, {
 });
 
 const PORT = process.env.PORT || 3000;
+const MAPS = ['Ascent', 'Bind', 'Haven', 'Icebox', 'Lotus', 'Pearl', 'Split'];
+const BAN_TIMEOUT = 15000;
+const START_COUNTDOWN = 10000;
 
 app.use(express.json());
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
+app.get('/api/leaderboard/:mode', (req, res) => res.json(db.getLeaderboard(req.params.mode)));
 
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
-});
-
-app.get('/api/leaderboard/:mode', (req, res) => {
-  const mode = req.params.mode;
-  res.json(db.getLeaderboard(mode));
-});
-
-// ─── STATE ───────────────────────────────────────
 const groups = {};
 const rooms = {};
-const MAPS = ['Ascent', 'Bind', 'Haven', 'Icebox', 'Lotus', 'Pearl', 'Split'];
 
 function generateCode(len = 6) {
   return Math.random().toString(36).substring(2, 2 + len).toUpperCase();
@@ -39,13 +33,85 @@ function getGroupBySocket(socketId) {
 }
 
 function getTeamSize(mode) {
-  if (mode === '1v1') return 1;
-  if (mode === '2v2') return 2;
-  if (mode === '5v5') return 5;
-  return 2;
+  return mode === '1v1' ? 1 : mode === '5v5' ? 5 : 2;
 }
 
-// ─── SOCKET ──────────────────────────────────────
+function getModeElo(userId, mode) {
+  const user = db.getUserById(userId);
+  return user?.stats?.[mode]?.elo || 500;
+}
+
+// ── BAN TIMER ──
+function startBanTimer(roomId) {
+  const room = rooms[roomId];
+  if (!room || room.status !== 'ban_phase') return;
+
+  clearTimeout(room.banTimer);
+  room.banTimer = setTimeout(() => {
+    const room = rooms[roomId];
+    if (!room || room.status !== 'ban_phase') return;
+
+    // Auto-ban a random remaining map
+    const remaining = MAPS.filter(m => !room.mapBans.includes(m));
+    if (remaining.length <= 1) return;
+
+    const currentTeam = room.banTurn % 2 === 0 ? 0 : 1;
+    const autoMap = remaining[Math.floor(Math.random() * remaining.length)];
+
+    room.mapBans.push(autoMap);
+    room.banTurn++;
+
+    const newRemaining = MAPS.filter(m => !room.mapBans.includes(m));
+    const teamNum = currentTeam + 1;
+
+    io.to('room_' + roomId).emit('map_banned', { team: teamNum, map: autoMap, remainingMaps: newRemaining, auto: true });
+    io.to('room_' + roomId).emit('chat_msg', { author: 'Système', team: 'system', text: `⏱️ Équipe ${teamNum} n'a pas banni — ${autoMap} auto-banni !` });
+
+    if (newRemaining.length === 1) {
+      const chosen = newRemaining[0];
+      room.chosenMap = chosen;
+      room.status = 'playing';
+      io.to('room_' + roomId).emit('map_chosen', { map: chosen });
+      io.to('room_' + roomId).emit('chat_msg', { author: 'Système', team: 'system', text: `🗺️ Map jouée : ${chosen} — GO !` });
+    } else {
+      const nextTeam = room.banTurn % 2 === 0 ? 1 : 2;
+      io.to('room_' + roomId).emit('ban_phase', { turn: room.banTurn, team: nextTeam, mapsLeft: newRemaining.length });
+      startBanTimer(roomId);
+    }
+  }, BAN_TIMEOUT);
+
+  io.to('room_' + roomId).emit('ban_timer_start', { seconds: BAN_TIMEOUT / 1000 });
+}
+
+// ── START COUNTDOWN ──
+function startRoomCountdown(roomId) {
+  const room = rooms[roomId];
+  if (!room) return;
+
+  let count = START_COUNTDOWN / 1000;
+  io.to('room_' + roomId).emit('countdown_start', { seconds: count });
+
+  const interval = setInterval(() => {
+    count--;
+    io.to('room_' + roomId).emit('countdown_tick', { seconds: count });
+    if (count <= 0) {
+      clearInterval(interval);
+      const room = rooms[roomId];
+      if (!room) return;
+
+      if (room.mode === '1v1') {
+        room.status = 'playing';
+        io.to('room_' + roomId).emit('game_start', { mode: '1v1' });
+      } else {
+        room.status = 'ban_phase';
+        io.to('room_' + roomId).emit('ban_phase', { turn: 0, team: 1, mapsLeft: MAPS.length });
+        io.to('room_' + roomId).emit('chat_msg', { author: 'Système', team: 'system', text: '🗺️ Phase de ban ! Équipe 1 commence.' });
+        startBanTimer(roomId);
+      }
+    }
+  }, 1000);
+}
+
 io.on('connection', (socket) => {
 
   // ── REGISTER ──
@@ -58,11 +124,12 @@ io.on('connection', (socket) => {
       const user = db.createUser(pseudo, hashed);
       socket.userId = user.id;
       socket.pseudo = user.pseudo;
-      socket.elo = user.elo;
-      socket.emit('auth_ok', { pseudo: user.pseudo, elo: user.elo, wins: user.wins, stats: user.stats });
-    } catch(e) {
-      socket.emit('auth_error', 'Erreur: ' + e.message);
-    }
+      socket.emit('auth_ok', {
+        pseudo: user.pseudo,
+        elo: user.stats['2v2'].elo,
+        stats: user.stats
+      });
+    } catch(e) { socket.emit('auth_error', 'Erreur: ' + e.message); }
   });
 
   // ── LOGIN ──
@@ -74,26 +141,28 @@ io.on('connection', (socket) => {
       if (!valid) return socket.emit('auth_error', 'Mot de passe incorrect');
       socket.userId = user.id;
       socket.pseudo = user.pseudo;
-      socket.elo = user.elo;
-      socket.emit('auth_ok', { pseudo: user.pseudo, elo: user.elo, wins: user.wins, stats: user.stats });
-    } catch(e) {
-      socket.emit('auth_error', 'Erreur: ' + e.message);
-    }
+      const stats = user.stats || db.defaultStats();
+      socket.emit('auth_ok', {
+        pseudo: user.pseudo,
+        elo: stats['2v2']?.elo || 500,
+        stats
+      });
+    } catch(e) { socket.emit('auth_error', 'Erreur: ' + e.message); }
   });
 
-  // ── GET PROFILE ──
+  // ── PROFILE ──
   socket.on('get_profile', ({ pseudo }) => {
     const user = db.getUserByPseudo(pseudo);
     if (!user) return socket.emit('profile_data', null);
-    const stats = user.stats || { '1v1': { wins:0, losses:0, elo:500 }, '2v2': { wins:0, losses:0, elo:500 }, '5v5': { wins:0, losses:0, elo:500 } };
-    const totalWins = Object.values(stats).reduce((a, s) => a + s.wins, 0);
-    const totalLosses = Object.values(stats).reduce((a, s) => a + s.losses, 0);
+    const stats = user.stats || db.defaultStats();
+    const totalWins = Object.values(stats).reduce((a, s) => a + (s.wins||0), 0);
+    const totalLosses = Object.values(stats).reduce((a, s) => a + (s.losses||0), 0);
     const total = totalWins + totalLosses;
     const winrate = total > 0 ? Math.round((totalWins / total) * 100) : 0;
     socket.emit('profile_data', { pseudo: user.pseudo, stats, winrate, totalWins, totalLosses });
   });
 
-  // ── CRÉER UN GROUPE ──
+  // ── CREATE GROUP ──
   socket.on('create_group', ({ mode }) => {
     const existing = getGroupBySocket(socket.id);
     if (existing) {
@@ -104,10 +173,10 @@ io.on('connection', (socket) => {
     }
 
     const code = generateCode();
-    const modeElo = (socket.userId && db.getUserById(socket.userId)?.stats?.[mode]?.elo) || 500;
+    const elo = getModeElo(socket.userId, mode);
     groups[code] = {
       mode,
-      players: [{ id: socket.userId, pseudo: socket.pseudo, elo: modeElo, socketId: socket.id }]
+      players: [{ id: socket.userId, pseudo: socket.pseudo, elo, socketId: socket.id }]
     };
     socket.groupCode = code;
     socket.groupMode = mode;
@@ -115,7 +184,7 @@ io.on('connection', (socket) => {
     socket.emit('group_created', { code, mode, players: groups[code].players.map(p => ({ pseudo: p.pseudo, elo: p.elo })) });
   });
 
-  // ── REJOINDRE UN GROUPE ──
+  // ── JOIN GROUP ──
   socket.on('join_group', ({ code }) => {
     const group = groups[code.toUpperCase()];
     if (!group) return socket.emit('group_error', 'Code invalide');
@@ -131,8 +200,8 @@ io.on('connection', (socket) => {
       else socket.leave('group_' + oldCode);
     }
 
-    const modeElo = (socket.userId && db.getUserById(socket.userId)?.stats?.[group.mode]?.elo) || 500;
-    group.players.push({ id: socket.userId, pseudo: socket.pseudo, elo: modeElo, socketId: socket.id });
+    const elo = getModeElo(socket.userId, group.mode);
+    group.players.push({ id: socket.userId, pseudo: socket.pseudo, elo, socketId: socket.id });
     socket.groupCode = code.toUpperCase();
     socket.groupMode = group.mode;
     socket.join('group_' + code.toUpperCase());
@@ -142,7 +211,7 @@ io.on('connection', (socket) => {
     socket.emit('group_joined', { code: code.toUpperCase(), players: publicPlayers, mode: group.mode });
   });
 
-  // ── CRÉER UNE ROOM ──
+  // ── CREATE ROOM ──
   socket.on('create_room', () => {
     const entry = getGroupBySocket(socket.id);
     if (!entry) return socket.emit('room_error', 'Pas dans un groupe');
@@ -150,14 +219,34 @@ io.on('connection', (socket) => {
     const teamSize = getTeamSize(group.mode);
     if (group.players.length < teamSize) return socket.emit('room_error', `Il faut ${teamSize} joueur(s) dans le groupe`);
 
-    let roomId = null;
-    let room = null;
+    // Check if already in a room
+    let existingRoom = Object.entries(rooms).find(([, r]) => r.status === 'waiting' && r.mode === group.mode);
 
-    const waiting = Object.entries(rooms).find(([, r]) => r.status === 'waiting' && r.mode === group.mode);
-    if (waiting) {
-      [roomId, room] = waiting;
+    let roomId, room;
+
+    if (existingRoom) {
+      [roomId, room] = existingRoom;
       room.teams[1] = group.players;
-      room.status = group.mode === '1v1' ? 'playing' : 'ban_phase';
+
+      // Join socket room
+      group.players.forEach(p => {
+        const s = io.sockets.sockets.get(p.socketId);
+        if (s) { s.join('room_' + roomId); s.roomId = roomId; }
+      });
+
+      // Send full room info to everyone
+      const payload = {
+        roomId,
+        mode: room.mode,
+        team1: room.teams[0].map(p => ({ pseudo: p.pseudo, elo: p.elo })),
+        team2: room.teams[1].map(p => ({ pseudo: p.pseudo, elo: p.elo })),
+        waiting: false
+      };
+      io.to('room_' + roomId).emit('room_ready', payload);
+      io.to('room_' + roomId).emit('chat_msg', { author: 'Système', team: 'system', text: '✅ 4 joueurs connectés ! Début dans 10 secondes…' });
+
+      startRoomCountdown(roomId);
+
     } else {
       roomId = 'R' + generateCode(4);
       room = {
@@ -168,43 +257,33 @@ io.on('connection', (socket) => {
         mapBans: [],
         banTurn: 0,
         status: 'waiting',
-        chosenMap: null
+        chosenMap: null,
+        banTimer: null
       };
       rooms[roomId] = room;
-    }
 
-    group.players.forEach(p => {
-      const s = io.sockets.sockets.get(p.socketId);
-      if (s) { s.join('room_' + roomId); s.roomId = roomId; }
-    });
+      group.players.forEach(p => {
+        const s = io.sockets.sockets.get(p.socketId);
+        if (s) { s.join('room_' + roomId); s.roomId = roomId; }
+      });
 
-    if (room.status === 'ban_phase' || room.status === 'playing') {
+      // Send room in waiting state — team 2 slots empty
       const payload = {
         roomId,
         mode: room.mode,
         team1: room.teams[0].map(p => ({ pseudo: p.pseudo, elo: p.elo })),
-        team2: room.teams[1].map(p => ({ pseudo: p.pseudo, elo: p.elo })),
+        team2: [],
+        waiting: true
       };
       io.to('room_' + roomId).emit('room_ready', payload);
-
-      if (room.mode === '1v1') {
-        io.to('room_' + roomId).emit('chat_msg', { author: 'Système', team: 'system', text: '🎮 Room 1v1 créée ! Bonne chance !' });
-      } else {
-        io.to('room_' + roomId).emit('chat_msg', { author: 'Système', team: 'system', text: `🎮 Room ${room.mode} créée ! Phase de ban — Équipe 1 commence.` });
-        // Ban phase: teams alternate, last map is chosen
-        // Total bans: MAPS.length - 1 = 6 bans, 1 map left
-        io.to('room_' + roomId).emit('ban_phase', { turn: 0, team: 1, mapsLeft: MAPS.length });
-      }
-    } else {
-      socket.emit('room_waiting', { roomId, mode: group.mode });
+      io.to('room_' + roomId).emit('chat_msg', { author: 'Système', team: 'system', text: '⏳ En attente d\'une équipe adverse…' });
     }
   });
 
   // ── CHAT ──
   socket.on('chat_msg', ({ text }) => {
     if (!socket.roomId) return;
-    if (!text || text.trim().length === 0) return;
-    if (text.length > 200) return;
+    if (!text || text.trim().length === 0 || text.length > 200) return;
     const room = rooms[socket.roomId];
     if (!room) return;
     const team = room.teams[0].some(p => p.id === socket.userId) ? 'team1' : 'team2';
@@ -218,13 +297,13 @@ io.on('connection', (socket) => {
     if (!socket.roomId) return;
     const room = rooms[socket.roomId];
     if (!room || room.status !== 'ban_phase') return;
-    if (!MAPS.includes(map)) return;
-    if (room.mapBans.includes(map)) return;
+    if (!MAPS.includes(map) || room.mapBans.includes(map)) return;
 
-    // Determine whose turn: alternates t1, t2, t1, t2...
     const currentTeam = room.banTurn % 2 === 0 ? 0 : 1;
     const isMyTeam = room.teams[currentTeam].some(p => p.id === socket.userId);
     if (!isMyTeam) return socket.emit('ban_error', "Ce n'est pas votre tour");
+
+    clearTimeout(room.banTimer);
 
     room.mapBans.push(map);
     room.banTurn++;
@@ -236,20 +315,19 @@ io.on('connection', (socket) => {
     io.to('room_' + socket.roomId).emit('chat_msg', { author: 'Système', team: 'system', text: `❌ Équipe ${teamNum} a banni ${map}` });
 
     if (remainingMaps.length === 1) {
-      // Last map chosen
       const chosen = remainingMaps[0];
       room.chosenMap = chosen;
       room.status = 'playing';
       io.to('room_' + socket.roomId).emit('map_chosen', { map: chosen });
       io.to('room_' + socket.roomId).emit('chat_msg', { author: 'Système', team: 'system', text: `🗺️ Map jouée : ${chosen} — GO !` });
     } else {
-      // Next team's turn
       const nextTeam = room.banTurn % 2 === 0 ? 1 : 2;
       io.to('room_' + socket.roomId).emit('ban_phase', { turn: room.banTurn, team: nextTeam, mapsLeft: remainingMaps.length });
+      startBanTimer(socket.roomId);
     }
   });
 
-  // ── RÉSULTAT ──
+  // ── RESULT ──
   socket.on('declare_result', ({ winner }) => {
     if (!socket.roomId) return;
     const room = rooms[socket.roomId];
@@ -257,6 +335,7 @@ io.on('connection', (socket) => {
     if (room.resultDeclared) return;
     room.resultDeclared = true;
     room.status = 'finished';
+    clearTimeout(room.banTimer);
 
     const winTeam = winner === 1 ? room.teams[0] : room.teams[1];
     const loseTeam = winner === 1 ? room.teams[1] : room.teams[0];
@@ -274,7 +353,7 @@ io.on('connection', (socket) => {
     setTimeout(() => { delete rooms[socket.roomId]; }, 30000);
   });
 
-  // ── DÉCONNEXION ──
+  // ── DISCONNECT ──
   socket.on('disconnect', () => {
     const groupEntry = getGroupBySocket(socket.id);
     if (groupEntry) {
@@ -286,6 +365,4 @@ io.on('connection', (socket) => {
   });
 });
 
-server.listen(PORT, () => {
-  console.log(`✅ Serveur WAGERS lancé sur http://localhost:${PORT}`);
-});
+server.listen(PORT, () => console.log(`✅ WAGERS sur http://localhost:${PORT}`));
