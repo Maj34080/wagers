@@ -831,52 +831,114 @@ function generateFakeRooms() {
 generateFakeRooms();
 setInterval(generateFakeRooms, 20 * 60 * 1000); // refresh every 20min
 
-// Friends API (stored in db)
+// Friends API (request-based)
+const DBFILE = () => process.env.NODE_ENV === 'production' ? '/tmp/db.json' : path.join(__dirname, 'db.json');
+const readDB = () => JSON.parse(require('fs').readFileSync(DBFILE(), 'utf8'));
+const writeDB = (data) => require('fs').writeFileSync(DBFILE(), JSON.stringify(data, null, 2));
+
 app.get('/api/friends/:userId', (req, res) => {
-  const dbFile = process.env.NODE_ENV === 'production' ? '/tmp/db.json' : path.join(__dirname, 'db.json');
   try {
-    const data = JSON.parse(require('fs').readFileSync(dbFile, 'utf8'));
+    const data = readDB();
     const user = data.users.find(u => u.id === req.params.userId);
-    if (!user) return res.json([]);
+    if (!user) return res.json({ friends: [], requests: [] });
     const friends = (user.friends||[]).map(fId => {
       const f = data.users.find(u => u.id === fId);
       if (!f) return null;
       const online = [...io.sockets.sockets.values()].some(s => s.userId === fId);
       return { id: f.id, pseudo: f.pseudo, avatar: f.avatar||null, online };
     }).filter(Boolean);
-    res.json(friends);
-  } catch(e) { res.json([]); }
+    const incoming = (user.friendRequests||[]).map(rId => {
+      const f = data.users.find(u => u.id === rId);
+      if (!f) return null;
+      return { id: f.id, pseudo: f.pseudo, avatar: f.avatar||null };
+    }).filter(Boolean);
+    res.json({ friends, requests: incoming });
+  } catch(e) { res.json({ friends: [], requests: [] }); }
 });
 
-app.post('/api/friends/add', (req, res) => {
+app.post('/api/friends/request', (req, res) => {
   const { userId, targetPseudo } = req.body;
-  const dbFile = process.env.NODE_ENV === 'production' ? '/tmp/db.json' : path.join(__dirname, 'db.json');
   try {
-    const data = JSON.parse(require('fs').readFileSync(dbFile, 'utf8'));
+    const data = readDB();
     const user = data.users.find(u => u.id === userId);
-    const target = data.users.find(u => u.pseudo.toLowerCase() === targetPseudo.toLowerCase());
-    if (!user || !target) return res.status(404).json({ error: 'Introuvable' });
+    const target = data.users.find(u => u.pseudo.toLowerCase() === (targetPseudo||'').toLowerCase());
+    if (!user || !target) return res.status(404).json({ error: 'Joueur introuvable' });
+    if (user.id === target.id) return res.status(400).json({ error: 'Impossible de vous ajouter vous-même' });
+    if ((user.friends||[]).includes(target.id)) return res.status(400).json({ error: 'Déjà ami' });
+    if (!target.friendRequests) target.friendRequests = [];
+    if (target.friendRequests.includes(user.id)) return res.status(400).json({ error: 'Demande déjà envoyée' });
+    target.friendRequests.push(user.id);
+    writeDB(data);
+    // Notify target if online
+    io.sockets.sockets.forEach(s => {
+      if (s.userId === target.id) s.emit('friend_request_received', { id: user.id, pseudo: user.pseudo, avatar: user.avatar||null });
+    });
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/friends/accept', (req, res) => {
+  const { userId, requesterId } = req.body;
+  try {
+    const data = readDB();
+    const user = data.users.find(u => u.id === userId);
+    const requester = data.users.find(u => u.id === requesterId);
+    if (!user || !requester) return res.status(404).json({ error: 'Introuvable' });
+    user.friendRequests = (user.friendRequests||[]).filter(id => id !== requesterId);
     if (!user.friends) user.friends = [];
-    if (!target.friends) target.friends = [];
-    if (!user.friends.includes(target.id)) user.friends.push(target.id);
-    if (!target.friends.includes(user.id)) target.friends.push(user.id);
-    require('fs').writeFileSync(dbFile, JSON.stringify(data, null, 2));
+    if (!requester.friends) requester.friends = [];
+    if (!user.friends.includes(requesterId)) user.friends.push(requesterId);
+    if (!requester.friends.includes(userId)) requester.friends.push(userId);
+    writeDB(data);
+    io.sockets.sockets.forEach(s => {
+      if (s.userId === requesterId) s.emit('friend_request_accepted', { id: user.id, pseudo: user.pseudo, avatar: user.avatar||null });
+    });
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/friends/decline', (req, res) => {
+  const { userId, requesterId } = req.body;
+  try {
+    const data = readDB();
+    const user = data.users.find(u => u.id === userId);
+    if (user) user.friendRequests = (user.friendRequests||[]).filter(id => id !== requesterId);
+    writeDB(data);
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 app.post('/api/friends/remove', (req, res) => {
   const { userId, targetId } = req.body;
-  const dbFile = process.env.NODE_ENV === 'production' ? '/tmp/db.json' : path.join(__dirname, 'db.json');
   try {
-    const data = JSON.parse(require('fs').readFileSync(dbFile, 'utf8'));
+    const data = readDB();
     const user = data.users.find(u => u.id === userId);
     const target = data.users.find(u => u.id === targetId);
     if (user) user.friends = (user.friends||[]).filter(f => f !== targetId);
     if (target) target.friends = (target.friends||[]).filter(f => f !== userId);
-    require('fs').writeFileSync(dbFile, JSON.stringify(data, null, 2));
+    writeDB(data);
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Friend messages (in-memory per session, could be persisted)
+const friendMessages = {}; // key: sortedIds joined, value: [{from, text, time}]
+app.get('/api/friends/messages/:userId/:friendId', (req, res) => {
+  const key = [req.params.userId, req.params.friendId].sort().join('_');
+  res.json(friendMessages[key] || []);
+});
+app.post('/api/friends/messages', (req, res) => {
+  const { fromId, toId, text } = req.body;
+  if (!fromId || !toId || !text) return res.status(400).json({ error: 'Manquant' });
+  const key = [fromId, toId].sort().join('_');
+  if (!friendMessages[key]) friendMessages[key] = [];
+  const msg = { from: fromId, text: text.slice(0,300), time: Date.now() };
+  friendMessages[key].push(msg);
+  // Notify recipient if online
+  io.sockets.sockets.forEach(s => {
+    if (s.userId === toId) s.emit('friend_message', { from: fromId, text: msg.text, time: msg.time });
+  });
+  res.json({ ok: true });
 });
 
 // Broadcast active rooms every 5s
