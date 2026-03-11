@@ -2980,7 +2980,7 @@ function openMutePopup(pseudo, event) {
   document.querySelector('.mute-dur-btn').classList.add('selected');
   // Position near click
   const popup = document.getElementById('admin-mute-popup');
-  popup.style.display = '';
+  popup.style.display = 'block';
   const x = Math.min(event.clientX, window.innerWidth - 250);
   const y = Math.min(event.clientY + 8, window.innerHeight - 260);
   popup.style.left = x + 'px';
@@ -3083,7 +3083,7 @@ async function loadSmurfDetection() {
         ${accs}
         <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
           ${s.accounts.filter(a => !a.banned).map(a =>
-            `<button onclick="adminBanUser('${a.id}','${a.pseudo}')" style="background:rgba(255,70,85,0.1);border:1px solid rgba(255,70,85,0.3);color:var(--accent);border-radius:8px;padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer;">🚫 Ban ${a.pseudo}</button>`
+            `<button onclick="adminBanSmurfUser('${a.pseudo}')" style="background:rgba(255,70,85,0.1);border:1px solid rgba(255,70,85,0.3);color:var(--accent);border-radius:8px;padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer;">🚫 Ban ${a.pseudo}</button>`
           ).join('')}
         </div>
       </div>`;
@@ -3098,7 +3098,19 @@ function adminBanUser(userId, pseudo) {
   fetch('/api/admin/ban', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-admin-key': ADMIN_KEY },
-    body: JSON.stringify({ userId, reason: 'Smurf détecté' })
+    body: JSON.stringify({ pseudo, reason: 'Smurf détecté' })
+  }).then(r => r.json()).then(d => {
+    if (d.ok) { notify(`🚫 ${pseudo} banni.`, { accent: 'var(--accent)' }); loadSmurfDetection(); }
+    else notify('❌ ' + (d.error || 'Erreur'));
+  });
+}
+
+function adminBanSmurfUser(pseudo) {
+  if (!confirm(`Bannir ${pseudo} ?`)) return;
+  fetch('/api/admin/ban', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-admin-key': ADMIN_KEY },
+    body: JSON.stringify({ pseudo, reason: 'Smurf détecté' })
   }).then(r => r.json()).then(d => {
     if (d.ok) { notify(`🚫 ${pseudo} banni.`, { accent: 'var(--accent)' }); loadSmurfDetection(); }
     else notify('❌ ' + (d.error || 'Erreur'));
