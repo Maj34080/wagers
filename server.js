@@ -109,9 +109,69 @@ app.post('/api/avatar', express.json({ limit: '2mb' }), (req, res) => {
   res.json({ ok: true });
 });
 
+// ── CLASSEMENT OF THE DAY ──
+let eloSnapshot = {}; // userId -> { pseudo, avatar, eloByMode }
+let cotdData = [];
+let lastSnapshotAt = Date.now();
+
+function takeEloSnapshot() {
+  try {
+    const data = readDB();
+    eloSnapshot = {};
+    (data.users||[]).filter(u => !u.banned).forEach(u => {
+      eloSnapshot[u.id] = { pseudo: u.pseudo, avatar: u.avatar||null, stats: JSON.parse(JSON.stringify(u.stats||{})) };
+    });
+    lastSnapshotAt = Date.now();
+  } catch(e) {}
+}
+function computeCotd() {
+  try {
+    const data = readDB();
+    const gains = [];
+    (data.users||[]).filter(u => !u.banned).forEach(u => {
+      const snap = eloSnapshot[u.id];
+      if (!snap) return;
+      let totalGain = 0;
+      ['1v1','2v2','3v3','5v5'].forEach(m => {
+        const cur = u.stats?.[m]?.elo || 500;
+        const prev = snap.stats?.[m]?.elo || 500;
+        totalGain += Math.max(0, cur - prev);
+      });
+      if (totalGain > 0) gains.push({ pseudo: u.pseudo, avatar: u.avatar||null, gain: totalGain });
+    });
+    cotdData = gains.sort((a,b) => b.gain - a.gain).slice(0, 10);
+  } catch(e) {}
+}
+takeEloSnapshot();
+setInterval(() => { computeCotd(); }, 60000); // recompute every minute
+setInterval(() => { takeEloSnapshot(); cotdData = []; }, 24 * 60 * 60 * 1000); // reset every 24h
+
+app.get('/api/cotd', (req, res) => {
+  computeCotd();
+  const nextReset = lastSnapshotAt + 24*60*60*1000;
+  res.json({ data: cotdData, nextReset });
+});
+
+// ── GLOBAL CHAT ──
+const globalChat = []; // { pseudo, text, time, avatar }
+const GLOBAL_CHAT_MAX = 100;
+app.get('/api/global-chat', (req, res) => res.json(globalChat.slice(-50)));
+app.post('/api/global-chat', (req, res) => {
+  const { userId, pseudo, text } = req.body;
+  if (!userId || !pseudo || !text || text.length > 200) return res.status(400).json({ error: 'Invalide' });
+  const user = db.getUserById(userId);
+  if (!user || user.banned) return res.status(403).json({ error: 'Interdit' });
+  if (user.muted) return res.status(403).json({ error: 'Mute' });
+  const msg = { pseudo, text: text.trim(), time: Date.now(), avatar: user.avatar||null };
+  globalChat.push(msg);
+  if (globalChat.length > GLOBAL_CHAT_MAX) globalChat.shift();
+  io.emit('global_chat_msg', msg);
+  res.json({ ok: true });
+});
+
 const groups = {};
 const rooms = {};
-const archivedRooms = {}; // rooms terminées, gardées 24h
+const archivedRooms = {};
 
 function resolveWeaponVote(roomId) {
   const room = rooms[roomId];
