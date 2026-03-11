@@ -2530,6 +2530,10 @@ async function loadAdminStats() {
 }
 
 function showAdminSection(sec) {
+  // Scroll admin panel to top
+  const adminTab = document.getElementById('tab-content-admin');
+  if (adminTab) adminTab.scrollTop = 0;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
   ['rooms','tickets','banned','stats','premium'].forEach(s => {
     const el = document.getElementById('admin-section-' + s);
     const btn = document.getElementById('admin-sec-' + s);
@@ -3236,9 +3240,17 @@ async function loadPremiumAdmin() {
   const list = document.getElementById('admin-premium-list');
   if (!list) return;
   try {
-    const res = await fetch('/api/leaderboard/1v1');
-    const data = await res.json();
-    const premiumUsers = (data.players || []).filter(p => p.isPremium);
+    // Fetch all 4 modes to get all users (some may not have played 1v1)
+    const [r1,r2,r3,r4] = await Promise.all([
+      fetch('/api/leaderboard/1v1').then(r=>r.json()),
+      fetch('/api/leaderboard/2v2').then(r=>r.json()),
+      fetch('/api/leaderboard/3v3').then(r=>r.json()),
+      fetch('/api/leaderboard/5v5').then(r=>r.json()),
+    ]);
+    const allPlayers = [...(r1.players||[]),...(r2.players||[]),...(r3.players||[]),...(r4.players||[])];
+    const seen = new Set();
+    const unique = allPlayers.filter(p => { if (seen.has(p.id)) return false; seen.add(p.id); return true; });
+    const premiumUsers = unique.filter(p => p.isPremium);
     if (!premiumUsers.length) {
       list.innerHTML = '<div style="color:var(--muted);text-align:center;padding:30px;">Aucun utilisateur premium</div>';
       return;
