@@ -752,6 +752,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
             <button onclick="showAdminSection('banned')" id="admin-sec-banned" class="btn-mini">🚫 Bannis</button>
             <button onclick="showAdminSection('smurfs')" id="admin-sec-smurfs" class="btn-mini" style="color:#f97316;">🕵️ Smurfs</button>
             <button onclick="showAdminSection('premium')" id="admin-sec-premium" class="btn-mini" style="color:var(--gold);">👑 Premium</button>
+            <button onclick="showAdminSection('staff')" id="admin-sec-staff" class="btn-mini" style="color:#4fd1c5;">🛡️ Staff</button>
           </div>
         </div>
 
@@ -854,6 +855,16 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
           </div>
           <div style="font-size:12px;color:var(--muted);margin-bottom:14px;">Comptes sur la même IP avec une différence d'ELO ≥ 150 points.</div>
           <div id="admin-smurf-list" style="display:flex;flex-direction:column;gap:10px;">
+            <div style="color:var(--muted);text-align:center;padding:40px;">Chargement…</div>
+          </div>
+        </div>
+
+        <div id="admin-section-staff" style="display:none;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <div style="font-weight:700;font-size:14px;">🛡️ Équipe Staff</div>
+            <button onclick="loadStaffStatus()" class="btn-mini">🔄 Actualiser</button>
+          </div>
+          <div id="admin-staff-list" style="display:flex;flex-direction:column;gap:10px;">
             <div style="color:var(--muted);text-align:center;padding:40px;">Chargement…</div>
           </div>
         </div>
@@ -1275,7 +1286,7 @@ function showMainTab(tab) {
   });
   if (tab === 'lb') { loadLeaderboard(state.lbMode); loadCotd(); }
   if (tab === 'room') { loadGlobalChat(); fetchLiveRooms(); loadTwitchLive(); }
-  if (tab === 'admin') { refreshAdminLogs(); refreshAdminTickets(); loadAdminStats(); loadPremiumAdmin(); showAdminSection('stats'); }
+  if (tab === 'admin') { refreshAdminLogs(); refreshAdminTickets(); loadAdminStats(); loadPremiumAdmin(); loadStaffStatus(); showAdminSection('stats'); }
   if (tab === 'tickets') loadMyTickets();
   if (tab === 'boutique') initBoutique();
 }
@@ -1714,6 +1725,11 @@ function initSocket() {
     document.getElementById('login-error').textContent = '';
     document.getElementById('reg-error').textContent = '';
     enterMain();
+    // Init clan lock based on premium status (after DOM is ready)
+    setTimeout(() => {
+      const lockEl = document.getElementById('clan-create-lock');
+      if (lockEl) lockEl.style.display = state.isPremium ? 'none' : 'flex';
+    }, 100);
   });
 
   socket.on('auth_error', (msg) => {
@@ -1963,6 +1979,16 @@ function initSocket() {
     updateNavPremium();
     const premBtn2 = document.getElementById('nav-premium-btn'); if (premBtn2) premBtn2.style.display = 'none';
     notify(`👑 Premium activé pour ${months} mois ! Bienvenue dans l'élite.`, { accent: 'var(--gold)', duration: 6000 });
+    // Unlock clan creation immediately
+    const lockEl = document.getElementById('clan-create-lock');
+    if (lockEl) lockEl.style.display = 'none';
+  });
+
+  socket.on('group_chat_msg', (msg) => {
+    appendGroupChatMsg(msg);
+    if (!_groupChatOpen) { _groupChatUnread++; updateGroupChatBadge(); }
+    // Sound: short blip
+    try { const a = new (window.AudioContext||window.webkitAudioContext)(); const o = a.createOscillator(); const g = a.createGain(); o.connect(g); g.connect(a.destination); o.frequency.value = 660; g.gain.setValueAtTime(0.12, a.currentTime); g.gain.exponentialRampToValueAtTime(0.001, a.currentTime + 0.15); o.start(); o.stop(a.currentTime + 0.15); } catch(e) {}
   });
 
   socket.on('muted_by_admin', ({ duration, message }) => {
@@ -1988,6 +2014,9 @@ function initSocket() {
     updateNavPremium();
     const premBtn3 = document.getElementById('nav-premium-btn'); if (premBtn3) premBtn3.style.display = '';
     notify('Premium expiré.', { duration: 4000 });
+    // Re-lock clan creation
+    const lockEl = document.getElementById('clan-create-lock');
+    if (lockEl) lockEl.style.display = 'flex';
   });
 
   socket.on('elo_window_start', ({ avgElo, createdAt }) => {
@@ -2135,6 +2164,9 @@ function initSocket() {
   });
 
   socket.on('group_updated', ({ players, mode, newCode }) => {
+    // Show/hide group chat based on group size
+    if (players && players.length >= 2) showGroupChat();
+    else hideGroupChat();
     if (newCode) {
       state.groupCode = newCode;
       const el = document.getElementById('nav-group-code');
@@ -2810,12 +2842,12 @@ function scrollAdminTop() {
 }
 
 function showAdminSection(sec) {
-  ['rooms','tickets','banned','stats','premium','smurfs'].forEach(s => {
+  ['rooms','tickets','banned','stats','premium','smurfs','staff'].forEach(s => {
     const el = document.getElementById('admin-section-' + s);
     const btn = document.getElementById('admin-sec-' + s);
     if (el) el.style.display = s === sec ? '' : 'none';
     if (btn) btn.style.color = s === sec
-      ? (s === 'premium' ? 'var(--gold)' : s === 'smurfs' ? '#f97316' : 'var(--accent)')
+      ? (s === 'premium' ? 'var(--gold)' : s === 'smurfs' ? '#f97316' : s === 'staff' ? '#4fd1c5' : 'var(--accent)')
       : '';
   });
   if (sec === 'banned') refreshBannedList();
@@ -2824,6 +2856,7 @@ function showAdminSection(sec) {
   if (sec === 'stats') loadAdminStats();
   if (sec === 'premium') loadPremiumAdmin();
   if (sec === 'smurfs') loadSmurfDetection();
+  if (sec === 'staff') loadStaffStatus();
   requestAnimationFrame(() => {
     const ms = document.getElementById('screen-main');
     if (ms) ms.scrollTop = 0;
@@ -2978,6 +3011,93 @@ function shareResult() {
       setTimeout(() => URL.revokeObjectURL(url), 3000);
     }
   }, 'image/png');
+}
+
+// ── STAFF STATUS ──
+async function loadStaffStatus() {
+  const list = document.getElementById('admin-staff-list');
+  if (!list) return;
+  list.innerHTML = '<div style="color:var(--muted);text-align:center;padding:20px;">Chargement…</div>';
+  try {
+    const r = await fetch('/api/admin/staff', { headers: { 'x-admin-key': ADMIN_KEY } });
+    const d = await r.json();
+    if (!d.staff || !d.staff.length) { list.innerHTML = '<div style="color:var(--muted);text-align:center;padding:20px;">Aucun staff configuré</div>'; return; }
+    list.innerHTML = d.staff.map(s => {
+      const dot = s.online
+        ? `<span style="width:10px;height:10px;border-radius:50%;background:var(--green);display:inline-block;box-shadow:0 0 6px var(--green);"></span>`
+        : `<span style="width:10px;height:10px;border-radius:50%;background:var(--muted);display:inline-block;"></span>`;
+      const status = s.online
+        ? `<span style="color:var(--green);font-size:12px;font-weight:700;">En ligne</span>`
+        : `<span style="color:var(--muted);font-size:12px;">Hors ligne${s.lastSeen ? ' · ' + timeSince(s.lastSeen) : ''}</span>`;
+      const avatar = s.avatar
+        ? `<img src="${s.avatar}" style="width:42px;height:42px;border-radius:50%;object-fit:cover;border:2px solid ${s.online ? 'var(--green)' : 'var(--border)'}">`
+        : `<div style="width:42px;height:42px;border-radius:50%;background:var(--surface2);border:2px solid ${s.online ? 'var(--green)' : 'var(--border)'};display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;">${s.pseudo[0].toUpperCase()}</div>`;
+      return `<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:12px;">
+        <div style="position:relative;">${avatar}<span style="position:absolute;bottom:1px;right:1px;">${dot}</span></div>
+        <div style="flex:1;">
+          <div style="font-weight:800;font-size:14px;font-family:'Space Grotesk',sans-serif;">🛡️ ${s.pseudo}</div>
+          ${status}
+        </div>
+        <div style="font-size:11px;color:var(--gold);font-weight:700;">Admin</div>
+      </div>`;
+    }).join('');
+  } catch(e) { list.innerHTML = '<div style="color:var(--accent);text-align:center;padding:20px;">Erreur</div>'; }
+}
+
+function timeSince(dateStr) {
+  const diff = Math.floor((Date.now() - new Date(dateStr)) / 1000);
+  if (diff < 60) return 'il y a ' + diff + 's';
+  if (diff < 3600) return 'il y a ' + Math.floor(diff/60) + 'min';
+  if (diff < 86400) return 'il y a ' + Math.floor(diff/3600) + 'h';
+  return 'il y a ' + Math.floor(diff/86400) + 'j';
+}
+
+// ── GROUP CHAT ──
+let _groupChatOpen = true;
+let _groupChatUnread = 0;
+
+function showGroupChat() {
+  const panel = document.getElementById('group-chat-panel');
+  if (panel) { panel.style.display = 'flex'; _groupChatUnread = 0; updateGroupChatBadge(); }
+}
+function hideGroupChat() {
+  const panel = document.getElementById('group-chat-panel');
+  if (panel) panel.style.display = 'none';
+}
+function toggleGroupChat() {
+  const body = document.getElementById('group-chat-body');
+  const icon = document.getElementById('group-chat-toggle-icon');
+  if (!body) return;
+  _groupChatOpen = !_groupChatOpen;
+  body.style.display = _groupChatOpen ? 'flex' : 'none';
+  icon.textContent = _groupChatOpen ? '▲' : '▼';
+  if (_groupChatOpen) { _groupChatUnread = 0; updateGroupChatBadge(); }
+}
+function updateGroupChatBadge() {
+  const badge = document.getElementById('group-chat-badge');
+  if (!badge) return;
+  if (_groupChatUnread > 0 && !_groupChatOpen) {
+    badge.style.display = 'flex'; badge.textContent = _groupChatUnread > 9 ? '9+' : _groupChatUnread;
+  } else { badge.style.display = 'none'; }
+}
+function appendGroupChatMsg(msg) {
+  const box = document.getElementById('group-chat-messages');
+  if (!box) return;
+  const isMe = msg.pseudo === state.pseudo;
+  const time = new Date(msg.time).toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' });
+  const div = document.createElement('div');
+  div.style.cssText = 'display:flex;flex-direction:column;gap:2px;' + (isMe ? 'align-items:flex-end;' : 'align-items:flex-start;');
+  div.innerHTML = `
+    <span style="font-size:10px;font-weight:700;color:${isMe ? 'var(--accent)' : 'var(--muted)'};">${isMe ? 'Toi' : msg.pseudo} <span style="font-weight:400;opacity:0.5;">${time}</span></span>
+    <div style="max-width:200px;background:${isMe ? 'var(--accent)' : 'rgba(255,255,255,0.07)'};color:${isMe ? '#fff' : 'var(--text)'};border-radius:${isMe ? '10px 10px 3px 10px' : '10px 10px 10px 3px'};padding:6px 10px;font-size:12px;word-break:break-word;">${msg.text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>`;
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+}
+function sendGroupChat() {
+  const input = document.getElementById('group-chat-input');
+  if (!input || !input.value.trim()) return;
+  socket.emit('group_chat_msg', { text: input.value.trim() });
+  input.value = '';
 }
 
 // ── ADMIN ELO ADJUSTMENT ──
@@ -3878,6 +3998,8 @@ function sendChat() {
 }
 
 function leaveGroup() {
+  document.getElementById('group-chat-messages').innerHTML = '';
+  hideGroupChat();
   if (!socket) return;
   socket.emit('leave_group');
   document.getElementById('group-dropdown').classList.remove('open');
@@ -4113,5 +4235,26 @@ async function loadProfileHistory(userId) {
 }
 
 </script>
+<!-- GROUP CHAT FLOATING PANEL -->
+<div id="group-chat-panel" style="display:none;position:fixed;bottom:20px;right:20px;width:300px;background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.5);z-index:400;flex-direction:column;overflow:hidden;">
+  <div style="padding:12px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;cursor:pointer;background:var(--surface2);" onclick="toggleGroupChat()">
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span style="font-size:15px;">💬</span>
+      <span style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:13px;">Chat Groupe</span>
+      <span id="group-chat-badge" style="display:none;background:var(--accent);color:#fff;border-radius:50%;width:16px;height:16px;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;"></span>
+    </div>
+    <span id="group-chat-toggle-icon" style="color:var(--muted);font-size:12px;">▲</span>
+  </div>
+  <div id="group-chat-body" style="display:flex;flex-direction:column;height:320px;">
+    <div id="group-chat-messages" style="flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:6px;"></div>
+    <div style="padding:8px;border-top:1px solid var(--border);display:flex;gap:6px;">
+      <input id="group-chat-input" placeholder="Message au groupe…" maxlength="200"
+        style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:7px 10px;color:var(--text);font-size:12px;outline:none;"
+        onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"
+        onkeydown="if(event.key==='Enter')sendGroupChat()"/>
+      <button onclick="sendGroupChat()" style="background:var(--accent);border:none;border-radius:8px;padding:7px 12px;color:#fff;font-weight:700;font-size:12px;cursor:pointer;">➤</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>

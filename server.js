@@ -18,7 +18,7 @@ const WEAPONS = ['Vandal/Phantom', 'Sheriff', 'Operator', 'Marshall', 'Ghost'];
 const WEAPON_VOTE_TIMEOUT = 10000; // 10s pour voter
 const BAN_TIMEOUT = 15000;
 const START_COUNTDOWN = 5000;
-const ADMIN_PSEUDOS = ['Karim34', 'Telech']; // ← ajoute ton pseudo ici
+const ADMIN_PSEUDOS = ['Karim34']; // ← ajoute ton pseudo ici
 
 // Check premium expiry on boot and every hour
 db.checkPremiumExpiry();
@@ -108,6 +108,24 @@ if (TWITCH_CLIENT_ID) {
 function isAdminReq(req) { return req.headers['x-admin-key'] === ADMIN_KEY; }
 // ── ADMIN: PREMIUM ──
 // Smurf detection: find IPs with 2+ accounts having ELO difference > 150
+// Staff online status
+app.get('/api/admin/staff', (req, res) => {
+  if (!isAdminReq(req)) return res.status(403).json({ error: 'Interdit' });
+  const onlineSockets = [...io.sockets.sockets.values()];
+  const staff = ADMIN_PSEUDOS.map(pseudo => {
+    const s = onlineSockets.find(s => s.pseudo === pseudo);
+    const user = (() => { try { const d = require('fs').existsSync(DBFILE()) ? JSON.parse(require('fs').readFileSync(DBFILE(),'utf8')) : {users:[]}; return d.users.find(u => u.pseudo === pseudo); } catch(e) { return null; } })();
+    return {
+      pseudo,
+      online: !!s,
+      lastSeen: s ? null : (user?.lastSeen || null),
+      avatar: user?.avatar || null
+    };
+  });
+  res.json({ staff });
+});
+
+// Group chat - socket event handled below
 // Admin ELO adjustment
 app.post('/api/admin/elo', express.json(), (req, res) => {
   if (!isAdminReq(req)) return res.status(403).json({ error: 'Interdit' });
@@ -842,6 +860,28 @@ io.on('connection', (socket) => {
     }
   });
 
+  // ── GROUP CHAT ──
+  socket.on('group_chat_msg', ({ text }) => {
+    if (!text || text.trim().length === 0 || text.length > 200) return;
+    if (socket.isMuted) return;
+    const entry = getGroupBySocket(socket.id);
+    if (!entry) return;
+    const [code, group] = entry;
+    if (group.players.length < 2) return; // need at least 2 people
+    const msg = {
+      pseudo: socket.pseudo,
+      text: text.trim(),
+      time: Date.now()
+    };
+    // Send to all group members
+    group.players.forEach(p => {
+      if (p.socketId) {
+        const s = io.sockets.sockets.get(p.socketId);
+        if (s) s.emit('group_chat_msg', msg);
+      }
+    });
+  });
+
   // ── CHAT ──
   socket.on('chat_msg', ({ text }) => {
     if (!socket.roomId) return;
@@ -1038,6 +1078,14 @@ function applyEloResult(winTeam, loseTeam, mode) {
 
   // ── DISCONNECT ──
   socket.on('disconnect', () => {
+    // Save lastSeen for staff members
+    if (socket.pseudo && ADMIN_PSEUDOS.includes(socket.pseudo)) {
+      try {
+        const data = require('fs').existsSync(DBFILE()) ? JSON.parse(require('fs').readFileSync(DBFILE(),'utf8')) : {users:[]};
+        const user = data.users.find(u => u.pseudo === socket.pseudo);
+        if (user) { user.lastSeen = new Date().toISOString(); require('fs').writeFileSync(DBFILE(), JSON.stringify(data, null, 2)); }
+      } catch(e) {}
+    }
     const groupEntry = getGroupBySocket(socket.id);
     if (groupEntry) {
       const [code, group] = groupEntry;
