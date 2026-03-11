@@ -329,6 +329,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
       <div style="display:flex;flex-direction:column;align-items:flex-start;gap:1px;">
         <span class="nav-pseudo" id="nav-pseudo" style="font-size:14px;font-weight:700;"></span>
         <span id="nav-clan-tag" style="font-size:10px;font-weight:800;color:var(--accent);letter-spacing:1px;display:none;"></span>
+        <span id="nav-rank-badge" style="font-size:11px;"></span>
       </div>
     </div>
   </nav>
@@ -752,6 +753,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
       <div style="flex:1;">
         <div class="profile-pseudo" id="profile-pseudo">—</div>
         <div class="profile-winrate" id="profile-winrate">—</div>
+        <div id="profile-rank-badge" style="margin-top:4px;"></div>
       </div>
     </div>
     <input type="file" id="avatar-upload" accept="image/*" style="display:none" onchange="uploadAvatar(event)"/>
@@ -1279,6 +1281,39 @@ function updateRoomBtn() {
 }
 
 // ── SOCKET ──
+
+// ── RANK SYSTEM ──
+const RANKS = [
+  { name: 'Non Ranké', min: 0,   max: 449,  color: '#888',    icon: '—'  },
+  { name: 'Or',        min: 450, max: 600,  color: '#f7c948', icon: '🥇' },
+  { name: 'Platine',   min: 601, max: 750,  color: '#4fd1c5', icon: '💎' },
+  { name: 'Diamond',   min: 751, max: 900,  color: '#7c6ff7', icon: '👑' },
+  { name: 'Radiant',   min: 901, max: Infinity, color: '#ff4655', icon: '⚡' },
+];
+
+function getMaxElo(stats) {
+  if (!stats) return 500;
+  return Math.max(...['1v1','2v2','3v3','5v5'].map(m => stats[m]?.elo || 0));
+}
+
+function getRank(elo) {
+  for (let i = RANKS.length - 1; i >= 0; i--) {
+    if (elo >= RANKS[i].min) return RANKS[i];
+  }
+  return RANKS[0];
+}
+
+function getRankBadge(elo, radiantPosition) {
+  const rank = getRank(elo);
+  const label = rank.name === 'Radiant' && radiantPosition ? rank.icon + ' #' + radiantPosition : rank.icon + ' ' + rank.name;
+  if (rank.name === 'Non Ranké') return '<span style="font-size:11px;color:#888;font-weight:600;">— Non Ranké</span>';
+  if (rank.name === 'Radiant') {
+    const pos = radiantPosition ? ' #' + radiantPosition : '';
+    return '<span style="font-size:11px;font-weight:800;background:linear-gradient(90deg,#ff4655,#f7c948);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">⚡ Radiant' + pos + '</span>';
+  }
+  return '<span style="font-size:11px;font-weight:800;color:' + rank.color + ';">' + label + '</span>';
+}
+
 function initSocket() {
   if (socket) return;
   socket = io({ transports: ['polling', 'websocket'] });
@@ -1585,6 +1620,9 @@ function initSocket() {
         profAv.innerHTML = `<div style="width:80px;height:80px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-weight:800;font-size:28px;">${data.pseudo[0].toUpperCase()}</div>`;
       }
     }
+    const maxEloProfile = getMaxElo(data.stats);
+    const rankBadgeHTML = getRankBadge(maxEloProfile);
+    document.getElementById('profile-rank-badge').innerHTML = rankBadgeHTML;
     document.getElementById('ptab-stats').innerHTML = ['1v1','2v2','5v5'].map(m => {
       const s = data.stats[m] || { elo:500, wins:0, losses:0 };
       return `<div class="stat-card"><div class="stat-mode">${m}</div><div class="stat-elo">${s.elo}</div><div class="stat-wl">${s.wins}V / ${s.losses}D</div></div>`;
@@ -1734,6 +1772,12 @@ function sendBrowserNotif(title, body) {
   setTimeout(() => notif.close(), 8000);
 }
 
+function updateNavRank() {
+  const maxElo = getMaxElo(state.stats);
+  const badge = document.getElementById('nav-rank-badge');
+  if (badge) badge.innerHTML = getRankBadge(maxElo, state.radiantPos || null);
+}
+
 function enterMain() {
   requestNotifPermission();
   document.getElementById('nav-pseudo').textContent = state.pseudo;
@@ -1753,6 +1797,13 @@ function enterMain() {
     av.textContent = state.pseudo[0].toUpperCase();
   }
   document.getElementById('nav-elo').textContent = state.elo;
+  updateNavRank();
+  if (getMaxElo(state.stats) >= 901 && state.userId) {
+    fetch('/api/radiant-rank/' + state.userId).then(r=>r.json()).then(d => {
+      state.radiantPos = d.position;
+      updateNavRank();
+    }).catch(()=>{});
+  }
   state.groupSize = 1;
   socket.emit('create_group', { mode: state.mode });
   updateRoomBtn();
@@ -1781,6 +1832,10 @@ async function loadLeaderboard(mode) {
 function renderLeaderboard(data) {
   const lb = document.getElementById('leaderboard-list');
   if (!data.length) { lb.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted);">Aucun joueur encore</div>'; return; }
+  // Compute radiant positions (sorted by maxElo desc)
+  const radiants = data.filter(r => getMaxElo(r.stats) >= 901).sort((a,b) => getMaxElo(b.stats) - getMaxElo(a.stats));
+  const radiantPos = {};
+  radiants.forEach((r, i) => { radiantPos[r.id] = i + 1; });
   lb.innerHTML = data.map((r, i) => {
     const rc = i===0?'gold':i===1?'silver':i===2?'bronze':'';
     const ri = i===0?'🥇':i===1?'🥈':i===2?'🥉':'#'+(i+1);
@@ -1797,7 +1852,10 @@ function renderLeaderboard(data) {
       ${avatarHTML}
       <div class="lb-name" style="flex:1;${nameStyle}">${r.pseudo}${isMe?' <span class="you-badge">toi</span>':''} ${_clansByUser[r.id] ? `<span style="font-size:10px;background:rgba(255,70,85,0.12);color:var(--accent);border-radius:4px;padding:1px 6px;font-weight:700;margin-left:3px;">[${_clansByUser[r.id]}]</span>` : ''}</div>
       <div class="lb-wins" style="font-size:12px;color:var(--muted);">${r.wins}V ${r.losses}D · ${wr}%</div>
-      <div class="lb-elo" style="${i<3?'color:'+nameColor+';':''}">${r.elo}</div>
+      <div style="text-align:right;">
+        <div class="lb-elo" style="${i<3?'color:'+nameColor+';':''}">${r.elo}</div>
+        <div style="margin-top:2px;">${getRankBadge(getMaxElo(r.stats), radiantPos[r.id])}</div>
+      </div>
     </div>`;
   }).join('');
 }
@@ -2727,7 +2785,8 @@ function makePlayerCard(p, teamClass) {
   const avContent = p.avatar
     ? `<img src="${p.avatar}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">`
     : p.pseudo[0].toUpperCase();
-  return `<div class="player-card"><div class="pav ${teamClass}">${avContent}</div><div><div class="pname">${p.pseudo}</div><div class="pelo">${p.elo} ELO</div></div></div>`;
+  const playerMaxElo = getMaxElo(p.stats);
+  return `<div class="player-card"><div class="pav ${teamClass}">${avContent}</div><div><div class="pname">${p.pseudo}</div><div class="pelo">${p.elo} ELO</div><div style="margin-top:2px;">${getRankBadge(playerMaxElo)}</div></div></div>`;
 }
 
 function renderMapGrids() {

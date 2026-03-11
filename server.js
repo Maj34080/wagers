@@ -410,8 +410,8 @@ io.on('connection', (socket) => {
       const botNum = group.players.filter(p => p.isBot).length + 1;
       group.players.push({ id: 'bot_' + Date.now(), pseudo: 'Bot' + botNum, elo: 500, socketId: null, isBot: true });
     }
-    io.to('group_' + code).emit('group_updated', { players: group.players.map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null })), mode: group.mode });
-    socket.emit('group_created', { code, mode: group.mode, players: group.players.map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null })) });
+    io.to('group_' + code).emit('group_updated', { players: group.players.map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null, stats: p.stats || null })), mode: group.mode });
+    socket.emit('group_created', { code, mode: group.mode, players: group.players.map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null, stats: p.stats || null })) });
 
     // Also create a fake opponent group and trigger room
     const oppGroupCode = generateCode();
@@ -442,8 +442,8 @@ io.on('connection', (socket) => {
     room.teams[1] = oppPlayers;
     const payload = {
       roomId, mode: room.mode,
-      team1: room.teams[0].map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null })),
-      team2: room.teams[1].map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null })),
+      team1: room.teams[0].map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null, stats: p.stats || null })),
+      team2: room.teams[1].map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null, stats: p.stats || null })),
       waiting: false
     };
     io.to('room_' + roomId).emit('room_ready', payload);
@@ -476,12 +476,12 @@ io.on('connection', (socket) => {
     groups[code] = {
       mode,
       captain: socket.userId,
-      players: [{ id: socket.userId, pseudo: socket.pseudo, elo, avatar: userRecord?.avatar || null, socketId: socket.id }]
+      players: [{ id: socket.userId, pseudo: socket.pseudo, elo, avatar: userRecord?.avatar || null, stats: userRecord?.stats || null, socketId: socket.id }]
     };
     socket.groupCode = code;
     socket.groupMode = mode;
     socket.join('group_' + code);
-    socket.emit('group_created', { code, mode, players: groups[code].players.map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null })) });
+    socket.emit('group_created', { code, mode, players: groups[code].players.map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null, stats: p.stats || null })) });
   });
 
   // ── CHANGE MODE (without kicking members) ──
@@ -514,8 +514,8 @@ io.on('connection', (socket) => {
         s.groupCode = newCode;
       }
     });
-    socket.emit('group_created', { code: newCode, mode: group.mode, players: group.players.map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null })) });
-    io.to('group_' + newCode).emit('group_updated', { players: group.players.map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null })), mode: group.mode, newCode });
+    socket.emit('group_created', { code: newCode, mode: group.mode, players: group.players.map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null, stats: p.stats || null })) });
+    io.to('group_' + newCode).emit('group_updated', { players: group.players.map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null, stats: p.stats || null })), mode: group.mode, newCode });
   });
 
   // ── JOIN GROUP ──
@@ -536,12 +536,12 @@ io.on('connection', (socket) => {
 
     const elo = getModeElo(socket.userId, group.mode);
     const userRecord = db.getUserById(socket.userId);
-    group.players.push({ id: socket.userId, pseudo: socket.pseudo, elo, avatar: userRecord?.avatar || null, socketId: socket.id });
+    group.players.push({ id: socket.userId, pseudo: socket.pseudo, elo, avatar: userRecord?.avatar || null, stats: userRecord?.stats || null, socketId: socket.id });
     socket.groupCode = code.toUpperCase();
     socket.groupMode = group.mode;
     socket.join('group_' + code.toUpperCase());
 
-    const publicPlayers = group.players.map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null }));
+    const publicPlayers = group.players.map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null, stats: p.stats || null }));
     io.to('group_' + code.toUpperCase()).emit('group_updated', { players: publicPlayers, mode: group.mode });
     socket.emit('group_joined', { code: code.toUpperCase(), players: publicPlayers, mode: group.mode });
   });
@@ -573,8 +573,8 @@ io.on('connection', (socket) => {
       const payload = {
         roomId,
         mode: room.mode,
-        team1: room.teams[0].map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null })),
-        team2: room.teams[1].map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null })),
+        team1: room.teams[0].map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null, stats: p.stats || null })),
+        team2: room.teams[1].map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null, stats: p.stats || null })),
         waiting: false
       };
       io.to('room_' + roomId).emit('room_ready', payload);
@@ -607,7 +607,7 @@ io.on('connection', (socket) => {
       const payload = {
         roomId,
         mode: room.mode,
-        team1: room.teams[0].map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null })),
+        team1: room.teams[0].map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null, stats: p.stats || null })),
         team2: [],
         waiting: true
       };
@@ -722,7 +722,7 @@ io.on('connection', (socket) => {
       const [code, group] = groupEntry;
       group.players = group.players.filter(p => p.socketId !== socket.id);
       if (group.players.length === 0) delete groups[code];
-      else io.to('group_' + code).emit('group_updated', { players: group.players.map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null })), mode: group.mode });
+      else io.to('group_' + code).emit('group_updated', { players: group.players.map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null, stats: p.stats || null })), mode: group.mode });
     }
   });
 
@@ -861,8 +861,8 @@ io.on('connection', (socket) => {
     socket.emit('admin_joined_room', {
       roomId,
       mode: room.mode,
-      team1: (room.teams[0] || []).map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null })),
-      team2: (room.teams[1] || []).map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null })),
+      team1: (room.teams[0] || []).map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null, stats: p.stats || null })),
+      team2: (room.teams[1] || []).map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null, stats: p.stats || null })),
       chatHistory: (room.chat || [])
     });
     if (rooms[roomId]) {
@@ -898,6 +898,20 @@ io.on('connection', (socket) => {
     }
     setTimeout(() => { archiveRoom(roomId); }, 30000);
   });
+});
+
+// Radiant leaderboard (sorted by best ELO across all modes)
+app.get('/api/radiant-rank/:userId', (req, res) => {
+  try {
+    const data = require('./database').getUserById ? null : null; // just use readDB
+    const { readFileSync, existsSync } = require('fs');
+    const dbFile = process.env.NODE_ENV === 'production' ? '/tmp/db.json' : './db.json';
+    const db = JSON.parse(readFileSync(dbFile, 'utf8'));
+    const getMax = u => Math.max(...['1v1','2v2','3v3','5v5'].map(m => u.stats?.[m]?.elo || 0));
+    const radiants = db.users.filter(u => !u.banned && getMax(u) >= 901).sort((a,b) => getMax(b) - getMax(a));
+    const pos = radiants.findIndex(u => u.id === req.params.userId);
+    res.json({ position: pos >= 0 ? pos + 1 : null, total: radiants.length });
+  } catch(e) { res.json({ position: null, total: 0 }); }
 });
 
 // Match history API
