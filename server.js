@@ -18,7 +18,7 @@ const WEAPONS = ['Vandal/Phantom', 'Sheriff', 'Operator', 'Marshall', 'Ghost'];
 const WEAPON_VOTE_TIMEOUT = 10000; // 10s pour voter
 const BAN_TIMEOUT = 15000;
 const START_COUNTDOWN = 5000;
-const ADMIN_PSEUDOS = ['Karim34', 'Teleph']; // ← ajoute ton pseudo ici
+const ADMIN_PSEUDOS = ['Karim34']; // ← ajoute ton pseudo ici
 
 app.use(express.json());
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
@@ -440,10 +440,14 @@ io.on('connection', (socket) => {
     });
 
     room.teams[1] = oppPlayers;
+    const botCap1 = room.teams[0].find(p => !p.isBot);
+    room.captains = [botCap1?.id || null, null]; // no cap2 since all bots
+    room.votes = {};
     const payload = {
       roomId, mode: room.mode,
       team1: room.teams[0].map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null, stats: p.stats || null })),
       team2: room.teams[1].map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null, stats: p.stats || null })),
+      captains: [botCap1?.pseudo || null, null],
       waiting: false
     };
     io.to('room_' + roomId).emit('room_ready', payload);
@@ -574,12 +578,18 @@ io.on('connection', (socket) => {
         if (s) { s.join('room_' + roomId); s.roomId = roomId; }
       });
 
+      // Store captains (first real player of each team)
+      const cap1 = room.teams[0].find(p => !p.isBot);
+      const cap2 = room.teams[1].find(p => !p.isBot);
+      room.captains = [cap1?.id || null, cap2?.id || null];
+      room.votes = {};
       // Send full room info to everyone
       const payload = {
         roomId,
         mode: room.mode,
         team1: room.teams[0].map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null, stats: p.stats || null })),
         team2: room.teams[1].map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null, stats: p.stats || null })),
+        captains: [cap1?.pseudo || null, cap2?.pseudo || null],
         waiting: false
       };
       io.to('room_' + roomId).emit('room_ready', payload);
@@ -608,12 +618,17 @@ io.on('connection', (socket) => {
         if (s) { s.join('room_' + roomId); s.roomId = roomId; }
       });
 
+      // Store captain of team 1 (team 2 captain set when they join)
+      const cap1 = room.teams[0].find(p => !p.isBot);
+      room.captains = [cap1?.id || null, null];
+      room.votes = {};
       // Send room in waiting state — team 2 slots empty
       const payload = {
         roomId,
         mode: room.mode,
         team1: room.teams[0].map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null, stats: p.stats || null })),
         team2: [],
+        captains: [cap1?.pseudo || null, null],
         waiting: true
       };
       io.to('room_' + roomId).emit('room_ready', payload);
@@ -728,6 +743,58 @@ function applyEloResult(winTeam, loseTeam, mode) {
   });
   return eloChanges;
 }
+  // ── CAPTAIN VOTE ──
+  socket.on('vote_result', ({ myTeamWon }) => {
+    if (!socket.roomId) return;
+    const room = rooms[socket.roomId];
+    if (!room || room.status !== 'playing') return;
+    if (room.resultDeclared) return;
+    // Check if this socket is a captain
+    const capIndex = (room.captains || []).indexOf(socket.userId);
+    if (capIndex === -1) return;
+    // Store vote: true = my team won
+    room.votes = room.votes || {};
+    room.votes[socket.userId] = myTeamWon;
+    // Notify room that captain voted
+    const teamLabel = capIndex === 0 ? 'Équipe 1' : 'Équipe 2';
+    io.to('room_' + socket.roomId).emit('chat_msg', { author: 'Système', team: 'system', text: `⚖️ Le capitaine de l'${teamLabel} a voté.` });
+    // Check if both captains voted
+    const cap1 = room.captains[0], cap2 = room.captains[1];
+    if (cap1 && cap2 && room.votes[cap1] !== undefined && room.votes[cap2] !== undefined) {
+      const cap1Won = room.votes[cap1]; // cap1 thinks team1 won
+      const cap2Won = room.votes[cap2]; // cap2 thinks team2 won
+      // Agreement: cap1 says his team won AND cap2 says his team lost (cap2Won=false means team2 lost)
+      // OR cap1 says his team lost AND cap2 says his team won
+      const agreed = (cap1Won === true && cap2Won === false) || (cap1Won === false && cap2Won === true);
+      if (agreed) {
+        const winner = cap1Won ? 1 : 2;
+        room.resultDeclared = true;
+        room.status = 'finished';
+        const winTeam = winner === 1 ? room.teams[0] : room.teams[1];
+        const loseTeam = winner === 1 ? room.teams[1] : room.teams[0];
+        const eloChanges = applyEloResult(winTeam, loseTeam, room.mode);
+        computeCotd();
+        io.to('room_' + socket.roomId).emit('game_result', {
+          winner,
+          winTeam: winTeam.map(p => p.pseudo),
+          loseTeam: loseTeam.map(p => p.pseudo),
+          mode: room.mode,
+          eloChanges
+        });
+        setTimeout(() => { archiveRoom(socket.roomId); }, 30000);
+      } else {
+        // Disagreement — alert admins
+        room.votes = {}; // reset votes
+        io.to('room_' + socket.roomId).emit('chat_msg', { author: 'Système', team: 'system', text: "❌ Les capitaines ne sont pas d'accord. Appelez un staff via le bouton \"Demander une décision\"." });
+        io.to('room_' + socket.roomId).emit('vote_conflict');
+        // Alert admins
+        io.sockets.sockets.forEach(s => {
+          if (s.isAdmin) s.emit('admin_alert_received', { roomId: socket.roomId, type: 'conflict', pseudo: 'Conflit de vote' });
+        });
+      }
+    }
+  });
+
   // ── RESULT ──
   socket.on('declare_result', ({ winner }) => {
     if (!socket.roomId) return;

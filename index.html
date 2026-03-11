@@ -727,6 +727,16 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
         </div>
       </div>
 
+      <!-- Captain vote section -->
+      <div id="captain-vote-section" style="display:none;margin-top:12px;background:rgba(255,209,102,0.07);border:1px solid rgba(255,209,102,0.2);border-radius:14px;padding:14px 18px;text-align:center;">
+        <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:13px;color:var(--gold);margin-bottom:10px;">⚖️ Vote du capitaine — Qui a gagné ?</div>
+        <div style="display:flex;gap:10px;justify-content:center;">
+          <button onclick="voteResult(true)" style="background:rgba(46,204,113,0.15);border:1px solid #2ecc71;color:#2ecc71;border-radius:10px;padding:9px 18px;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:13px;cursor:pointer;">✅ Mon équipe a gagné</button>
+          <button onclick="voteResult(false)" style="background:rgba(255,70,85,0.1);border:1px solid rgba(255,70,85,0.4);color:var(--accent);border-radius:10px;padding:9px 18px;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:13px;cursor:pointer;">❌ Mon équipe a perdu</button>
+        </div>
+        <div id="captain-vote-status" style="font-size:12px;color:var(--muted);margin-top:8px;min-height:16px;"></div>
+      </div>
+      <!-- Admin declare section -->
       <div class="declare-section" id="declare-section" style="display:none;">
         <div class="declare-title">⚖️ Décision Admin</div>
         <div class="declare-btns">
@@ -887,7 +897,7 @@ const MAP_IMGS = {
   'Split':  'https://media.valorant-api.com/maps/d960549e-485c-e861-8d71-aa9d1aebe674/splash.png',
 };
 let socket = null;
-let state = { pseudo:'', elo:500, stats:{}, isAdmin:false, isSpectator:false, avatar:null, userId:null, groupCode:null, roomId:null, myTeam:null, mode:'2v2', lbMode:'1v1', groupSize:0, clanId:null };
+let state = { pseudo:'', elo:500, stats:{}, isAdmin:false, isSpectator:false, avatar:null, userId:null, groupCode:null, roomId:null, myTeam:null, mode:'2v2', lbMode:'1v1', groupSize:0, clanId:null, isCaptain:false };
 // Restore only mode preference across F5, NOT elo (always comes from server)
 try {
   const savedMode = localStorage.getItem('rv_mode');
@@ -1372,7 +1382,10 @@ function initSocket() {
 
   socket.on('group_error', (msg) => notify('❌ ' + msg));
 
-  socket.on('room_ready', ({ roomId, mode, team1, team2, waiting }) => {
+  socket.on('room_ready', ({ roomId, mode, team1, team2, waiting, captains }) => {
+    // Check if this player is a captain
+    const myTeamTmp = team1.some(p => p.pseudo === state.pseudo) ? 1 : 2;
+    state.isCaptain = captains && captains[myTeamTmp - 1] === state.pseudo;
     if (!waiting && state.roomId === roomId) {
       // Mise à jour équipe 2 qui vient de rejoindre
       const t2el = document.getElementById('team2-players');
@@ -1576,11 +1589,23 @@ function initSocket() {
     addMsg('Système', 'system', `🗺️ Map jouée : ${map} — Bonne chance !`, null);
     document.getElementById('room-status-text').textContent = 'En jeu — ' + map;
     if (state.isAdmin && state.isSpectator) setTimeout(() => { document.getElementById('declare-section').style.display = ''; }, 500);
+    if (state.isCaptain && !state.isSpectator) setTimeout(() => { const v = document.getElementById('captain-vote-section'); if (v) { v.style.display = ''; const btns = v.querySelectorAll('button'); btns.forEach(b => b.disabled = false); } }, 500);
+  });
+
+  socket.on('vote_conflict', () => {
+    const status = document.getElementById('captain-vote-status');
+    if (status) status.textContent = '';
+    const voteSection = document.getElementById('captain-vote-section');
+    if (voteSection && state.isCaptain) {
+      voteSection.style.display = '';
+      notify('❌ Les capitaines ne sont pas d\'accord — revotez ou appelez un staff !', { accent: 'var(--accent)', duration: 6000 });
+    }
   });
 
   socket.on('game_start', ({ mode }) => {
     document.getElementById('room-status-text').textContent = 'En jeu — ' + mode;
     if (state.isAdmin && state.isSpectator) setTimeout(() => { document.getElementById('declare-section').style.display = ''; }, 500);
+    if (state.isCaptain && !state.isSpectator) setTimeout(() => { const v = document.getElementById('captain-vote-section'); if (v) { v.style.display = ''; const btns = v.querySelectorAll('button'); btns.forEach(b => b.disabled = false); } }, 500);
   });
 
   socket.on('game_result', ({ winner, winTeam, loseTeam, mode, draw, eloChanges }) => {
@@ -1604,6 +1629,8 @@ function initSocket() {
       document.getElementById('nav-elo').textContent = state.elo;
       updateNavRank();
     }
+    const voteSection = document.getElementById('captain-vote-section');
+    if (voteSection) voteSection.style.display = 'none';
     document.getElementById('result-overlay').classList.add('show');
     setTimeout(() => {
       if (document.getElementById('result-overlay').classList.contains('show')) backToLobby();
@@ -2840,6 +2867,15 @@ function banMap(map) {
   MAPS.forEach(m => { const b = document.getElementById('mapbtn-t1-' + m); if(b) b.disabled = true; });
 }
 
+function voteResult(myTeamWon) {
+  socket.emit('vote_result', { myTeamWon });
+  const status = document.getElementById('captain-vote-status');
+  if (status) status.textContent = myTeamWon ? '✅ Vote enregistré : votre équipe a gagné' : '✅ Vote enregistré : votre équipe a perdu';
+  // Disable buttons after vote
+  const btns = document.querySelectorAll('#captain-vote-section button');
+  btns.forEach(b => b.disabled = true);
+}
+
 function declareResult(result) {
   // Convert win/lose to winner team number based on myTeam
   const winner = result === 'win' ? state.myTeam : (state.myTeam === 1 ? 2 : 1);
@@ -3021,6 +3057,12 @@ function closeProfile() {
 
 async function backToLobby() {
   document.getElementById('result-overlay').classList.remove('show');
+  const voteSection = document.getElementById('captain-vote-section');
+  if (voteSection) { voteSection.style.display = 'none'; }
+  // Re-enable vote buttons for next game
+  const btns = document.querySelectorAll('#captain-vote-section button');
+  btns.forEach(b => b.disabled = false);
+  state.isCaptain = false;
   document.getElementById('nav-elo').textContent = state.elo;
   state.roomId = null; state.myTeam = null; state.isSpectator = false;
   document.getElementById('declare-section').style.display = 'none';
