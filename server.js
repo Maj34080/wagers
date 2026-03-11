@@ -701,8 +701,8 @@ io.on('connection', (socket) => {
     const winTeam = winner === 1 ? room.teams[0] : room.teams[1];
     const loseTeam = winner === 1 ? room.teams[1] : room.teams[0];
 
-    winTeam.forEach(p => db.updateUserElo(p.id, +20, true, room.mode));
-    loseTeam.forEach(p => db.updateUserElo(p.id, -20, false, room.mode));
+    winTeam.forEach(p => db.updateUserElo(p.id, +20, true, room.mode, loseTeam, winTeam, false));
+    loseTeam.forEach(p => db.updateUserElo(p.id, -20, false, room.mode, winTeam, loseTeam, false));
     computeCotd();
 
     io.to('room_' + socket.roomId).emit('game_result', {
@@ -880,19 +880,33 @@ io.on('connection', (socket) => {
     clearTimeout(room.banTimer);
     if (winner === 0) {
       // Draw — no ELO change
+      // Record draw in match history for all players
+      const allPlayers = [...(room.teams[0] || []), ...(room.teams[1] || [])];
+      (room.teams[0] || []).filter(p => !p.isBot).forEach(p => db.updateUserElo(p.id, 0, false, room.mode, room.teams[1], room.teams[0], true));
+      (room.teams[1] || []).filter(p => !p.isBot).forEach(p => db.updateUserElo(p.id, 0, false, room.mode, room.teams[0], room.teams[1], true));
+      computeCotd();
       io.to('room_' + roomId).emit('chat_msg', { author: 'Système', team: 'system', text: '⚖️ Décision admin : Égalité — aucun ELO modifié.' });
       io.to('room_' + roomId).emit('game_result', { winner: 0, winTeam: [], loseTeam: [], mode: room.mode, draw: true });
     } else {
       const winTeam = winner === 1 ? room.teams[0] : room.teams[1];
       const loseTeam = winner === 1 ? room.teams[1] : room.teams[0];
-      winTeam.filter(p => !p.isBot).forEach(p => db.updateUserElo(p.id, +20, true, room.mode));
-      loseTeam.filter(p => !p.isBot).forEach(p => db.updateUserElo(p.id, -20, false, room.mode));
+      winTeam.filter(p => !p.isBot).forEach(p => db.updateUserElo(p.id, +20, true, room.mode, loseTeam, winTeam, false));
+      loseTeam.filter(p => !p.isBot).forEach(p => db.updateUserElo(p.id, -20, false, room.mode, winTeam, loseTeam, false));
       computeCotd();
       io.to('room_' + roomId).emit('chat_msg', { author: 'Système', team: 'system', text: `⚖️ Décision admin : Équipe ${winner} gagne !` });
       io.to('room_' + roomId).emit('game_result', { winner, winTeam: winTeam.map(p => p.pseudo), loseTeam: loseTeam.map(p => p.pseudo), mode: room.mode });
     }
     setTimeout(() => { archiveRoom(roomId); }, 30000);
   });
+});
+
+// Match history API
+app.get('/api/match-history/:userId', (req, res) => {
+  try {
+    const data = require('./database_v4').getUserById(req.params.userId);
+    if (!data) return res.json([]);
+    res.json((data.matchHistory || []).slice(0, 20));
+  } catch(e) { res.json([]); }
 });
 
 server.listen(PORT, () => console.log(`✅ WAGERS sur http://localhost:${PORT}`));

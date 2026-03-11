@@ -745,14 +745,24 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
     <button class="modal-close" onclick="closeProfile()">✕</button>
     <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;">
       <div id="profile-avatar"></div>
-      <div>
+      <div style="flex:1;">
         <div class="profile-pseudo" id="profile-pseudo">—</div>
         <div class="profile-winrate" id="profile-winrate">—</div>
       </div>
     </div>
     <input type="file" id="avatar-upload" accept="image/*" style="display:none" onchange="uploadAvatar(event)"/>
     <button class="btn-mini" style="width:100%;margin-bottom:16px;" onclick="document.getElementById('avatar-upload').click()">🖼️ Changer la photo de profil</button>
-    <div class="profile-stats" id="profile-stats"></div>
+    <!-- Tabs -->
+    <div style="display:flex;gap:4px;margin-bottom:14px;background:rgba(255,255,255,0.04);border-radius:10px;padding:4px;">
+      <button id="ptab-stats-btn" onclick="switchProfileTab('stats')" style="flex:1;padding:8px;border:none;border-radius:7px;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:13px;cursor:pointer;background:var(--accent);color:#fff;transition:all 0.2s;">📊 Stats</button>
+      <button id="ptab-history-btn" onclick="switchProfileTab('history')" style="flex:1;padding:8px;border:none;border-radius:7px;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:13px;cursor:pointer;background:none;color:var(--muted);transition:all 0.2s;">🕹️ Historique</button>
+    </div>
+    <!-- Stats tab -->
+    <div id="ptab-stats" class="profile-stats" id="profile-stats"></div>
+    <!-- History tab -->
+    <div id="ptab-history" style="display:none;">
+      <div id="profile-history-list" style="display:flex;flex-direction:column;gap:8px;max-height:320px;overflow-y:auto;"></div>
+    </div>
   </div>
 </div>
 
@@ -1557,11 +1567,13 @@ function initSocket() {
         profAv.innerHTML = `<div style="width:80px;height:80px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-weight:800;font-size:28px;">${data.pseudo[0].toUpperCase()}</div>`;
       }
     }
-    document.getElementById('profile-stats').innerHTML = ['1v1','2v2','5v5'].map(m => {
+    document.getElementById('ptab-stats').innerHTML = ['1v1','2v2','5v5'].map(m => {
       const s = data.stats[m] || { elo:500, wins:0, losses:0 };
       return `<div class="stat-card"><div class="stat-mode">${m}</div><div class="stat-elo">${s.elo}</div><div class="stat-wl">${s.wins}V / ${s.losses}D</div></div>`;
     }).join('');
     document.getElementById('profile-modal').classList.add('show');
+    switchProfileTab('stats');
+    loadProfileHistory(state.userId);
   });
 
   socket.on('ban_error', (msg) => notify('❌ ' + msg));
@@ -2903,6 +2915,61 @@ async function backToLobby() {
   if (adminBtn) { adminBtn.textContent = '🤖 Admin — Lancer avec des Bots'; adminBtn.disabled = false; }
   showScreen('main');
 }
+function switchProfileTab(tab) {
+  const isStats = tab === 'stats';
+  document.getElementById('ptab-stats').style.display = isStats ? '' : 'none';
+  document.getElementById('ptab-history').style.display = isStats ? 'none' : '';
+  document.getElementById('ptab-stats-btn').style.background = isStats ? 'var(--accent)' : 'none';
+  document.getElementById('ptab-stats-btn').style.color = isStats ? '#fff' : 'var(--muted)';
+  document.getElementById('ptab-history-btn').style.background = isStats ? 'none' : 'var(--accent)';
+  document.getElementById('ptab-history-btn').style.color = isStats ? 'var(--muted)' : '#fff';
+}
+
+async function loadProfileHistory(userId) {
+  const list = document.getElementById('profile-history-list');
+  if (!list) return;
+  list.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:20px;">Chargement…</div>';
+  try {
+    const r = await fetch('/api/match-history/' + userId);
+    const history = await r.json();
+    if (!history.length) {
+      list.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:30px;">Aucune partie jouée pour le moment</div>';
+      return;
+    }
+    list.innerHTML = history.map(m => {
+      const isWin = m.result === 'win';
+      const isDraw = m.result === 'draw';
+      const color = isDraw ? '#ffd166' : isWin ? '#2ecc71' : '#ff4655';
+      const bg = isDraw ? 'rgba(255,209,102,0.07)' : isWin ? 'rgba(46,204,113,0.07)' : 'rgba(255,70,85,0.07)';
+      const border = isDraw ? 'rgba(255,209,102,0.2)' : isWin ? 'rgba(46,204,113,0.2)' : 'rgba(255,70,85,0.2)';
+      const label = isDraw ? 'ÉGALITÉ' : isWin ? 'VICTOIRE' : 'DÉFAITE';
+      const eloStr = isDraw ? '±0' : (m.eloChange > 0 ? '+' + m.eloChange : m.eloChange);
+      const date = new Date(m.date);
+      const dateStr = date.toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit' }) + ' ' + date.toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' });
+      const opponents = m.opponents && m.opponents.length ? 'vs ' + m.opponents.join(', ') : '';
+      const teammates = m.teammates && m.teammates.length ? '+ ' + m.teammates.join(', ') : '';
+      return '<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:' + bg + ';border:1px solid ' + border + ';border-radius:12px;">' +
+        '<div style="width:6px;height:44px;border-radius:3px;background:' + color + ';flex-shrink:0;"></div>' +
+        '<div style="flex:1;min-width:0;">' +
+          '<div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;">' +
+            '<span style="font-family:Space Grotesk,sans-serif;font-weight:800;font-size:12px;color:' + color + ';">' + label + '</span>' +
+            '<span style="background:rgba(255,255,255,0.07);border-radius:5px;padding:1px 7px;font-size:11px;font-weight:700;font-family:Space Grotesk,sans-serif;">' + m.mode + '</span>' +
+          '</div>' +
+          (opponents ? '<div style="font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + opponents + '</div>' : '') +
+          (teammates ? '<div style="font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + teammates + '</div>' : '') +
+        '</div>' +
+        '<div style="text-align:right;flex-shrink:0;">' +
+          '<div style="font-family:Space Grotesk,sans-serif;font-weight:800;font-size:14px;color:' + color + ';">' + eloStr + ' ELO</div>' +
+          '<div style="font-size:10px;color:var(--muted);">' + m.eloAfter + ' total</div>' +
+          '<div style="font-size:10px;color:var(--muted);margin-top:2px;">' + dateStr + '</div>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+  } catch(e) {
+    list.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:20px;">Erreur de chargement</div>';
+  }
+}
+
 </script>
 </body>
 </html>

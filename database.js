@@ -67,15 +67,30 @@ function getIpAccounts(ip) {
   return loadDB().users.filter(u => u.ip === ip);
 }
 
-function updateUserElo(id, eloChange, won, mode) {
+function updateUserElo(id, eloChange, won, mode, opponents, teammates, draw) {
   const db = loadDB();
   const user = db.users.find(u => u.id === id);
   if (user) {
     if (!user.stats) user.stats = defaultStats();
     if (!user.stats[mode]) user.stats[mode] = { wins: 0, losses: 0, elo: 500 };
-    user.stats[mode].elo = Math.max(0, user.stats[mode].elo + eloChange);
-    if (won) user.stats[mode].wins++;
-    else user.stats[mode].losses++;
+    const eloBefore = user.stats[mode].elo;
+    user.stats[mode].elo = Math.max(0, eloBefore + eloChange);
+    if (!draw) {
+      if (won) user.stats[mode].wins++;
+      else user.stats[mode].losses++;
+    }
+    if (!user.matchHistory) user.matchHistory = [];
+    user.matchHistory.unshift({
+      date: new Date().toISOString(),
+      mode,
+      result: draw ? 'draw' : (won ? 'win' : 'loss'),
+      eloChange,
+      eloBefore,
+      eloAfter: user.stats[mode].elo,
+      opponents: (opponents || []).map(p => p.pseudo),
+      teammates: (teammates || []).map(p => p.pseudo).filter(p => p !== user.pseudo)
+    });
+    if (user.matchHistory.length > 20) user.matchHistory = user.matchHistory.slice(0, 20);
     saveDB(db);
   }
   return user;
