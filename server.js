@@ -37,6 +37,17 @@ app.get('/api/profile/:pseudo', (req, res) => {
 const ADMIN_KEY = process.env.ADMIN_KEY || 'revenge_admin_secret';
 function isAdminReq(req) { return req.headers['x-admin-key'] === ADMIN_KEY; }
 // ── ADMIN: PREMIUM ──
+app.get('/api/admin/all-users', (req, res) => {
+  if (!isAdminReq(req)) return res.status(403).json({ error: 'Interdit' });
+  const { loadDB } = require('./database');
+  // read directly
+  const data = (() => { try { return require('fs').existsSync(DBFILE()) ? JSON.parse(require('fs').readFileSync(DBFILE(),'utf8')) : {users:[]}; } catch(e) { return {users:[]}; } })();
+  const users = (data.users || []).map(u => ({
+    id: u.id, pseudo: u.pseudo, isPremium: !!u.isPremium, premiumUntil: u.premiumUntil || null, banned: !!u.banned
+  }));
+  res.json({ users });
+});
+
 app.get('/api/admin/find-user', (req, res) => {
   if (!isAdminReq(req)) return res.status(403).json({ error: 'Interdit' });
   const pseudo = req.query.pseudo;
