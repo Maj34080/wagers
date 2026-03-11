@@ -1065,7 +1065,64 @@ setInterval(() => {
 app.get('/api/active-rooms', (req, res) => res.json(getActiveRoomsPayload()));
 
 // ═══════════════════════════════════════════════
-// ── CLAN SYSTEM ──
+// ── ADMIN STATS ──
+app.get('/api/admin/stats', (req, res) => {
+  if (req.headers['x-admin-key'] !== (process.env.ADMIN_KEY || 'revenge_admin_secret')) return res.status(403).json({ error: 'Non autorisé' });
+  try {
+    const data = readDB();
+    const users = data.users || [];
+    const clans = data.clans || [];
+
+    // Online count
+    const onlineCount = [...io.sockets.sockets.values()].filter(s => s.userId).length;
+
+    // Total matches = sum of all wins across all users/modes (each match = 1 win)
+    let totalMatches = 0;
+    const modeMatches = { '1v1': 0, '2v2': 0, '3v3': 0, '5v5': 0 };
+    users.forEach(u => {
+      ['1v1','2v2','3v3','5v5'].forEach(m => {
+        const w = u.stats?.[m]?.wins || 0;
+        totalMatches += w;
+        modeMatches[m] += w;
+      });
+    });
+
+    // Today registrations
+    const todayStart = new Date(); todayStart.setHours(0,0,0,0);
+    const todayUsers = users.filter(u => u.createdAt && new Date(u.createdAt) >= todayStart).length;
+    const weekStart = new Date(Date.now() - 7*24*3600*1000);
+    const weekUsers = users.filter(u => u.createdAt && new Date(u.createdAt) >= weekStart).length;
+
+    // Top players by max elo
+    const topPlayers = users
+      .filter(u => !u.banned)
+      .map(u => {
+        const maxElo = Math.max(...['1v1','2v2','3v3','5v5'].map(m => u.stats?.[m]?.elo || 500));
+        const totalWins = ['1v1','2v2','3v3','5v5'].reduce((s,m) => s + (u.stats?.[m]?.wins||0), 0);
+        return { pseudo: u.pseudo, avatar: u.avatar||null, maxElo, totalWins };
+      })
+      .sort((a,b) => b.maxElo - a.maxElo).slice(0, 5);
+
+    // Recent registrations
+    const recentUsers = [...users]
+      .sort((a,b) => new Date(b.createdAt||0) - new Date(a.createdAt||0))
+      .slice(0, 6)
+      .map(u => ({ pseudo: u.pseudo, avatar: u.avatar||null, createdAt: u.createdAt, banned: !!u.banned }));
+
+    // Moderation
+    const bannedCount = users.filter(u => u.banned).length;
+    const mutedCount = users.filter(u => u.muted && !u.banned).length;
+    const openTickets = (data.tickets||[]).filter(t => t.status === 'open').length;
+
+    res.json({
+      totalUsers: users.length, todayUsers, weekUsers, onlineCount,
+      totalMatches, modeMatches, totalClans: clans.length,
+      topPlayers, recentUsers, bannedCount, mutedCount, openTickets
+    });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+
 // ═══════════════════════════════════════════════
 
 // GET clan info

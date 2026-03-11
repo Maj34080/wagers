@@ -555,17 +555,73 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 
     <!-- ADMIN TAB -->
     <div class="room-tab-content" id="tab-content-admin">
-      <div style="max-width:700px;margin:0 auto;">
+      <div style="max-width:900px;margin:0 auto;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
           <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:20px;">🔐 Panel Admin</div>
           <div style="display:flex;gap:8px;">
-            <button onclick="showAdminSection('rooms')" id="admin-sec-rooms" class="btn-mini" style="color:var(--accent);">🕹️ Rooms</button>
+            <button onclick="showAdminSection('stats')" id="admin-sec-stats" class="btn-mini" style="color:var(--accent);">📊 Stats</button>
+            <button onclick="showAdminSection('rooms')" id="admin-sec-rooms" class="btn-mini">🕹️ Rooms</button>
             <button onclick="showAdminSection('tickets')" id="admin-sec-tickets" class="btn-mini">🎫 Tickets</button>
             <button onclick="showAdminSection('banned')" id="admin-sec-banned" class="btn-mini">🚫 Bannis</button>
-            <button onclick="refreshAdminLogs()" class="btn-mini">🔄 Actualiser</button>
           </div>
         </div>
-        <div id="admin-section-rooms">
+
+        <!-- STATS DASHBOARD -->
+        <div id="admin-section-stats">
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px;" id="admin-stats-cards">
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px;">
+              <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;font-weight:600;margin-bottom:8px;">Comptes</div>
+              <div id="stat-total-users" style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:28px;">—</div>
+              <div id="stat-total-users-sub" style="font-size:11px;color:var(--muted);margin-top:3px;"></div>
+            </div>
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px;">
+              <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;font-weight:600;margin-bottom:8px;">En ligne</div>
+              <div id="stat-online" style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:28px;color:var(--green);">—</div>
+              <div style="font-size:11px;color:var(--muted);margin-top:3px;">connectés maintenant</div>
+            </div>
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px;">
+              <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;font-weight:600;margin-bottom:8px;">Matchs joués</div>
+              <div id="stat-total-matches" style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:28px;color:var(--accent);">—</div>
+              <div id="stat-total-matches-sub" style="font-size:11px;color:var(--muted);margin-top:3px;"></div>
+            </div>
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px;">
+              <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;font-weight:600;margin-bottom:8px;">Clans</div>
+              <div id="stat-total-clans" style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:28px;color:var(--gold);">—</div>
+              <div style="font-size:11px;color:var(--muted);margin-top:3px;">clans actifs</div>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px;">
+            <!-- Mode popularity -->
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;">
+              <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:14px;margin-bottom:16px;">🎮 Modes populaires</div>
+              <div id="stat-modes" style="display:flex;flex-direction:column;gap:10px;"></div>
+            </div>
+            <!-- Top players -->
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;">
+              <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:14px;margin-bottom:16px;">👑 Top joueurs (ELO max)</div>
+              <div id="stat-top-players" style="display:flex;flex-direction:column;gap:8px;"></div>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+            <!-- Recent registrations -->
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;">
+              <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:14px;margin-bottom:16px;">🆕 Dernières inscriptions</div>
+              <div id="stat-recent-users" style="display:flex;flex-direction:column;gap:8px;"></div>
+            </div>
+            <!-- Bans / mutes -->
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;">
+              <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:14px;margin-bottom:16px;">🚫 Modération</div>
+              <div id="stat-moderation" style="display:flex;flex-direction:column;gap:10px;"></div>
+            </div>
+          </div>
+        </div>
+
+        <div id="admin-section-rooms" style="display:none;">
+          <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
+            <button onclick="refreshAdminLogs()" class="btn-mini">🔄 Actualiser</button>
+          </div>
           <div id="admin-room-logs" style="display:flex;flex-direction:column;gap:10px;">
             <div style="color:var(--muted);text-align:center;padding:40px;">Chargement…</div>
           </div>
@@ -891,7 +947,7 @@ function showMainTab(tab) {
   if (tab === 'room') loadGlobalChat();
   if (tab === 'clans') initClanTab();
   if (tab === 'room') fetchLiveRooms();
-  if (tab === 'admin') { refreshAdminLogs(); refreshAdminTickets(); }
+  if (tab === 'admin') { refreshAdminLogs(); refreshAdminTickets(); loadAdminStats(); showAdminSection('stats'); }
   if (tab === 'tickets') loadMyTickets();
 }
 
@@ -1960,8 +2016,80 @@ async function adminUnbanFromList(pseudo, btn) {
   refreshBannedList();
 }
 
+// ── ADMIN STATS DASHBOARD ──
+async function loadAdminStats() {
+  if (!state.isAdmin) return;
+  try {
+    const r = await fetch('/api/admin/stats', { headers: { 'x-admin-key': 'revenge_admin_secret' } });
+    const s = await r.json();
+
+    // Cards
+    document.getElementById('stat-total-users').textContent = s.totalUsers;
+    document.getElementById('stat-total-users-sub').textContent = `+${s.todayUsers} aujourd'hui · +${s.weekUsers} cette semaine`;
+    document.getElementById('stat-online').textContent = s.onlineCount;
+    document.getElementById('stat-total-matches').textContent = s.totalMatches;
+    document.getElementById('stat-total-matches-sub').textContent = 'victoires enregistrées';
+    document.getElementById('stat-total-clans').textContent = s.totalClans;
+
+    // Mode bars
+    const maxMode = Math.max(...Object.values(s.modeMatches), 1);
+    const modeColors = { '1v1':'#ff4655', '2v2':'#4f8ef7', '3v3':'#9b59b6', '5v5':'#2ecc71' };
+    document.getElementById('stat-modes').innerHTML = Object.entries(s.modeMatches)
+      .sort((a,b) => b[1]-a[1])
+      .map(([mode, count]) => {
+        const pct = Math.round((count / maxMode) * 100);
+        return `<div>
+          <div style="display:flex;justify-content:space-between;margin-bottom:5px;font-size:12px;">
+            <span style="font-weight:700;color:${modeColors[mode]};">${mode}</span>
+            <span style="color:var(--muted);">${count} victoires</span>
+          </div>
+          <div style="background:var(--bg);border-radius:4px;height:6px;overflow:hidden;">
+            <div style="width:${pct}%;height:100%;background:${modeColors[mode]};border-radius:4px;transition:width 0.6s ease;"></div>
+          </div>
+        </div>`;
+      }).join('');
+
+    // Top players
+    const medals = ['🥇','🥈','🥉','4.','5.'];
+    document.getElementById('stat-top-players').innerHTML = s.topPlayers.map((p, i) => `
+      <div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04);">
+        <div style="font-size:14px;min-width:20px;">${medals[i]}</div>
+        ${p.avatar ? `<img src="${p.avatar}" style="width:26px;height:26px;border-radius:50%;object-fit:cover;flex-shrink:0;">` : `<div style="width:26px;height:26px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;">${p.pseudo[0].toUpperCase()}</div>`}
+        <div style="flex:1;font-weight:700;font-size:13px;">${p.pseudo}</div>
+        <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:13px;color:var(--gold);">${p.maxElo}</div>
+        <div style="font-size:11px;color:var(--muted);">${p.totalWins}V</div>
+      </div>`).join('');
+
+    // Recent users
+    document.getElementById('stat-recent-users').innerHTML = s.recentUsers.map(u => {
+      const d = u.createdAt ? new Date(u.createdAt) : null;
+      const when = d ? d.toLocaleDateString('fr-FR', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' }) : '—';
+      return `<div style="display:flex;align-items:center;gap:10px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.04);">
+        ${u.avatar ? `<img src="${u.avatar}" style="width:24px;height:24px;border-radius:50%;object-fit:cover;">` : `<div style="width:24px;height:24px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;">${u.pseudo[0].toUpperCase()}</div>`}
+        <div style="flex:1;font-weight:600;font-size:13px;">${u.pseudo}${u.banned?'<span style="font-size:9px;color:var(--accent);margin-left:4px;">[BANNI]</span>':''}</div>
+        <div style="font-size:11px;color:var(--muted);">${when}</div>
+      </div>`;
+    }).join('');
+
+    // Moderation summary
+    document.getElementById('stat-moderation').innerHTML = `
+      <div style="display:flex;justify-content:space-between;padding:10px 14px;background:var(--bg);border-radius:10px;">
+        <span style="font-size:13px;font-weight:600;">🚫 Bannis</span>
+        <span style="font-family:'Space Grotesk',sans-serif;font-weight:800;color:var(--accent);">${s.bannedCount}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:10px 14px;background:var(--bg);border-radius:10px;">
+        <span style="font-size:13px;font-weight:600;">🔇 Mutés</span>
+        <span style="font-family:'Space Grotesk',sans-serif;font-weight:800;color:var(--gold);">${s.mutedCount}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:10px 14px;background:var(--bg);border-radius:10px;cursor:pointer;" onclick="showAdminSection('tickets')">
+        <span style="font-size:13px;font-weight:600;">🎫 Tickets ouverts</span>
+        <span style="font-family:'Space Grotesk',sans-serif;font-weight:800;color:${s.openTickets>0?'var(--accent)':'var(--green)'};">${s.openTickets}</span>
+      </div>`;
+  } catch(e) {}
+}
+
 function showAdminSection(sec) {
-  ['rooms','tickets','banned'].forEach(s => {
+  ['rooms','tickets','banned','stats'].forEach(s => {
     const el = document.getElementById('admin-section-' + s);
     const btn = document.getElementById('admin-sec-' + s);
     if (el) el.style.display = s === sec ? '' : 'none';
@@ -1970,6 +2098,7 @@ function showAdminSection(sec) {
   if (sec === 'banned') refreshBannedList();
   if (sec === 'tickets') refreshAdminTickets();
   if (sec === 'rooms') refreshAdminLogs();
+  if (sec === 'stats') loadAdminStats();
 }
 
 // ── COTD ──
