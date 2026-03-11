@@ -1592,13 +1592,13 @@ function initSocket() {
       document.getElementById('result-map').textContent = 'Mode ' + mode + ' — Décision admin : Égalité';
     } else {
       const iWon = winTeam.includes(state.pseudo);
-      state.elo += iWon ? 20 : -20;
+      const myEloChange = eloChanges && eloChanges[state.userId] !== undefined ? eloChanges[state.userId] : (iWon ? 20 : -20);
+      state.elo = Math.max(0, state.elo + myEloChange);
       if (!state.stats[mode]) state.stats[mode] = { elo: 500, wins: 0, losses: 0 };
       state.stats[mode].elo = state.elo;
       document.getElementById('result-title').textContent = iWon ? 'VICTOIRE' : 'DÉFAITE';
       document.getElementById('result-title').className = 'result-title ' + (iWon ? 'win' : 'lose');
-      const myEloChange = eloChanges && eloChanges[state.userId];
-      const eloChangeDisplay = myEloChange !== undefined ? (myEloChange > 0 ? '+' + myEloChange : myEloChange) : (iWon ? '+?' : '-?');
+      const eloChangeDisplay = myEloChange > 0 ? '+' + myEloChange : String(myEloChange);
       document.getElementById('result-elo').textContent = eloChangeDisplay + ' ELO → ' + state.elo;
       document.getElementById('result-map').textContent = 'Mode ' + mode + ' — Gagnants : ' + winTeam.join(' & ');
       document.getElementById('nav-elo').textContent = state.elo;
