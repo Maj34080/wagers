@@ -391,6 +391,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
               <div class="searching-box" id="searching-box">
                 <div class="searching-dots">Recherche en cours<span>.</span><span>.</span><span>.</span></div>
                 <div style="font-size:11px;color:var(--muted);margin-top:4px;" id="searching-mode"></div>
+                <div id="elo-window-display" style="display:none;margin-top:8px;background:rgba(77,166,255,0.08);border:1px solid rgba(77,166,255,0.2);border-radius:8px;padding:7px 12px;font-size:11px;color:var(--blue);font-weight:600;"></div>
                 <button onclick="cancelQueue()" style="margin-top:12px;width:100%;background:rgba(255,70,85,0.1);border:1px solid rgba(255,70,85,0.4);color:var(--accent);border-radius:10px;padding:10px;font-family:'Syne',sans-serif;font-weight:700;font-size:12px;cursor:pointer;">✕ Quitter la file d'attente</button>
               </div>
               <button id="admin-bot-btn" style="display:none;margin-top:14px;width:100%;background:rgba(255,209,102,0.1);border:1px solid var(--gold);color:var(--gold);border-radius:12px;padding:12px;font-family:'Syne',sans-serif;font-weight:700;font-size:12px;cursor:pointer;letter-spacing:0.05em;" onclick="spawnBots()">🤖 Admin — Lancer avec des Bots</button>
@@ -912,6 +913,20 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
         <div style="display:flex;align-items:center;gap:8px;">
           <button id="room-cancel-btn" onclick="cancelQueueFromRoom()" style="display:none;background:rgba(255,70,85,0.1);border:1px solid rgba(255,70,85,0.4);color:var(--accent);border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Syne',sans-serif;">✕ Annuler</button>
           <div class="room-id-badge" id="room-badge2">ROOM #——</div>
+        </div>
+      </div>
+      <!-- ELO window progress bar (shown while waiting for opponents) -->
+      <div id="room-elo-window" style="display:none;margin-top:10px;background:rgba(77,166,255,0.07);border:1px solid rgba(77,166,255,0.2);border-radius:10px;padding:10px 14px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;">
+          <span style="font-size:11px;font-weight:700;color:var(--blue);">🎯 Fenêtre ELO en cours</span>
+          <span id="room-elo-timer" style="font-size:11px;color:var(--muted);">0s</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+          <span id="room-elo-range" style="font-size:12px;font-weight:700;color:var(--text);"></span>
+          <span id="room-elo-next" style="font-size:11px;color:var(--muted);"></span>
+        </div>
+        <div style="background:var(--border);border-radius:4px;height:4px;overflow:hidden;">
+          <div id="room-elo-bar" style="height:4px;background:linear-gradient(90deg,var(--blue),#7eb8ff);border-radius:4px;transition:width 1s linear;width:0%;"></div>
         </div>
       </div>
 
@@ -1463,6 +1478,7 @@ function voteWeapon(weapon) {
 
 function cancelQueueFromRoom() {
   if (!socket) return;
+  stopRoomEloWindow();
   socket.emit('cancel_queue');
   state.roomId = null;
   state.myTeam = null;
@@ -1473,9 +1489,49 @@ function cancelQueueFromRoom() {
   notify('File d\'attente annulée');
 }
 
+function stopRoomEloWindow() {
+  if (window._roomEloTimer) { clearInterval(window._roomEloTimer); window._roomEloTimer = null; }
+  const el = document.getElementById('room-elo-window');
+  if (el) el.style.display = 'none';
+}
+
+function startRoomEloWindow(avgElo, createdAt) {
+  stopRoomEloWindow();
+  const el = document.getElementById('room-elo-window');
+  if (!el) return;
+  el.style.display = '';
+
+  const updateRoomWindow = () => {
+    const elapsed = Math.floor((Date.now() - createdAt) / 1000);
+    const win = Math.min(500, 100 + Math.floor(elapsed / 60) * 50);
+    const nextExpand = win < 500 ? (60 - (elapsed % 60)) : null;
+    const barPct = Math.min(100, (win / 500) * 100);
+
+    const timerEl = document.getElementById('room-elo-timer');
+    const rangeEl = document.getElementById('room-elo-range');
+    const nextEl = document.getElementById('room-elo-next');
+    const barEl = document.getElementById('room-elo-bar');
+
+    if (timerEl) timerEl.textContent = elapsed + 's';
+    if (rangeEl) rangeEl.textContent = `${avgElo - win} — ${avgElo + win} ELO  (±${win})`;
+    if (nextEl) nextEl.textContent = nextExpand ? `Élargissement dans ${nextExpand}s` : 'Fenêtre max atteinte';
+    if (barEl) barEl.style.width = barPct + '%';
+  };
+
+  updateRoomWindow();
+  window._roomEloTimer = setInterval(updateRoomWindow, 1000);
+}
+
+function stopEloWindowTimer() {
+  if (window._eloWindowTimer) { clearInterval(window._eloWindowTimer); window._eloWindowTimer = null; }
+  const windowEl = document.getElementById('elo-window-display');
+  if (windowEl) windowEl.style.display = 'none';
+}
+
 function cancelQueue() {
   if (!socket) return;
   socket.emit('cancel_queue');
+  stopEloWindowTimer();
   document.getElementById('searching-box').classList.remove('show');
   document.getElementById('btn-find-room').disabled = false;
   document.getElementById('btn-find-room').style.display = '';
@@ -1681,6 +1737,7 @@ function initSocket() {
     sendBrowserNotif('⚔️ Match trouvé !', 'Ta room ' + mode + ' est prête — clique pour rejoindre !');
     // Play room found sound — 3 ascending beeps
     playRoomFoundSound();
+    stopEloWindowTimer();
     document.getElementById('searching-box').classList.remove('show');
     document.getElementById('btn-find-room').disabled = false;
     document.getElementById('btn-find-room').style.display = '';
@@ -1737,6 +1794,7 @@ function initSocket() {
   });
 
   socket.on('countdown_start', ({ seconds }) => {
+    stopRoomEloWindow();
     document.getElementById('countdown-overlay').classList.add('show');
     document.getElementById('countdown-number').textContent = seconds;
     document.getElementById('room-status-text').textContent = 'Démarrage…';
@@ -1900,6 +1958,12 @@ function initSocket() {
     notify('Premium expiré.', { duration: 4000 });
   });
 
+  socket.on('elo_window_start', ({ avgElo, createdAt }) => {
+    state._eloWindowAvg = avgElo;
+    state._eloWindowStart = createdAt;
+    startRoomEloWindow(avgElo, createdAt);
+  });
+
   socket.on('vote_conflict', () => {
     const status = document.getElementById('captain-vote-status');
     if (status) status.textContent = '';
@@ -1939,6 +2003,7 @@ function initSocket() {
       document.getElementById('nav-elo').textContent = state.elo;
       updateNavRank();
     }
+    stopRoomEloWindow();
     const voteSection = document.getElementById('captain-vote-section');
     if (voteSection) voteSection.style.display = 'none';
     // Reset rematch button fresh for this game
@@ -3480,6 +3545,21 @@ function createRoom() {
   document.getElementById('btn-find-room').disabled = true;
   document.getElementById('searching-box').classList.add('show');
   document.getElementById('searching-mode').textContent = 'Mode ' + state.mode.toUpperCase();
+  // Live ELO window display — updates every 30s
+  const myElo = (state.stats && state.mode && state.stats[state.mode]) ? state.stats[state.mode].elo : (state.elo || 500);
+  const windowEl = document.getElementById('elo-window-display');
+  if (windowEl) {
+    windowEl.style.display = '';
+    let elapsed = 0;
+    const updateWindow = () => {
+      const win = Math.min(500, 100 + Math.floor(elapsed / 60) * 50);
+      const nextExpand = 60 - (elapsed % 60);
+      const expandLabel = win < 500 ? ` · +50 dans ${nextExpand}s` : ' · max atteint';
+      windowEl.textContent = `🎯 Fenêtre ELO : ${myElo - win} — ${myElo + win}${expandLabel}`;
+    };
+    updateWindow();
+    window._eloWindowTimer = setInterval(() => { elapsed++; updateWindow(); }, 1000);
+  }
 }
 
 // ── ROOM ──

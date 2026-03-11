@@ -718,13 +718,39 @@ io.on('connection', (socket) => {
       if (fresh) { p.stats = fresh.stats; p.elo = fresh.stats?.[group.mode]?.elo || 500; }
     });
 
-    // Check if already in a room
-    let existingRoom = Object.entries(rooms).find(([, r]) => r.status === 'waiting' && r.mode === group.mode);
+    // ── ELO MATCHMAKING ──
+    // Average ELO of this group
+    const groupAvgElo = Math.round(
+      group.players.filter(p => !p.isBot).reduce((s, p) => s + (p.elo || 500), 0) /
+      Math.max(1, group.players.filter(p => !p.isBot).length)
+    );
+
+    // Tag room with search start time + avg elo for matchmaking
+    // Find best ELO match among waiting rooms of same mode
+    const waitingRooms = Object.entries(rooms).filter(([, r]) => r.status === 'waiting' && r.mode === group.mode);
+
+    // Expanding ELO window: starts at ±100, grows by 50 every 60s (max ±500)
+    function getEloWindow(room) {
+      const waitSecs = (Date.now() - (room.createdAt || Date.now())) / 1000;
+      return Math.min(500, 100 + Math.floor(waitSecs / 60) * 50);
+    }
+
+    // Find best matching room (closest ELO within current window)
+    let bestMatch = null, bestDiff = Infinity;
+    for (const [rId, r] of waitingRooms) {
+      const roomAvg = r.avgElo || 500;
+      const window = getEloWindow(r);
+      const diff = Math.abs(roomAvg - groupAvgElo);
+      if (diff <= window && diff < bestDiff) {
+        bestDiff = diff;
+        bestMatch = [rId, r];
+      }
+    }
 
     let roomId, room;
 
-    if (existingRoom) {
-      [roomId, room] = existingRoom;
+    if (bestMatch) {
+      [roomId, room] = bestMatch;
       room.teams[1] = group.players;
 
       // Join socket room
@@ -748,7 +774,7 @@ io.on('connection', (socket) => {
         waiting: false
       };
       io.to('room_' + roomId).emit('room_ready', payload);
-      io.to('room_' + roomId).emit('chat_msg', { author: 'Système', team: 'system', text: '✅ 4 joueurs connectés ! Début dans 10 secondes…' });
+      io.to('room_' + roomId).emit('chat_msg', { author: 'Système', team: 'system', text: `✅ Équipes trouvées ! (Δ ELO : ${bestDiff}) Début dans 10 secondes…` });
 
       startRoomCountdown(roomId);
 
@@ -764,7 +790,8 @@ io.on('connection', (socket) => {
         status: 'waiting',
         chosenMap: null,
         banTimer: null,
-        createdAt: Date.now()
+        createdAt: Date.now(),
+        avgElo: groupAvgElo   // ← stored for matchmaking
       };
       rooms[roomId] = room;
 
@@ -784,10 +811,12 @@ io.on('connection', (socket) => {
         team1: room.teams[0].map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null, stats: p.stats || null })),
         team2: [],
         captains: [cap1?.pseudo || null, null],
-        waiting: true
+        waiting: true,
+        avgElo: groupAvgElo
       };
       io.to('room_' + roomId).emit('room_ready', payload);
-      io.to('room_' + roomId).emit('chat_msg', { author: 'Système', team: 'system', text: '⏳ En attente d\'une équipe adverse…' });
+      io.to('room_' + roomId).emit('elo_window_start', { avgElo: groupAvgElo, createdAt: room.createdAt });
+      io.to('room_' + roomId).emit('chat_msg', { author: 'Système', team: 'system', text: `⏳ Recherche d'adversaires (~${groupAvgElo} ELO)…` });
     }
   });
 
