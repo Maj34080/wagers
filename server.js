@@ -4,7 +4,6 @@ const { Server } = require('socket.io');
 const bcrypt = require('bcryptjs');
 const path = require('path');
 const db = require('./database');
-console.log('ELO test:', db.computeEloChange(605, 500, true));
 
 const app = express();
 const server = http.createServer(app);
@@ -697,17 +696,27 @@ function avgTeamElo(team, mode) {
 }
 
 function applyEloResult(winTeam, loseTeam, mode) {
-  const winAvg = avgTeamElo(winTeam, mode);
-  const loseAvg = avgTeamElo(loseTeam, mode);
+  // Always read ELO from DB (fresh, not stale group data)
+  const getElo = (p) => {
+    if (p.isBot) return p.stats?.[mode]?.elo || 500;
+    const fresh = db.getUserById(p.id);
+    return fresh?.stats?.[mode]?.elo || 500;
+  };
+  const winRealPlayers = winTeam.filter(p => !p.isBot);
+  const loseRealPlayers = loseTeam.filter(p => !p.isBot);
+  const winAvg = winRealPlayers.length ? Math.round(winRealPlayers.reduce((s,p) => s + getElo(p), 0) / winRealPlayers.length) : 500;
+  const loseAvg = loseTeam.filter(p => !p.isBot).length
+    ? Math.round(loseTeam.filter(p => !p.isBot).reduce((s,p) => s + getElo(p), 0) / loseTeam.filter(p => !p.isBot).length)
+    : (loseTeam.length ? loseTeam[0].stats?.[mode]?.elo || 500 : 500);
   const eloChanges = {};
-  winTeam.filter(p => !p.isBot).forEach(p => {
-    const myElo = p.stats?.[mode]?.elo || p.elo || 500;
+  winRealPlayers.forEach(p => {
+    const myElo = getElo(p);
     const change = db.computeEloChange(myElo, loseAvg, true);
     eloChanges[p.id] = change;
     db.updateUserElo(p.id, change, true, mode, loseTeam, winTeam, false);
   });
-  loseTeam.filter(p => !p.isBot).forEach(p => {
-    const myElo = p.stats?.[mode]?.elo || p.elo || 500;
+  loseRealPlayers.forEach(p => {
+    const myElo = getElo(p);
     const change = db.computeEloChange(myElo, winAvg, false);
     eloChanges[p.id] = change;
     db.updateUserElo(p.id, change, false, mode, winTeam, loseTeam, false);
