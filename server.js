@@ -553,6 +553,11 @@ io.on('connection', (socket) => {
     const [code, group] = entry;
     const teamSize = getTeamSize(group.mode);
     if (group.players.length < teamSize) return socket.emit('room_error', `Il faut ${teamSize} joueur(s) dans le groupe`);
+    // Refresh stats/elo from DB for all real players before entering room
+    group.players.filter(p => !p.isBot).forEach(p => {
+      const fresh = db.getUserById(p.id);
+      if (fresh) { p.stats = fresh.stats; p.elo = fresh.stats?.[group.mode]?.elo || 500; }
+    });
 
     // Check if already in a room
     let existingRoom = Object.entries(rooms).find(([, r]) => r.status === 'waiting' && r.mode === group.mode);
