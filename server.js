@@ -394,7 +394,7 @@ io.on('connection', (socket) => {
     const totalLosses = Object.values(stats).reduce((a, s) => a + (s.losses||0), 0);
     const total = totalWins + totalLosses;
     const winrate = total > 0 ? Math.round((totalWins / total) * 100) : 0;
-    socket.emit('profile_data', { pseudo: user.pseudo, stats, winrate, totalWins, totalLosses, avatar: user.avatar || null });
+    socket.emit('profile_data', { id: user.id, pseudo: user.pseudo, stats, winrate, totalWins, totalLosses, avatar: user.avatar || null });
   });
 
   // ── ADMIN: SPAWN BOTS ──
@@ -701,8 +701,8 @@ io.on('connection', (socket) => {
     const winTeam = winner === 1 ? room.teams[0] : room.teams[1];
     const loseTeam = winner === 1 ? room.teams[1] : room.teams[0];
 
-    winTeam.forEach(p => db.updateUserElo(p.id, +20, true, room.mode, loseTeam, winTeam, false));
-    loseTeam.forEach(p => db.updateUserElo(p.id, -20, false, room.mode, winTeam, loseTeam, false));
+    winTeam.filter(p => !p.isBot).forEach(p => db.updateUserElo(p.id, +20, true, room.mode, loseTeam, winTeam, false));
+    loseTeam.filter(p => !p.isBot).forEach(p => db.updateUserElo(p.id, -20, false, room.mode, winTeam, loseTeam, false));
     computeCotd();
 
     io.to('room_' + socket.roomId).emit('game_result', {
@@ -903,9 +903,9 @@ io.on('connection', (socket) => {
 // Match history API
 app.get('/api/match-history/:userId', (req, res) => {
   try {
-    const data = require('./database_v4').getUserById(req.params.userId);
-    if (!data) return res.json([]);
-    res.json((data.matchHistory || []).slice(0, 20));
+    const user = db.getUserById(req.params.userId);
+    if (!user) return res.json([]);
+    res.json((user.matchHistory || []).slice(0, 20));
   } catch(e) { res.json([]); }
 });
 
