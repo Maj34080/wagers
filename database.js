@@ -192,4 +192,39 @@ function getLeaderboard(mode) {
     .slice(0, 50);
 }
 
-module.exports = { getUserByPseudo, getUserById, createUser, updateUserElo, computeEloChange, getLeaderboard, updateAvatar, getIpAccounts, defaultStats, banUser, unbanUser, muteUser, unmuteUser, createTicket, getTickets, replyTicket, closeTicket };
+function setPremium(userId, months) {
+  const db = loadDB();
+  const user = db.users.find(u => u.id === userId);
+  if (!user) return false;
+  const now = Date.now();
+  const current = user.premiumUntil && user.premiumUntil > now ? user.premiumUntil : now;
+  user.isPremium = true;
+  user.premiumUntil = current + months * 30 * 24 * 60 * 60 * 1000;
+  saveDB(db);
+  return true;
+}
+
+function revokePremium(userId) {
+  const db = loadDB();
+  const user = db.users.find(u => u.id === userId);
+  if (!user) return false;
+  user.isPremium = false;
+  user.premiumUntil = null;
+  saveDB(db);
+  return true;
+}
+
+function checkPremiumExpiry() {
+  const db = loadDB();
+  const now = Date.now();
+  let changed = false;
+  db.users.forEach(u => {
+    if (u.isPremium && u.premiumUntil && u.premiumUntil < now) {
+      u.isPremium = false;
+      changed = true;
+    }
+  });
+  if (changed) saveDB(db);
+}
+
+module.exports = { getUserByPseudo, getUserById, createUser, updateUserElo, computeEloChange, getLeaderboard, updateAvatar, getIpAccounts, defaultStats, banUser, unbanUser, muteUser, unmuteUser, createTicket, getTickets, replyTicket, closeTicket, setPremium, revokePremium, checkPremiumExpiry };

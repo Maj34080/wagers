@@ -20,6 +20,10 @@ const BAN_TIMEOUT = 15000;
 const START_COUNTDOWN = 5000;
 const ADMIN_PSEUDOS = ['Karim34']; // ← ajoute ton pseudo ici
 
+// Check premium expiry on boot and every hour
+db.checkPremiumExpiry();
+setInterval(() => db.checkPremiumExpiry(), 60 * 60 * 1000);
+
 app.use(express.json());
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 app.get('/api/leaderboard/:mode', (req, res) => res.json(db.getLeaderboard(req.params.mode)));
@@ -32,6 +36,29 @@ app.get('/api/profile/:pseudo', (req, res) => {
 // Admin actions
 const ADMIN_KEY = process.env.ADMIN_KEY || 'revenge_admin_secret';
 function isAdminReq(req) { return req.headers['x-admin-key'] === ADMIN_KEY; }
+// ── ADMIN: PREMIUM ──
+app.post('/api/admin/premium', (req, res) => {
+  if (!isAdminReq(req)) return res.status(403).json({ error: 'Interdit' });
+  const { userId, months } = req.body;
+  const ok = db.setPremium(userId, months || 1);
+  if (!ok) return res.status(404).json({ error: 'Utilisateur introuvable' });
+  io.sockets.sockets.forEach(s => {
+    if (s.userId === userId) s.emit('premium_granted', { months: months || 1 });
+  });
+  res.json({ success: true });
+});
+
+app.post('/api/admin/revoke-premium', (req, res) => {
+  if (!isAdminReq(req)) return res.status(403).json({ error: 'Interdit' });
+  const { userId } = req.body;
+  const ok = db.revokePremium(userId);
+  if (!ok) return res.status(404).json({ error: 'Utilisateur introuvable' });
+  io.sockets.sockets.forEach(s => {
+    if (s.userId === userId) s.emit('premium_revoked');
+  });
+  res.json({ success: true });
+});
+
 app.post('/api/admin/ban', (req, res) => {
   if (!isAdminReq(req)) return res.status(403).json({ error: 'Interdit' });
   const { pseudo, reason } = req.body;
@@ -374,13 +401,16 @@ io.on('connection', (socket) => {
       socket.isAdmin = ADMIN_PSEUDOS.includes(pseudo);
       socket.isMuted = !!user.muted;
       const stats = user.stats || db.defaultStats();
+      socket.isPremium = !!user.isPremium;
       socket.emit('auth_ok', {
         pseudo: user.pseudo,
         elo: stats['2v2']?.elo || 500,
         stats,
         isAdmin: socket.isAdmin,
         avatar: user.avatar || null,
-        userId: user.id
+        userId: user.id,
+        isPremium: !!user.isPremium,
+        premiumUntil: user.premiumUntil || null
       });
     } catch(e) { socket.emit('auth_error', 'Erreur: ' + e.message); }
   });
@@ -480,7 +510,7 @@ io.on('connection', (socket) => {
     groups[code] = {
       mode,
       captain: socket.userId,
-      players: [{ id: socket.userId, pseudo: socket.pseudo, elo, avatar: userRecord?.avatar || null, stats: userRecord?.stats || null, socketId: socket.id }]
+      players: [{ id: socket.userId, pseudo: socket.pseudo, elo, avatar: userRecord?.avatar || null, stats: userRecord?.stats || null, isPremium: !!userRecord?.isPremium, socketId: socket.id }]
     };
     socket.groupCode = code;
     socket.groupMode = mode;
@@ -587,8 +617,8 @@ io.on('connection', (socket) => {
       const payload = {
         roomId,
         mode: room.mode,
-        team1: room.teams[0].map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null, stats: p.stats || null })),
-        team2: room.teams[1].map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null, stats: p.stats || null })),
+        team1: room.teams[0].map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null, stats: p.stats || null, isPremium: !!p.isPremium })),
+        team2: room.teams[1].map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null, stats: p.stats || null, isPremium: !!p.isPremium })),
         captains: [cap1?.pseudo || null, cap2?.pseudo || null],
         waiting: false
       };

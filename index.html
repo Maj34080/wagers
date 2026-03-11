@@ -134,6 +134,14 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 .pav.t2{background:rgba(77,166,255,0.2);color:var(--blue);}
 .pname{font-size:13px;font-weight:600;}
 .pelo{font-size:11px;color:var(--gold);font-weight:600;}
+.boutique-plan{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;cursor:pointer;transition:all 0.2s;font-family:'Space Grotesk',sans-serif;}
+.boutique-plan:hover{border-color:rgba(247,201,72,0.4);background:rgba(247,201,72,0.05);}
+.selected-plan{border-color:var(--gold)!important;background:rgba(247,201,72,0.08)!important;box-shadow:0 0 0 1px rgba(247,201,72,0.2);}
+.premium-badge{display:inline-flex;align-items:center;gap:3px;background:linear-gradient(135deg,#f7c948,#ff9500);color:#000;font-size:10px;font-weight:800;padding:2px 7px;border-radius:20px;letter-spacing:0.04em;font-family:'Space Grotesk',sans-serif;}
+.premium-border{box-shadow:0 0 0 2px #f7c948,0 0 12px rgba(247,201,72,0.4)!important;animation:premiumPulse 2s ease-in-out infinite;}
+@keyframes premiumPulse{0%,100%{box-shadow:0 0 0 2px #f7c948,0 0 12px rgba(247,201,72,0.4);}50%{box-shadow:0 0 0 2px #ff9500,0 0 20px rgba(255,149,0,0.6);}}
+.premium-pseudo{background:linear-gradient(90deg,#f7c948,#ff9500,#f7c948);background-size:200% auto;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:premiumText 3s linear infinite;}
+@keyframes premiumText{0%{background-position:0%}100%{background-position:200%}}
 
 .map-ban-section{margin-top:auto;padding-top:14px;border-top:1px solid var(--border);}
 .map-ban-title{font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;}
@@ -294,6 +302,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
       <button class="nav-tab" id="ntab-lb" onclick="showMainTab('lb')">🏆 Classement</button>
       <button class="nav-tab" id="ntab-clans" onclick="showMainTab('clans')">🛡️ Clans</button>
       <button class="nav-tab" id="ntab-tournois" onclick="showMainTab('tournois')">🎯 Tournois</button>
+      <button class="nav-tab" id="ntab-boutique" onclick="showMainTab('boutique')">🛒 Boutique</button>
       <button class="nav-tab" id="ntab-tickets" onclick="showMainTab('tickets')">🎫 Support</button>
       <button class="nav-tab" id="ntab-admin" onclick="showMainTab('admin')" style="display:none;color:var(--gold);">🔐 Admin</button>
     </div>
@@ -323,6 +332,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
       </div>
 
       <button onclick="openFriendsPanel()" style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:8px 14px;color:var(--text);font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;" title="Amis">👥 <span id="friends-online-count" style="color:var(--green);font-size:11px;"></span></button>
+
 
       <div class="avatar" id="nav-avatar" onclick="openProfile()">?</div>
       <div style="display:flex;flex-direction:column;align-items:flex-start;gap:1px;">
@@ -559,6 +569,132 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
       </div>
     </div>
 
+    <!-- BOUTIQUE TAB -->
+    <div class="room-tab-content" id="tab-content-boutique">
+      <div style="max-width:860px;margin:0 auto;padding:10px 0 40px;">
+
+        <!-- Header -->
+        <div style="text-align:center;margin-bottom:36px;">
+          <div style="font-size:36px;margin-bottom:8px;">🛒</div>
+          <div style="font-family:'Syne',sans-serif;font-weight:900;font-size:28px;letter-spacing:0.02em;">BOUTIQUE</div>
+          <div style="font-size:13px;color:var(--muted);margin-top:6px;">Améliore ton expérience sur Revenge</div>
+        </div>
+
+        <!-- PREMIUM CARD -->
+        <div style="background:linear-gradient(135deg,#1a1400,#221900,#1a1400);border:1px solid rgba(247,201,72,0.35);border-radius:20px;padding:32px;margin-bottom:24px;position:relative;overflow:hidden;">
+          <!-- Glow bg -->
+          <div style="position:absolute;top:-60px;right:-60px;width:200px;height:200px;background:radial-gradient(circle,rgba(247,201,72,0.12),transparent 70%);pointer-events:none;"></div>
+          <div style="position:absolute;bottom:-40px;left:-40px;width:160px;height:160px;background:radial-gradient(circle,rgba(255,149,0,0.08),transparent 70%);pointer-events:none;"></div>
+
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:24px;flex-wrap:wrap;">
+            <!-- Left info -->
+            <div style="flex:1;min-width:260px;">
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+                <span style="font-size:28px;">👑</span>
+                <div>
+                  <div style="font-family:'Syne',sans-serif;font-weight:900;font-size:22px;background:linear-gradient(90deg,#f7c948,#ff9500);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">REVENGE PREMIUM</div>
+                  <div style="font-size:12px;color:rgba(247,201,72,0.6);margin-top:2px;">Accès exclusif à tous les avantages</div>
+                </div>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:20px;">
+                <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:rgba(255,255,255,0.8);"><span style="color:var(--gold);">✦</span> Badge 👑 PREMIUM visible partout</div>
+                <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:rgba(255,255,255,0.8);"><span style="color:var(--gold);">✦</span> Pseudo animé en or</div>
+                <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:rgba(255,255,255,0.8);"><span style="color:var(--gold);">✦</span> Bordure dorée animée sur ta pp</div>
+                <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:rgba(255,255,255,0.8);"><span style="color:var(--gold);">✦</span> File d'attente prioritaire</div>
+                <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:rgba(255,255,255,0.8);"><span style="color:var(--gold);">✦</span> Clan étendu à 20 membres</div>
+                <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:rgba(255,255,255,0.8);"><span style="color:var(--gold);">✦</span> Historique de matchs illimité</div>
+              </div>
+            </div>
+
+            <!-- Right pricing -->
+            <div style="display:flex;flex-direction:column;align-items:center;gap:12px;min-width:180px;">
+              <!-- Pricing options -->
+              <div id="boutique-plan-options" style="display:flex;flex-direction:column;gap:8px;width:100%;">
+                <div onclick="selectPlan(1,5)" id="plan-1" class="boutique-plan selected-plan">
+                  <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <span style="font-weight:700;font-size:13px;">1 mois</span>
+                    <span style="font-weight:800;font-size:16px;color:var(--gold);">5€</span>
+                  </div>
+                </div>
+                <div onclick="selectPlan(3,12)" id="plan-3" class="boutique-plan">
+                  <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <span style="font-weight:700;font-size:13px;">3 mois</span>
+                    <div style="text-align:right;">
+                      <span style="font-weight:800;font-size:16px;color:var(--gold);">12€</span>
+                      <div style="font-size:10px;color:#2ecc71;font-weight:600;">-20%</div>
+                    </div>
+                  </div>
+                </div>
+                <div onclick="selectPlan(6,20)" id="plan-6" class="boutique-plan">
+                  <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <span style="font-weight:700;font-size:13px;">6 mois</span>
+                    <div style="text-align:right;">
+                      <span style="font-weight:800;font-size:16px;color:var(--gold);">20€</span>
+                      <div style="font-size:10px;color:#2ecc71;font-weight:600;">-33%</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <button id="boutique-buy-btn" onclick="buyPremium()" style="width:100%;background:linear-gradient(135deg,#f7c948,#ff9500);border:none;border-radius:12px;padding:13px;color:#000;font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:14px;cursor:pointer;letter-spacing:0.02em;">👑 Acheter — 5€</button>
+              <div id="boutique-already-premium" style="display:none;text-align:center;padding:12px;background:rgba(247,201,72,0.1);border:1px solid rgba(247,201,72,0.3);border-radius:12px;width:100%;box-sizing:border-box;">
+                <div style="font-size:18px;margin-bottom:4px;">👑</div>
+                <div style="font-size:12px;font-weight:700;color:var(--gold);">Tu es déjà Premium !</div>
+                <div id="boutique-expiry" style="font-size:11px;color:var(--muted);margin-top:3px;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- HOW IT WORKS -->
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;margin-bottom:24px;">
+          <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:15px;margin-bottom:16px;">📋 Comment ça marche ?</div>
+          <div style="display:flex;gap:0;position:relative;">
+            <div style="position:absolute;top:20px;left:20px;right:20px;height:2px;background:linear-gradient(90deg,var(--gold),var(--accent));opacity:0.3;"></div>
+            <div style="flex:1;text-align:center;position:relative;z-index:1;">
+              <div style="width:40px;height:40px;background:linear-gradient(135deg,#f7c948,#ff9500);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;margin:0 auto 10px;font-weight:800;color:#000;">1</div>
+              <div style="font-size:12px;font-weight:600;margin-bottom:4px;">Choisis ta durée</div>
+              <div style="font-size:11px;color:var(--muted);">Sélectionne un plan ci-dessus</div>
+            </div>
+            <div style="flex:1;text-align:center;position:relative;z-index:1;">
+              <div style="width:40px;height:40px;background:var(--surface2);border:1px solid var(--border);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;margin:0 auto 10px;font-weight:800;">2</div>
+              <div style="font-size:12px;font-weight:600;margin-bottom:4px;">Clique Acheter</div>
+              <div style="font-size:11px;color:var(--muted);">Un ticket est créé automatiquement</div>
+            </div>
+            <div style="flex:1;text-align:center;position:relative;z-index:1;">
+              <div style="width:40px;height:40px;background:var(--surface2);border:1px solid var(--border);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;margin:0 auto 10px;font-weight:800;">3</div>
+              <div style="font-size:12px;font-weight:600;margin-bottom:4px;">Reçois le lien de paiement</div>
+              <div style="font-size:11px;color:var(--muted);">PayPal dans le ticket sous 24h</div>
+            </div>
+            <div style="flex:1;text-align:center;position:relative;z-index:1;">
+              <div style="width:40px;height:40px;background:var(--surface2);border:1px solid var(--border);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;margin:0 auto 10px;font-weight:800;">4</div>
+              <div style="font-size:12px;font-weight:600;margin-bottom:4px;">Premium activé !</div>
+              <div style="font-size:11px;color:var(--muted);">Instantané après confirmation</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- FAQ -->
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;">
+          <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:15px;margin-bottom:16px;">❓ Questions fréquentes</div>
+          <div style="display:flex;flex-direction:column;gap:12px;">
+            <div style="padding:14px;background:var(--bg);border-radius:10px;">
+              <div style="font-weight:700;font-size:13px;margin-bottom:4px;">💳 Quels modes de paiement sont acceptés ?</div>
+              <div style="font-size:12px;color:var(--muted);">Paiement via PayPal uniquement pour le moment. D'autres options arrivent bientôt.</div>
+            </div>
+            <div style="padding:14px;background:var(--bg);border-radius:10px;">
+              <div style="font-weight:700;font-size:13px;margin-bottom:4px;">⏱️ Combien de temps pour l'activation ?</div>
+              <div style="font-size:12px;color:var(--muted);">Le premium est activé manuellement par un staff sous 24h maximum après réception du paiement. En général c'est bien plus rapide.</div>
+            </div>
+            <div style="padding:14px;background:var(--bg);border-radius:10px;">
+              <div style="font-weight:700;font-size:13px;margin-bottom:4px;">🔄 Mon abonnement se renouvelle-t-il automatiquement ?</div>
+              <div style="font-size:12px;color:var(--muted);">Non, c'est un achat unique. Tu recevras une notification avant expiration si tu veux renouveler.</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
     <!-- ADMIN TAB -->
     <div class="room-tab-content" id="tab-content-admin">
       <div style="max-width:900px;margin:0 auto;">
@@ -569,6 +705,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
             <button onclick="showAdminSection('rooms')" id="admin-sec-rooms" class="btn-mini">🕹️ Rooms</button>
             <button onclick="showAdminSection('tickets')" id="admin-sec-tickets" class="btn-mini">🎫 Tickets</button>
             <button onclick="showAdminSection('banned')" id="admin-sec-banned" class="btn-mini">🚫 Bannis</button>
+            <button onclick="showAdminSection('premium')" id="admin-sec-premium" class="btn-mini" style="color:var(--gold);">👑 Premium</button>
           </div>
         </div>
 
@@ -644,6 +781,31 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
           </div>
           <div id="admin-banned-list" style="display:flex;flex-direction:column;gap:8px;">
             <div style="color:var(--muted);text-align:center;padding:40px;">Chargement…</div>
+          </div>
+        </div>
+
+        <div id="admin-section-premium" style="display:none;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <div style="font-weight:700;font-size:14px;">👑 Gestion Premium</div>
+            <button onclick="loadPremiumAdmin()" class="btn-mini">🔄 Actualiser</button>
+          </div>
+          <!-- Give premium -->
+          <div style="background:var(--surface);border:1px solid var(--gold);border-radius:14px;padding:20px;margin-bottom:16px;">
+            <div style="font-weight:700;font-size:13px;color:var(--gold);margin-bottom:12px;">✨ Activer le premium</div>
+            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+              <input id="premium-pseudo-input" placeholder="Pseudo du joueur" style="flex:1;min-width:160px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:9px 14px;color:var(--text);font-size:13px;">
+              <select id="premium-months-input" style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:9px 14px;color:var(--text);font-size:13px;">
+                <option value="1">1 mois</option>
+                <option value="3">3 mois</option>
+                <option value="6">6 mois</option>
+                <option value="12">1 an</option>
+              </select>
+              <button onclick="grantPremium()" style="background:linear-gradient(135deg,#f7c948,#ff9500);color:#000;border:none;border-radius:10px;padding:9px 18px;font-weight:800;font-size:13px;cursor:pointer;">👑 Activer</button>
+            </div>
+          </div>
+          <!-- Premium users list -->
+          <div id="admin-premium-list" style="display:flex;flex-direction:column;gap:8px;">
+            <div style="color:var(--muted);text-align:center;padding:30px;">Chargement…</div>
           </div>
         </div>
       </div>
@@ -750,6 +912,47 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
     <div class="team-panel">
       <div class="team-label team2">⚔ Équipe 2</div>
       <div id="team2-players"></div>
+    </div>
+  </div>
+</div>
+
+<!-- PREMIUM MODAL -->
+<div class="modal-overlay" id="premium-modal">
+  <div class="modal-card" style="max-width:500px;padding:0;overflow:hidden;">
+    <div style="background:linear-gradient(135deg,#1a1400,#2a1f00);padding:32px 32px 24px;text-align:center;border-bottom:1px solid rgba(247,201,72,0.2);">
+      <div style="font-size:40px;margin-bottom:8px;">👑</div>
+      <div style="font-family:'Syne',sans-serif;font-weight:900;font-size:26px;background:linear-gradient(90deg,#f7c948,#ff9500);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">REVENGE PREMIUM</div>
+      <div style="font-size:13px;color:rgba(247,201,72,0.7);margin-top:6px;">Passe au niveau supérieur</div>
+    </div>
+    <div style="padding:24px 32px;">
+      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:24px;">
+        <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:rgba(247,201,72,0.06);border-radius:10px;">
+          <span style="font-size:20px;">✨</span><span style="font-size:13px;font-weight:600;">Badge <span style="color:var(--gold);">PREMIUM</span> visible sur tout le site</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:rgba(247,201,72,0.06);border-radius:10px;">
+          <span style="font-size:20px;">🔥</span><span style="font-size:13px;font-weight:600;">Pseudo animé en or dans les rooms et le classement</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:rgba(247,201,72,0.06);border-radius:10px;">
+          <span style="font-size:20px;">🖼️</span><span style="font-size:13px;font-weight:600;">Bordure dorée animée sur ta photo de profil</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:rgba(247,201,72,0.06);border-radius:10px;">
+          <span style="font-size:20px;">🚀</span><span style="font-size:13px;font-weight:600;">File d'attente prioritaire — matché en premier</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:rgba(247,201,72,0.06);border-radius:10px;">
+          <span style="font-size:20px;">🛡️</span><span style="font-size:13px;font-weight:600;">Limite clan étendue à 20 membres</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:rgba(247,201,72,0.06);border-radius:10px;">
+          <span style="font-size:20px;">📊</span><span style="font-size:13px;font-weight:600;">Historique illimité de matchs</span>
+        </div>
+      </div>
+      <div style="text-align:center;margin-bottom:20px;">
+        <div style="font-family:'Space Grotesk',sans-serif;font-weight:900;font-size:32px;color:var(--gold);">5€ <span style="font-size:16px;color:var(--muted);font-weight:400;">/ mois</span></div>
+        <div style="font-size:12px;color:var(--muted);margin-top:4px;">Contactez un admin sur Discord pour activer</div>
+      </div>
+      <div style="display:flex;gap:10px;">
+        <button onclick="closePremiumModal()" style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px;color:var(--text);font-weight:600;cursor:pointer;">Plus tard</button>
+        <button onclick="window.open('https://discord.gg/revenge','_blank')" style="flex:2;background:linear-gradient(135deg,#f7c948,#ff9500);border:none;border-radius:10px;padding:12px;color:#000;font-weight:800;font-size:14px;cursor:pointer;">👑 Je veux Premium</button>
+      </div>
     </div>
   </div>
 </div>
@@ -897,7 +1100,7 @@ const MAP_IMGS = {
   'Split':  'https://media.valorant-api.com/maps/d960549e-485c-e861-8d71-aa9d1aebe674/splash.png',
 };
 let socket = null;
-let state = { pseudo:'', elo:500, stats:{}, isAdmin:false, isSpectator:false, avatar:null, userId:null, groupCode:null, roomId:null, myTeam:null, mode:'2v2', lbMode:'1v1', groupSize:0, clanId:null, isCaptain:false };
+let state = { pseudo:'', elo:500, stats:{}, isAdmin:false, isSpectator:false, avatar:null, userId:null, groupCode:null, roomId:null, myTeam:null, mode:'2v2', lbMode:'1v1', groupSize:0, clanId:null, isCaptain:false, isPremium:false, premiumUntil:null };
 // Restore only mode preference across F5, NOT elo (always comes from server)
 try {
   const savedMode = localStorage.getItem('rv_mode');
@@ -964,7 +1167,7 @@ function switchTab(tab) {
 const ADMIN_KEY = 'revenge_admin_secret';
 
 function showMainTab(tab) {
-  ['room','lb','admin','tournois','tickets','clans'].forEach(t => {
+  ['room','lb','admin','tournois','tickets','clans','boutique'].forEach(t => {
     const btn = document.getElementById('ntab-' + t);
     const content = document.getElementById('tab-content-' + t);
     if (btn) btn.classList.toggle('active', tab === t);
@@ -974,8 +1177,9 @@ function showMainTab(tab) {
   if (tab === 'room') loadGlobalChat();
   if (tab === 'clans') initClanTab();
   if (tab === 'room') fetchLiveRooms();
-  if (tab === 'admin') { refreshAdminLogs(); refreshAdminTickets(); loadAdminStats(); showAdminSection('stats'); }
+  if (tab === 'admin') { refreshAdminLogs(); refreshAdminTickets(); loadAdminStats(); loadPremiumAdmin(); showAdminSection('stats'); }
   if (tab === 'tickets') loadMyTickets();
+  if (tab === 'boutique') initBoutique();
 }
 
 // ── ADMIN SECTIONS ──
@@ -1328,12 +1532,14 @@ function initSocket() {
   if (socket) return;
   socket = io({ transports: ['polling', 'websocket'] });
 
-  socket.on('auth_ok', ({ pseudo, elo, stats, isAdmin, avatar, userId }) => {
+  socket.on('auth_ok', ({ pseudo, elo, stats, isAdmin, avatar, userId, isPremium, premiumUntil }) => {
     state.pseudo = pseudo;
     state.stats = stats || {};
     state.isAdmin = isAdmin || false;
     state.avatar = avatar || null;
     state.userId = userId || null;
+    state.isPremium = !!isPremium;
+    state.premiumUntil = premiumUntil || null;
     // Always use ELO from server stats for the current mode
     state.elo = state.stats[state.mode]?.elo ?? (typeof elo === 'number' ? elo : 500);
     try { localStorage.setItem('rv_mode', state.mode); } catch(e) {}
@@ -1592,6 +1798,22 @@ function initSocket() {
     if (state.isCaptain && !state.isSpectator) setTimeout(() => { const v = document.getElementById('captain-vote-section'); if (v) { v.style.display = ''; const btns = v.querySelectorAll('button'); btns.forEach(b => b.disabled = false); } }, 500);
   });
 
+  socket.on('premium_granted', ({ months }) => {
+    state.isPremium = true;
+    state.premiumUntil = Date.now() + months * 30 * 24 * 60 * 60 * 1000;
+    updateNavPremium();
+    const premBtn2 = document.getElementById('nav-premium-btn'); if (premBtn2) premBtn2.style.display = 'none';
+    notify(`👑 Premium activé pour ${months} mois ! Bienvenue dans l'élite.`, { accent: 'var(--gold)', duration: 6000 });
+  });
+
+  socket.on('premium_revoked', () => {
+    state.isPremium = false;
+    state.premiumUntil = null;
+    updateNavPremium();
+    const premBtn3 = document.getElementById('nav-premium-btn'); if (premBtn3) premBtn3.style.display = '';
+    notify('Premium expiré.', { duration: 4000 });
+  });
+
   socket.on('vote_conflict', () => {
     const status = document.getElementById('captain-vote-status');
     if (status) status.textContent = '';
@@ -1802,6 +2024,27 @@ function sendBrowserNotif(title, body) {
   setTimeout(() => notif.close(), 8000);
 }
 
+function updateNavPremium() {
+  const navAvatar = document.getElementById('nav-avatar');
+  const navPseudo = document.getElementById('nav-pseudo');
+  if (!navAvatar || !navPseudo) return;
+  if (state.isPremium) {
+    navAvatar.classList.add('premium-border');
+    navPseudo.classList.add('premium-pseudo');
+  } else {
+    navAvatar.classList.remove('premium-border');
+    navPseudo.classList.remove('premium-pseudo');
+  }
+}
+
+function openPremiumModal() {
+  document.getElementById('premium-modal').classList.add('show');
+}
+
+function closePremiumModal() {
+  document.getElementById('premium-modal').classList.remove('show');
+}
+
 function updateNavRank() {
   const maxElo = getMaxElo(state.stats);
   const badge = document.getElementById('nav-rank-badge');
@@ -1828,6 +2071,9 @@ function enterMain() {
   }
   document.getElementById('nav-elo').textContent = state.elo;
   updateNavRank();
+  updateNavPremium();
+  const premBtn = document.getElementById('nav-premium-btn');
+  if (premBtn) premBtn.style.display = state.isPremium ? 'none' : '';
   if (getMaxElo(state.stats) >= 901 && state.userId) {
     fetch('/api/radiant-rank/' + state.userId).then(r=>r.json()).then(d => {
       state.radiantPos = d.position;
@@ -2240,16 +2486,17 @@ async function loadAdminStats() {
 }
 
 function showAdminSection(sec) {
-  ['rooms','tickets','banned','stats'].forEach(s => {
+  ['rooms','tickets','banned','stats','premium'].forEach(s => {
     const el = document.getElementById('admin-section-' + s);
     const btn = document.getElementById('admin-sec-' + s);
     if (el) el.style.display = s === sec ? '' : 'none';
-    if (btn) btn.style.color = s === sec ? 'var(--accent)' : '';
+    if (btn) btn.style.color = s === sec ? (s === 'premium' ? 'var(--gold)' : 'var(--accent)') : '';
   });
   if (sec === 'banned') refreshBannedList();
   if (sec === 'tickets') refreshAdminTickets();
   if (sec === 'rooms') refreshAdminLogs();
   if (sec === 'stats') loadAdminStats();
+  if (sec === 'premium') loadPremiumAdmin();
 }
 
 // ── COTD ──
@@ -2817,7 +3064,10 @@ function makePlayerCard(p, teamClass) {
     : p.pseudo[0].toUpperCase();
   const playerMaxElo = getMaxElo(p.stats);
   const displayElo = (p.stats && state.mode && p.stats[state.mode]) ? p.stats[state.mode].elo : p.elo;
-  return `<div class="player-card"><div class="pav ${teamClass}">${avContent}</div><div><div class="pname">${p.pseudo}</div><div class="pelo">${displayElo} ELO</div><div style="margin-top:2px;">${getRankBadge(playerMaxElo)}</div></div></div>`;
+  const premiumBadge = p.isPremium ? '<span class="premium-badge">👑 PREMIUM</span>' : '';
+  const pseudoClass = p.isPremium ? 'pname premium-pseudo' : 'pname';
+  const avatarPremium = p.isPremium ? ' premium-border' : '';
+  return `<div class="player-card"><div class="pav ${teamClass}${avatarPremium}">${avContent}</div><div><div class="${pseudoClass}">${p.pseudo} ${premiumBadge}</div><div class="pelo">${displayElo} ELO</div><div style="margin-top:2px;">${getRankBadge(playerMaxElo)}</div></div></div>`;
 }
 
 function renderMapGrids() {
@@ -2874,6 +3124,122 @@ function voteResult(myTeamWon) {
   // Disable buttons after vote
   const btns = document.querySelectorAll('#captain-vote-section button');
   btns.forEach(b => b.disabled = true);
+}
+
+// ── BOUTIQUE ──
+let selectedPlanMonths = 1;
+let selectedPlanPrice = 5;
+
+function selectPlan(months, price) {
+  selectedPlanMonths = months;
+  selectedPlanPrice = price;
+  [1,3,6].forEach(m => {
+    const el = document.getElementById('plan-' + m);
+    if (el) el.classList.toggle('selected-plan', m === months);
+  });
+  const btn = document.getElementById('boutique-buy-btn');
+  if (btn) btn.textContent = `👑 Acheter — ${price}€`;
+}
+
+function initBoutique() {
+  const buyBtn = document.getElementById('boutique-buy-btn');
+  const alreadyEl = document.getElementById('boutique-already-premium');
+  const expiryEl = document.getElementById('boutique-expiry');
+  if (state.isPremium) {
+    if (buyBtn) buyBtn.style.display = 'none';
+    if (alreadyEl) alreadyEl.style.display = '';
+    if (expiryEl && state.premiumUntil) {
+      expiryEl.textContent = 'Expire le ' + new Date(state.premiumUntil).toLocaleDateString('fr-FR');
+    }
+    document.getElementById('boutique-plan-options').style.opacity = '0.4';
+    document.getElementById('boutique-plan-options').style.pointerEvents = 'none';
+  } else {
+    if (buyBtn) buyBtn.style.display = '';
+    if (alreadyEl) alreadyEl.style.display = 'none';
+    document.getElementById('boutique-plan-options').style.opacity = '';
+    document.getElementById('boutique-plan-options').style.pointerEvents = '';
+  }
+}
+
+async function buyPremium() {
+  if (state.isPremium) return notify('Tu es déjà Premium !', { accent: 'var(--gold)' });
+  if (!state.userId) return notify("Connecte-toi d'abord", { accent: 'var(--accent)' });
+  const planLabel = selectedPlanMonths === 1 ? '1 mois' : selectedPlanMonths === 3 ? '3 mois' : '6 mois';
+  const subject = `👑 Achat Premium — ${planLabel} (${selectedPlanPrice}€)`;
+  const message = `Bonjour,\n\nJe souhaite acheter le Premium pour ${planLabel} à ${selectedPlanPrice}€.\n\nPseudo : ${state.pseudo}\nDurée : ${planLabel}\nPrix : ${selectedPlanPrice}€\n\nMerci de m'envoyer le lien de paiement PayPal.`;
+  try {
+    const r = await fetch('/api/tickets', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: state.userId, pseudo: state.pseudo, subject, message, type: 'premium' })
+    });
+    if (r.ok) {
+      const btn = document.getElementById('boutique-buy-btn');
+      if (btn) { btn.textContent = '✅ Ticket envoyé !'; btn.style.background = 'rgba(46,204,113,0.2)'; btn.style.color = '#2ecc71'; btn.style.border = '1px solid #2ecc71'; btn.disabled = true; }
+      notify('✅ Ticket créé ! Un staff va te contacter avec le lien PayPal dans le Support.', { accent: 'var(--gold)', duration: 6000, onClick: () => showMainTab('tickets') });
+      loadMyTickets();
+    }
+  } catch(e) { notify('Erreur lors de la création du ticket', { accent: 'var(--accent)' }); }
+}
+
+async function loadPremiumAdmin() {
+  const list = document.getElementById('admin-premium-list');
+  if (!list) return;
+  try {
+    const res = await fetch('/api/leaderboard/1v1');
+    const data = await res.json();
+    const premiumUsers = (data.players || []).filter(p => p.isPremium);
+    if (!premiumUsers.length) {
+      list.innerHTML = '<div style="color:var(--muted);text-align:center;padding:30px;">Aucun utilisateur premium</div>';
+      return;
+    }
+    list.innerHTML = premiumUsers.map(p => {
+      const until = p.premiumUntil ? new Date(p.premiumUntil).toLocaleDateString('fr-FR') : '?';
+      return `<div style="display:flex;justify-content:space-between;align-items:center;background:var(--surface);border:1px solid rgba(247,201,72,0.3);border-radius:10px;padding:10px 14px;">
+        <div>
+          <span class="premium-badge" style="margin-right:8px;">👑 PREMIUM</span>
+          <span style="font-weight:700;">${p.pseudo}</span>
+          <span style="font-size:11px;color:var(--muted);margin-left:8px;">jusqu'au ${until}</span>
+        </div>
+        <button onclick="revokePremiumAdmin('${p.id}')" style="background:rgba(255,70,85,0.1);border:1px solid rgba(255,70,85,0.3);color:var(--accent);border-radius:8px;padding:5px 12px;font-size:12px;cursor:pointer;">Révoquer</button>
+      </div>`;
+    }).join('');
+  } catch(e) { list.innerHTML = '<div style="color:var(--accent);">Erreur chargement</div>'; }
+}
+
+async function grantPremium() {
+  const pseudo = document.getElementById('premium-pseudo-input').value.trim();
+  const months = parseInt(document.getElementById('premium-months-input').value);
+  if (!pseudo) return notify('Entrez un pseudo', { accent: 'var(--accent)' });
+  // Find userId from leaderboard
+  try {
+    const res = await fetch('/api/leaderboard/1v1');
+    const data = await res.json();
+    const user = (data.players || []).find(p => p.pseudo.toLowerCase() === pseudo.toLowerCase());
+    if (!user) return notify('Joueur introuvable', { accent: 'var(--accent)' });
+    const r = await fetch('/api/admin/premium', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-key': 'revenge_admin_secret' },
+      body: JSON.stringify({ userId: user.id, months })
+    });
+    if (r.ok) {
+      notify(`👑 Premium activé pour ${pseudo} (${months} mois)`, { accent: 'var(--gold)' });
+      document.getElementById('premium-pseudo-input').value = '';
+      loadPremiumAdmin();
+    }
+  } catch(e) { notify('Erreur', { accent: 'var(--accent)' }); }
+}
+
+async function revokePremiumAdmin(userId) {
+  try {
+    await fetch('/api/admin/revoke-premium', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-key': 'revenge_admin_secret' },
+      body: JSON.stringify({ userId })
+    });
+    notify('Premium révoqué', { duration: 3000 });
+    loadPremiumAdmin();
+  } catch(e) {}
 }
 
 function declareResult(result) {
