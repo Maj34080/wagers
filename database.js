@@ -39,8 +39,19 @@ function getUserById(id) {
   return loadDB().users.find(u => u.id === id);
 }
 
-function createUser(pseudo, hashedPassword, ip) {
+function generateReferralCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 8; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
+}
+
+function createUser(pseudo, hashedPassword, ip, referralCode) {
   const db = loadDB();
+  // Generate unique referral code for new user
+  let myCode;
+  do { myCode = generateReferralCode(); } while (db.users.find(u => u.referralCode === myCode));
+
   const user = {
     id: Date.now().toString(),
     pseudo,
@@ -48,8 +59,22 @@ function createUser(pseudo, hashedPassword, ip) {
     stats: defaultStats(),
     avatar: null,
     ip: ip || null,
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    referralCode: myCode,
+    referredBy: null,
+    referrals: []  // [{userId, pseudo, avatar, date, gamesPlayed}]
   };
+
+  // Apply referral if valid code provided
+  if (referralCode) {
+    const referrer = db.users.find(u => u.referralCode === referralCode.toUpperCase());
+    if (referrer && referrer.id !== user.id) {
+      user.referredBy = referrer.id;
+      if (!referrer.referrals) referrer.referrals = [];
+      referrer.referrals.push({ userId: user.id, pseudo: user.pseudo, avatar: null, date: user.createdAt, gamesPlayed: 0 });
+    }
+  }
+
   db.users.push(user);
   saveDB(db);
   return user;
@@ -149,6 +174,45 @@ function unmuteUser(id) {
   const user = db.users.find(u => u.id === id);
   if (user) { user.muted = false; user.muteUntil = null; user.muteDuration = null; saveDB(db); }
   return user;
+}
+
+function checkReferralReward(userId) {
+  // Called after a game — check if this user is a referral and update their game count
+  // If parrain now has 3 qualified referrals (3+ games each), give 1 week premium
+  const db = loadDB();
+  const user = db.users.find(u => u.id === userId);
+  if (!user || !user.referredBy) return;
+
+  const referrer = db.users.find(u => u.id === user.referredBy);
+  if (!referrer) return;
+
+  // Update game count for this referral entry
+  const totalGames = Object.values(user.stats || {}).reduce((s, m) => s + (m.wins || 0) + (m.losses || 0), 0);
+  if (!referrer.referrals) referrer.referrals = [];
+  const entry = referrer.referrals.find(r => r.userId === userId);
+  if (entry) {
+    entry.gamesPlayed = totalGames;
+    entry.avatar = user.avatar || null; // keep avatar updated
+  }
+
+  // Check if referrer now qualifies: 3 referrals with 3+ games each
+  const qualified = referrer.referrals.filter(r => r.gamesPlayed >= 3).length;
+  if (qualified >= 3 && !referrer.referralRewardGiven) {
+    referrer.referralRewardGiven = true;
+    // Give 7 days premium (1 week)
+    const weekMs = 7 * 24 * 60 * 60 * 1000;
+    if (!referrer.isPremium || !referrer.premiumUntil || referrer.premiumUntil < Date.now()) {
+      referrer.isPremium = true;
+      referrer.premiumUntil = Date.now() + weekMs;
+    } else {
+      referrer.premiumUntil += weekMs; // extend if already premium
+    }
+    saveDB(db);
+    return { rewardGiven: true, referrerId: referrer.id, premiumUntil: referrer.premiumUntil };
+  }
+
+  saveDB(db);
+  return { rewardGiven: false };
 }
 
 function checkMuteExpiry() {
@@ -267,4 +331,4 @@ function checkPremiumExpiry() {
   if (changed) saveDB(db);
 }
 
-module.exports = { getUserByPseudo, getUserById, createUser, updateUserElo, computeEloChange, getLeaderboard, updateAvatar, getIpAccounts, defaultStats, banUser, unbanUser, muteUser, unmuteUser, checkMuteExpiry, createTicket, getTickets, replyTicket, closeTicket, setPremium, revokePremium, checkPremiumExpiry };
+module.exports = { getUserByPseudo, getUserById, createUser, checkReferralReward, updateUserElo, computeEloChange, getLeaderboard, updateAvatar, getIpAccounts, defaultStats, banUser, unbanUser, muteUser, unmuteUser, checkMuteExpiry, createTicket, getTickets, replyTicket, closeTicket, setPremium, revokePremium, checkPremiumExpiry };

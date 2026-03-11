@@ -293,7 +293,8 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
     <div id="form-register" style="display:none">
       <div class="field"><label>Pseudo</label><input type="text" id="reg-pseudo" placeholder="TonPseudo"/></div>
       <div class="field"><label>Mot de passe</label><input type="password" id="reg-pass" placeholder="••••••••"/></div>
-      <div class="field"><label>Confirmer</label><input type="password" id="reg-pass2" placeholder="••••••••" onkeydown="if(event.key==='Enter')doRegister()"/></div>
+      <div class="field"><label>Confirmer</label><input type="password" id="reg-pass2" placeholder="••••••••"/></div>
+      <div class="field"><label style="display:flex;align-items:center;gap:6px;">Code de parrainage <span style="font-size:10px;color:var(--muted);font-weight:400;">(optionnel)</span></label><input type="text" id="reg-referral" placeholder="Ex: AB3X9KZM" maxlength="8" style="text-transform:uppercase;letter-spacing:2px;" onkeydown="if(event.key==='Enter')doRegister()"/></div>
       <button class="btn-primary" onclick="doRegister()">Créer mon compte</button>
       <div class="auth-error" id="reg-error"></div>
     </div>
@@ -1074,12 +1075,37 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
     <div style="display:flex;gap:4px;margin-bottom:14px;background:rgba(255,255,255,0.04);border-radius:10px;padding:4px;">
       <button id="ptab-stats-btn" onclick="switchProfileTab('stats')" style="flex:1;padding:8px;border:none;border-radius:7px;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:13px;cursor:pointer;background:var(--accent);color:#fff;transition:all 0.2s;">📊 Stats</button>
       <button id="ptab-history-btn" onclick="switchProfileTab('history')" style="flex:1;padding:8px;border:none;border-radius:7px;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:13px;cursor:pointer;background:none;color:var(--muted);transition:all 0.2s;">🕹️ Historique</button>
+      <button id="ptab-referral-btn" onclick="switchProfileTab('referral')" style="flex:1;padding:8px;border:none;border-radius:7px;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:13px;cursor:pointer;background:none;color:var(--muted);transition:all 0.2s;">🎁 Parrainage</button>
     </div>
     <!-- Stats tab -->
     <div id="ptab-stats" class="profile-stats" id="profile-stats"></div>
     <!-- History tab -->
     <div id="ptab-history" style="display:none;">
       <div id="profile-history-list" style="display:flex;flex-direction:column;gap:8px;max-height:320px;overflow-y:auto;"></div>
+    </div>
+    <!-- Referral tab -->
+    <div id="ptab-referral" style="display:none;">
+      <div style="background:var(--surface2);border:1px solid rgba(58,255,160,0.2);border-radius:12px;padding:14px;margin-bottom:12px;">
+        <div style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;">Ton code de parrainage</div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span id="prof-referral-code" style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:22px;color:var(--green);letter-spacing:3px;">——</span>
+          <button onclick="copyReferralCode()" style="background:rgba(58,255,160,0.1);border:1px solid rgba(58,255,160,0.3);color:var(--green);border-radius:8px;padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer;">📋 Copier</button>
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-top:6px;">Partage ce code à tes amis lors de leur inscription.</div>
+      </div>
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <div style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Progression récompense</div>
+          <div id="prof-referral-reward-badge" style="display:none;background:linear-gradient(135deg,#f7c948,#ff9500);color:#000;border-radius:6px;padding:2px 8px;font-size:10px;font-weight:800;">OBTENUE 🎉</div>
+        </div>
+        <div style="background:var(--border);border-radius:4px;height:6px;margin-bottom:6px;"><div id="prof-referral-bar-fill" style="height:6px;border-radius:4px;background:linear-gradient(90deg,var(--green),#38b2ac);transition:width 0.4s;width:0%;"></div></div>
+        <div id="prof-referral-progress-text" style="font-size:12px;color:var(--muted);">0 / 3 filleuls actifs</div>
+        <div style="font-size:11px;color:var(--gold);margin-top:5px;">🎁 Récompense : 1 semaine Premium offerte</div>
+      </div>
+      <div style="font-size:12px;font-weight:700;margin-bottom:8px;">Filleuls parrainés</div>
+      <div id="prof-referral-list" style="display:flex;flex-direction:column;gap:8px;max-height:200px;overflow-y:auto;">
+        <div style="color:var(--muted);font-size:12px;text-align:center;padding:14px;">Aucun filleul pour le moment</div>
+      </div>
     </div>
   </div>
 </div>
@@ -1706,6 +1732,7 @@ function initSocket() {
     state.userId = userId || null;
     state.isPremium = !!isPremium;
     state.premiumUntil = premiumUntil || null;
+    state.referralCode = referralCode || null;
     // Always use ELO from server stats for the current mode
     state.elo = state.stats[state.mode]?.elo ?? (typeof elo === 'number' ? elo : 500);
     try { localStorage.setItem('rv_mode', state.mode); } catch(e) {}
@@ -2231,7 +2258,8 @@ function doRegister() {
   if (!pseudo || !password) { document.getElementById('reg-error').textContent = 'Remplis tous les champs.'; return; }
   if (password !== password2) { document.getElementById('reg-error').textContent = 'Les mots de passe ne correspondent pas.'; return; }
   initSocket();
-  socket.emit('register', { pseudo, password });
+  const referralCode = (document.getElementById('reg-referral')?.value || '').trim().toUpperCase() || null;
+  socket.emit('register', { pseudo, password, referralCode });
 }
 
 // ── MAIN ──
@@ -4201,13 +4229,60 @@ async function backToLobby() {
   showScreen('main');
 }
 function switchProfileTab(tab) {
-  const isStats = tab === 'stats';
-  document.getElementById('ptab-stats').style.display = isStats ? '' : 'none';
-  document.getElementById('ptab-history').style.display = isStats ? 'none' : '';
-  document.getElementById('ptab-stats-btn').style.background = isStats ? 'var(--accent)' : 'none';
-  document.getElementById('ptab-stats-btn').style.color = isStats ? '#fff' : 'var(--muted)';
-  document.getElementById('ptab-history-btn').style.background = isStats ? 'none' : 'var(--accent)';
-  document.getElementById('ptab-history-btn').style.color = isStats ? 'var(--muted)' : '#fff';
+  ['stats','history','referral'].forEach(t => {
+    const el = document.getElementById('ptab-' + t);
+    const btn = document.getElementById('ptab-' + t + '-btn');
+    if (el) el.style.display = t === tab ? '' : 'none';
+    if (btn) { btn.style.background = t === tab ? 'var(--accent)' : 'none'; btn.style.color = t === tab ? '#fff' : 'var(--muted)'; }
+  });
+  if (tab === 'referral') loadReferralTab();
+}
+
+async function loadReferralTab() {
+  if (!state.userId) return;
+  // Set code
+  const codeEl = document.getElementById('prof-referral-code');
+  if (codeEl) codeEl.textContent = state.referralCode || '——';
+  try {
+    const r = await fetch('/api/referrals/' + state.userId);
+    const d = await r.json();
+    // Progress bar
+    const qualified = (d.referrals || []).filter(r => r.gamesPlayed >= 3).length;
+    const pct = Math.min(100, Math.round((qualified / 3) * 100));
+    const barEl = document.getElementById('prof-referral-bar-fill');
+    const txtEl = document.getElementById('prof-referral-progress-text');
+    const badgeEl = document.getElementById('prof-referral-reward-badge');
+    if (barEl) barEl.style.width = pct + '%';
+    if (txtEl) txtEl.textContent = `${qualified} / 3 filleuls actifs (3 parties chacun)`;
+    if (badgeEl) badgeEl.style.display = d.rewardGiven ? 'block' : 'none';
+    // List
+    const listEl = document.getElementById('prof-referral-list');
+    if (!listEl) return;
+    if (!d.referrals || !d.referrals.length) {
+      listEl.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;padding:14px;">Aucun filleul pour le moment</div>';
+      return;
+    }
+    listEl.innerHTML = d.referrals.map(ref => {
+      const avatar = ref.avatar
+        ? `<img src="${ref.avatar}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;">`
+        : `<div style="width:32px;height:32px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;">${ref.pseudo[0].toUpperCase()}</div>`;
+      const active = ref.gamesPlayed >= 3;
+      const date = new Date(ref.date).toLocaleDateString('fr-FR');
+      return `<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--surface2);border-radius:10px;border:1px solid ${active ? 'rgba(58,255,160,0.2)' : 'var(--border)'};">
+        ${avatar}
+        <div style="flex:1;">
+          <div style="font-weight:700;font-size:13px;">${ref.pseudo}</div>
+          <div style="font-size:11px;color:var(--muted);">Inscrit le ${date} · ${ref.gamesPlayed} partie${ref.gamesPlayed > 1 ? 's' : ''}</div>
+        </div>
+        <div style="font-size:11px;font-weight:700;color:${active ? 'var(--green)' : 'var(--muted)'};">${active ? '✅ Actif' : `${ref.gamesPlayed}/3`}</div>
+      </div>`;
+    }).join('');
+  } catch(e) { console.error(e); }
+}
+
+function copyReferralCode() {
+  if (!state.referralCode) return;
+  navigator.clipboard.writeText(state.referralCode).then(() => notify('📋 Code copié !', { accent: 'var(--green)' }));
 }
 
 async function loadProfileHistory(userId) {

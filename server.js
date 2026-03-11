@@ -108,6 +108,20 @@ if (TWITCH_CLIENT_ID) {
 function isAdminReq(req) { return req.headers['x-admin-key'] === ADMIN_KEY; }
 // ── ADMIN: PREMIUM ──
 // Smurf detection: find IPs with 2+ accounts having ELO difference > 150
+// Referral API
+app.get('/api/referrals/:userId', (req, res) => {
+  try {
+    const data = (() => { try { return require('fs').existsSync(DBFILE()) ? JSON.parse(require('fs').readFileSync(DBFILE(),'utf8')) : {users:[]}; } catch(e) { return {users:[]}; } })();
+    const user = data.users.find(u => u.id === req.params.userId);
+    if (!user) return res.status(404).json({ error: 'Introuvable' });
+    const referrals = (user.referrals || []).map(r => {
+      const ru = data.users.find(u => u.id === r.userId);
+      return { ...r, avatar: ru?.avatar || null, pseudo: ru?.pseudo || r.pseudo, gamesPlayed: r.gamesPlayed || 0 };
+    });
+    res.json({ referralCode: user.referralCode, referrals, rewardGiven: !!user.referralRewardGiven });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 // Staff online status
 app.get('/api/admin/staff', (req, res) => {
   if (!isAdminReq(req)) return res.status(403).json({ error: 'Interdit' });
@@ -525,7 +539,7 @@ function startRoomCountdown(roomId) {
 io.on('connection', (socket) => {
 
   // ── REGISTER ──
-  socket.on('register', async ({ pseudo, password }) => {
+  socket.on('register', async ({ pseudo, password, referralCode }) => {
     try {
       if (!pseudo || !password) return socket.emit('auth_error', 'Champs manquants');
       if (pseudo.length < 3) return socket.emit('auth_error', 'Pseudo trop court (3 min)');
@@ -537,7 +551,7 @@ io.on('connection', (socket) => {
       if (existing.length >= 2) return socket.emit('auth_error', 'Trop de comptes créés depuis cette adresse');
 
       const hashed = await bcrypt.hash(password, 10);
-      const user = db.createUser(pseudo, hashed, ip);
+      const user = db.createUser(pseudo, hashed, ip, referralCode || null);
       socket.userId = user.id;
       socket.pseudo = user.pseudo;
       socket.isAdmin = ADMIN_PSEUDOS.includes(pseudo);
@@ -547,7 +561,8 @@ io.on('connection', (socket) => {
         stats: user.stats,
         isAdmin: socket.isAdmin,
         avatar: user.avatar || null,
-        userId: user.id
+        userId: user.id,
+        referralCode: user.referralCode || null
       });
     } catch(e) { socket.emit('auth_error', 'Erreur: ' + e.message); }
   });
@@ -575,7 +590,8 @@ io.on('connection', (socket) => {
         avatar: user.avatar || null,
         userId: user.id,
         isPremium: !!user.isPremium,
-        premiumUntil: user.premiumUntil || null
+        premiumUntil: user.premiumUntil || null,
+        referralCode: user.referralCode || null
       });
     } catch(e) { socket.emit('auth_error', 'Erreur: ' + e.message); }
   });
@@ -988,12 +1004,24 @@ function applyEloResult(winTeam, loseTeam, mode) {
     const change = db.computeEloChange(myElo, loseAvg, true);
     eloChanges[p.id] = change;
     db.updateUserElo(p.id, change, true, mode, loseTeam, winTeam, false);
+    // Check referral reward
+    const ref = db.checkReferralReward(p.id);
+    if (ref && ref.rewardGiven) {
+      const s = [...io.sockets.sockets.values()].find(s => s.userId === ref.referrerId);
+      if (s) s.emit('premium_granted', { months: 0.25, message: '🎁 Tu as parrainé 3 joueurs actifs ! 1 semaine de Premium offerte !' });
+    }
   });
   loseRealPlayers.forEach(p => {
     const myElo = getElo(p);
     const change = db.computeEloChange(myElo, winAvg, false);
     eloChanges[p.id] = change;
     db.updateUserElo(p.id, change, false, mode, winTeam, loseTeam, false);
+    // Check referral reward
+    const ref = db.checkReferralReward(p.id);
+    if (ref && ref.rewardGiven) {
+      const s = [...io.sockets.sockets.values()].find(s => s.userId === ref.referrerId);
+      if (s) s.emit('premium_granted', { months: 0.25, message: '🎁 Tu as parrainé 3 joueurs actifs ! 1 semaine de Premium offerte !' });
+    }
   });
   return eloChanges;
 }
