@@ -881,7 +881,7 @@ function switchTab(tab) {
 const ADMIN_KEY = 'revenge_admin_secret';
 
 function showMainTab(tab) {
-  ['room','lb','admin','tournois','tickets'].forEach(t => {
+  ['room','lb','admin','tournois','tickets','clans'].forEach(t => {
     const btn = document.getElementById('ntab-' + t);
     const content = document.getElementById('tab-content-' + t);
     if (btn) btn.classList.toggle('active', tab === t);
