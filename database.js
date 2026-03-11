@@ -127,18 +127,41 @@ function unbanUser(id) {
   return user;
 }
 
-function muteUser(id) {
+function muteUser(id, durationMinutes) {
   const db = loadDB();
   const user = db.users.find(u => u.id === id);
-  if (user) { user.muted = true; saveDB(db); }
+  if (user) {
+    user.muted = true;
+    if (durationMinutes && durationMinutes > 0) {
+      user.muteUntil = Date.now() + durationMinutes * 60 * 1000;
+      user.muteDuration = durationMinutes;
+    } else {
+      user.muteUntil = null; // permanent
+      user.muteDuration = null;
+    }
+    saveDB(db);
+  }
   return user;
 }
 
 function unmuteUser(id) {
   const db = loadDB();
   const user = db.users.find(u => u.id === id);
-  if (user) { user.muted = false; saveDB(db); }
+  if (user) { user.muted = false; user.muteUntil = null; user.muteDuration = null; saveDB(db); }
   return user;
+}
+
+function checkMuteExpiry() {
+  const db = loadDB();
+  const now = Date.now();
+  let changed = false;
+  db.users.forEach(u => {
+    if (u.muted && u.muteUntil && u.muteUntil <= now) {
+      u.muted = false; u.muteUntil = null; u.muteDuration = null;
+      changed = true;
+    }
+  });
+  if (changed) saveDB(db);
 }
 
 function createTicket(userId, pseudo, subject, message) {
@@ -244,4 +267,4 @@ function checkPremiumExpiry() {
   if (changed) saveDB(db);
 }
 
-module.exports = { getUserByPseudo, getUserById, createUser, updateUserElo, computeEloChange, getLeaderboard, updateAvatar, getIpAccounts, defaultStats, banUser, unbanUser, muteUser, unmuteUser, createTicket, getTickets, replyTicket, closeTicket, setPremium, revokePremium, checkPremiumExpiry };
+module.exports = { getUserByPseudo, getUserById, createUser, updateUserElo, computeEloChange, getLeaderboard, updateAvatar, getIpAccounts, defaultStats, banUser, unbanUser, muteUser, unmuteUser, checkMuteExpiry, createTicket, getTickets, replyTicket, closeTicket, setPremium, revokePremium, checkPremiumExpiry };
