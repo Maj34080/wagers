@@ -416,11 +416,8 @@ io.on('connection', (socket) => {
     // Also create a fake opponent group and trigger room
     const oppGroupCode = generateCode();
     const oppPlayers = [];
-    // Bots match the real player's ELO so the formula is fair
-    const realPlayer = group.players.find(p => !p.isBot);
-    const botElo = realPlayer ? (realPlayer.stats?.[group.mode]?.elo || realPlayer.elo || 500) : 500;
     for (let i = 0; i < teamSize; i++) {
-      oppPlayers.push({ id: 'bot_opp_' + i, pseudo: 'Adversaire' + (i+1), elo: botElo, stats: { '1v1': {elo:botElo,wins:0,losses:0}, '2v2': {elo:botElo,wins:0,losses:0}, '3v3': {elo:botElo,wins:0,losses:0}, '5v5': {elo:botElo,wins:0,losses:0} }, socketId: null, isBot: true });
+      oppPlayers.push({ id: 'bot_opp_' + i, pseudo: 'Adversaire' + (i+1), elo: 500, stats: { '1v1': {elo:500,wins:0,losses:0}, '2v2': {elo:500,wins:0,losses:0}, '3v3': {elo:500,wins:0,losses:0}, '5v5': {elo:500,wins:0,losses:0} }, socketId: null, isBot: true });
     }
     groups[oppGroupCode] = { mode: group.mode, players: oppPlayers };
 
