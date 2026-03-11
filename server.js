@@ -433,7 +433,7 @@ io.on('connection', (socket) => {
     const totalLosses = Object.values(stats).reduce((a, s) => a + (s.losses||0), 0);
     const total = totalWins + totalLosses;
     const winrate = total > 0 ? Math.round((totalWins / total) * 100) : 0;
-    socket.emit('profile_data', { id: user.id, pseudo: user.pseudo, stats, winrate, totalWins, totalLosses, avatar: user.avatar || null });
+    socket.emit('profile_data', { id: user.id, pseudo: user.pseudo, stats, winrate, totalWins, totalLosses, avatar: user.avatar || null, isPremium: !!user.isPremium });
   });
 
   // ── ADMIN: SPAWN BOTS ──
@@ -1372,9 +1372,8 @@ app.post('/api/clans/request', express.json(), (req, res) => {
     const clan = (data.clans || []).find(c => c.id === clanId);
     if (!user || !clan) return res.status(404).json({ error: 'Introuvable' });
     if (user.clanId) return res.status(400).json({ error: 'Vous êtes déjà dans un clan' });
-    const leaderUser = data.users.find(u => u.id === clan.leaderId);
-    const maxMembers = leaderUser?.isPremium ? 20 : 10;
-    if (clan.members.length >= maxMembers) return res.status(400).json({ error: `Clan complet (${maxMembers}/${maxMembers})` });
+    if (!user.isPremium) return res.status(403).json({ error: 'PREMIUM_REQUIRED' });
+    if (clan.members.length >= 10) return res.status(400).json({ error: 'Clan complet (10/10)' });
     if (!clan.joinRequests) clan.joinRequests = [];
     if (clan.joinRequests.includes(userId)) return res.status(400).json({ error: 'Demande déjà envoyée' });
     clan.joinRequests.push(userId);
@@ -1393,9 +1392,7 @@ app.post('/api/clans/accept', express.json(), (req, res) => {
     const clan = (data.clans || []).find(c => c.id === clanId);
     if (!clan) return res.status(404).json({ error: 'Clan introuvable' });
     if (clan.leaderId !== leaderId) return res.status(403).json({ error: 'Non autorisé' });
-    const leaderUser2 = data.users.find(u => u.id === clan.leaderId);
-    const maxMembers2 = leaderUser2?.isPremium ? 20 : 10;
-    if (clan.members.length >= maxMembers2) return res.status(400).json({ error: `Clan complet (${maxMembers2}/${maxMembers2})` });
+    if (clan.members.length >= 10) return res.status(400).json({ error: 'Clan complet (10/10)' });
     clan.joinRequests = (clan.joinRequests || []).filter(id => id !== userId);
     if (!clan.members.includes(userId)) clan.members.push(userId);
     const target = data.users.find(u => u.id === userId);
