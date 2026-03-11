@@ -795,6 +795,23 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
               <div id="stat-moderation" style="display:flex;flex-direction:column;gap:10px;"></div>
             </div>
           </div>
+
+          <!-- ELO Adjustment tool -->
+          <div style="background:var(--surface);border:1px solid rgba(77,166,255,0.3);border-radius:14px;padding:20px;margin-top:14px;">
+            <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:14px;margin-bottom:14px;color:var(--blue);">⚡ Ajustement ELO</div>
+            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+              <input id="elo-adj-pseudo" placeholder="Pseudo du joueur" style="flex:1;min-width:140px;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:9px 14px;color:var(--text);font-size:13px;outline:none;font-family:'Inter',sans-serif;" onfocus="this.style.borderColor='var(--blue)'" onblur="this.style.borderColor='var(--border)'"/>
+              <select id="elo-adj-mode" style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:9px 12px;color:var(--text);font-size:13px;outline:none;">
+                <option value="1v1">1v1</option>
+                <option value="2v2">2v2</option>
+                <option value="3v3">3v3</option>
+                <option value="5v5">5v5</option>
+              </select>
+              <input id="elo-adj-amount" type="number" placeholder="+50 ou -50" style="width:110px;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:9px 12px;color:var(--text);font-size:13px;outline:none;font-family:'Inter',sans-serif;" onfocus="this.style.borderColor='var(--blue)'" onblur="this.style.borderColor='var(--border)'"/>
+              <button onclick="adminAdjustElo()" style="background:rgba(77,166,255,0.15);border:1px solid rgba(77,166,255,0.4);color:var(--blue);border-radius:10px;padding:9px 18px;font-weight:800;font-size:13px;cursor:pointer;font-family:'Space Grotesk',sans-serif;transition:all 0.2s;" onmouseover="this.style.background='rgba(77,166,255,0.25)'" onmouseout="this.style.background='rgba(77,166,255,0.15)'">⚡ Appliquer</button>
+            </div>
+            <div id="elo-adj-result" style="margin-top:10px;font-size:12px;min-height:18px;"></div>
+          </div>
         </div>
 
         <div id="admin-section-rooms" style="display:none;">
@@ -1046,6 +1063,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
     <canvas id="share-canvas" style="display:none;border-radius:12px;margin-bottom:14px;max-width:100%;"></canvas>
     <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
       <button class="result-btn" onclick="backToLobby()">Retour au Lobby</button>
+      <button class="result-btn-secondary" id="replay-btn" onclick="replayGame()">🔄 Rejouer</button>
       <button class="rematch-btn" id="rematch-btn" onclick="requestRematch()">⚔️ Revanche</button>
       <button class="result-btn-secondary" onclick="shareResult()">📤 Partager</button>
     </div>
@@ -1864,6 +1882,14 @@ function initSocket() {
     updateNavPremium();
     const premBtn2 = document.getElementById('nav-premium-btn'); if (premBtn2) premBtn2.style.display = 'none';
     notify(`👑 Premium activé pour ${months} mois ! Bienvenue dans l'élite.`, { accent: 'var(--gold)', duration: 6000 });
+  });
+
+  socket.on('elo_adjusted', ({ mode, amount, newElo }) => {
+    const sign = amount > 0 ? '+' : '';
+    notify(`⚡ Ton ELO ${mode} a été ajusté : ${sign}${amount} → ${newElo} ELO`, { accent: 'var(--blue)', duration: 6000 });
+    // Update local state if same mode
+    if (state.stats && state.stats[mode]) state.stats[mode].elo = newElo;
+    if (state.mode === mode) { state.elo = newElo; document.getElementById('nav-elo').textContent = newElo; updateNavRank(); }
   });
 
   socket.on('premium_revoked', () => {
@@ -2855,6 +2881,40 @@ function shareResult() {
       setTimeout(() => URL.revokeObjectURL(url), 3000);
     }
   }, 'image/png');
+}
+
+// ── ADMIN ELO ADJUSTMENT ──
+async function adminAdjustElo() {
+  const pseudo = document.getElementById('elo-adj-pseudo').value.trim();
+  const mode = document.getElementById('elo-adj-mode').value;
+  const amount = parseInt(document.getElementById('elo-adj-amount').value);
+  const resultEl = document.getElementById('elo-adj-result');
+  if (!pseudo) { resultEl.style.color = 'var(--accent)'; resultEl.textContent = 'Entre un pseudo.'; return; }
+  if (isNaN(amount) || amount === 0) { resultEl.style.color = 'var(--accent)'; resultEl.textContent = 'Entre un montant valide (ex: 50 ou -50).'; return; }
+  try {
+    const r = await fetch('/api/admin/elo', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-key': ADMIN_KEY },
+      body: JSON.stringify({ pseudo, mode, amount })
+    });
+    const d = await r.json();
+    if (!r.ok) { resultEl.style.color = 'var(--accent)'; resultEl.textContent = '❌ ' + (d.error || 'Erreur'); return; }
+    const sign = d.change > 0 ? '+' : '';
+    resultEl.style.color = d.change > 0 ? 'var(--green)' : 'var(--accent)';
+    resultEl.textContent = `✅ ${d.pseudo} [${mode}] : ${d.before} → ${d.after} ELO (${sign}${d.change})`;
+    document.getElementById('elo-adj-pseudo').value = '';
+    document.getElementById('elo-adj-amount').value = '';
+  } catch(e) { resultEl.style.color = 'var(--accent)'; resultEl.textContent = 'Erreur réseau'; }
+}
+
+// ── REJOUER ──
+function replayGame() {
+  backToLobby();
+  // Small delay so lobby is ready, then auto-click find room
+  setTimeout(() => {
+    const btn = document.getElementById('btn-find-room');
+    if (btn && !btn.disabled) btn.click();
+  }, 300);
 }
 
 // ── SMURF DETECTION ──

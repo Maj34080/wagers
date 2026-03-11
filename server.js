@@ -95,6 +95,29 @@ if (TWITCH_CLIENT_ID) {
 function isAdminReq(req) { return req.headers['x-admin-key'] === ADMIN_KEY; }
 // ── ADMIN: PREMIUM ──
 // Smurf detection: find IPs with 2+ accounts having ELO difference > 150
+// Admin ELO adjustment
+app.post('/api/admin/elo', express.json(), (req, res) => {
+  if (!isAdminReq(req)) return res.status(403).json({ error: 'Interdit' });
+  const { pseudo, mode, amount } = req.body;
+  if (!pseudo || !mode || amount === undefined) return res.status(400).json({ error: 'Champs manquants' });
+  const amt = parseInt(amount);
+  if (isNaN(amt) || Math.abs(amt) > 9999) return res.status(400).json({ error: 'Montant invalide (max ±9999)' });
+  const data = (() => { try { return require('fs').existsSync(DBFILE()) ? JSON.parse(require('fs').readFileSync(DBFILE(),'utf8')) : {users:[]}; } catch(e) { return {users:[]}; } })();
+  const user = data.users.find(u => u.pseudo.toLowerCase() === pseudo.toLowerCase());
+  if (!user) return res.status(404).json({ error: 'Joueur introuvable' });
+  if (!user.stats) user.stats = {};
+  if (!user.stats[mode]) user.stats[mode] = { elo: 500, wins: 0, losses: 0 };
+  const before = user.stats[mode].elo;
+  user.stats[mode].elo = Math.max(0, before + amt);
+  require('fs').writeFileSync(DBFILE(), JSON.stringify(data, null, 2));
+  // Notify player if online
+  const playerSocket = [...io.sockets.sockets.values()].find(s => s.userId === user.id);
+  if (playerSocket) {
+    playerSocket.emit('elo_adjusted', { mode, amount: amt, newElo: user.stats[mode].elo });
+  }
+  res.json({ ok: true, pseudo: user.pseudo, mode, before, after: user.stats[mode].elo, change: amt });
+});
+
 app.get('/api/admin/smurfs', (req, res) => {
   if (!isAdminReq(req)) return res.status(403).json({ error: 'Interdit' });
   try {
