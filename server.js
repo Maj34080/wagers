@@ -38,6 +38,10 @@ app.post('/api/admin/ban', (req, res) => {
   const user = db.getUserByPseudo(pseudo);
   if (!user) return res.status(404).json({ error: 'Introuvable' });
   db.banUser(user.id, reason);
+  // Kick connected socket immediately
+  io.sockets.sockets.forEach(s => {
+    if (s.userId === user.id) s.emit('you_are_banned', { reason: reason || 'violation des règles' });
+  });
   res.json({ ok: true });
 });
 app.post('/api/admin/unban', (req, res) => {
@@ -90,7 +94,14 @@ app.post('/api/tickets/:id/close', (req, res) => {
   res.json(ticket);
 });
 
-// Avatar upload
+app.get('/api/admin/banned', (req, res) => {
+  if (!isAdminReq(req)) return res.status(403).json({ error: 'Interdit' });
+  const dbFile = process.env.NODE_ENV === 'production' ? '/tmp/db.json' : path.join(__dirname, 'db.json');
+  try {
+    const data = JSON.parse(require('fs').readFileSync(dbFile, 'utf8'));
+    res.json((data.users||[]).filter(u => u.banned).map(u => ({ id: u.id, pseudo: u.pseudo, banReason: u.banReason||'', createdAt: u.createdAt })));
+  } catch(e) { res.json([]); }
+});
 app.post('/api/avatar', express.json({ limit: '2mb' }), (req, res) => {
   const { userId, avatar } = req.body;
   if (!userId || !avatar) return res.status(400).json({ error: 'Manquant' });
@@ -350,6 +361,15 @@ io.on('connection', (socket) => {
     const existing = getGroupBySocket(socket.id);
     if (existing) {
       const [code, group] = existing;
+      // If already captain of a group, just update mode without disbanding
+      if (group.captain === socket.userId) {
+        group.mode = mode;
+        socket.groupMode = mode;
+        const publicPlayers = group.players.map(p => ({ pseudo: p.pseudo, elo: getModeElo(p.id, mode), avatar: p.avatar || null }));
+        io.to('group_' + code).emit('group_updated', { players: publicPlayers, mode });
+        socket.emit('group_created', { code, mode, players: publicPlayers });
+        return;
+      }
       group.players = group.players.filter(p => p.socketId !== socket.id);
       if (group.players.length === 0) delete groups[code];
       else socket.leave('group_' + code);
@@ -360,12 +380,47 @@ io.on('connection', (socket) => {
     const userRecord = db.getUserById(socket.userId);
     groups[code] = {
       mode,
+      captain: socket.userId,
       players: [{ id: socket.userId, pseudo: socket.pseudo, elo, avatar: userRecord?.avatar || null, socketId: socket.id }]
     };
     socket.groupCode = code;
     socket.groupMode = mode;
     socket.join('group_' + code);
     socket.emit('group_created', { code, mode, players: groups[code].players.map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null })) });
+  });
+
+  // ── CHANGE MODE (without kicking members) ──
+  socket.on('change_mode', ({ mode }) => {
+    const entry = getGroupBySocket(socket.id);
+    if (!entry) return;
+    const [code, group] = entry;
+    if (group.captain !== socket.userId) return socket.emit('notify_error', 'Seul le capitaine peut changer le mode');
+    group.mode = mode;
+    socket.groupMode = mode;
+    const publicPlayers = group.players.map(p => ({ pseudo: p.pseudo, elo: getModeElo(p.id, mode), avatar: p.avatar || null }));
+    io.to('group_' + code).emit('group_updated', { players: publicPlayers, mode });
+    socket.emit('group_created', { code, mode, players: publicPlayers });
+  });
+
+  // ── RESET GROUP CODE ──
+  socket.on('reset_group_code', () => {
+    const entry = getGroupBySocket(socket.id);
+    if (!entry) return;
+    const [oldCode, group] = entry;
+    if (group.captain !== socket.userId) return;
+    const newCode = generateCode();
+    groups[newCode] = { ...group };
+    delete groups[oldCode];
+    group.players.forEach(p => {
+      const s = io.sockets.sockets.get(p.socketId);
+      if (s) {
+        s.leave('group_' + oldCode);
+        s.join('group_' + newCode);
+        s.groupCode = newCode;
+      }
+    });
+    socket.emit('group_created', { code: newCode, mode: group.mode, players: group.players.map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null })) });
+    io.to('group_' + newCode).emit('group_updated', { players: group.players.map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null })), mode: group.mode, newCode });
   });
 
   // ── JOIN GROUP ──
@@ -577,18 +632,29 @@ io.on('connection', (socket) => {
 
   // ── CANCEL QUEUE ──
   socket.on('cancel_queue', () => {
-    // Remove from any waiting room
     for (const [roomId, room] of Object.entries(rooms)) {
       if (room.status === 'waiting') {
         const inTeam0 = room.teams[0].some(p => p.id === socket.userId);
         const inTeam1 = room.teams[1] && room.teams[1].some(p => p.id === socket.userId);
         if (inTeam0 || inTeam1) {
-          socket.leave('room_' + roomId);
-          socket.roomId = null;
-          // If team is now empty remove room
-          if (inTeam0) room.teams[0] = room.teams[0].filter(p => p.id !== socket.userId);
-          if (inTeam1) room.teams[1] = room.teams[1].filter(p => p.id !== socket.userId);
-          if (room.teams[0].length === 0) delete rooms[roomId];
+          // Check if captain — if so, kick whole group from room
+          const groupEntry = getGroupBySocket(socket.id);
+          const isCaptain = groupEntry && groupEntry[1].captain === socket.userId;
+          if (isCaptain && inTeam0) {
+            // Kick all group members from room
+            groupEntry[1].players.forEach(p => {
+              const s = io.sockets.sockets.get(p.socketId);
+              if (s) { s.leave('room_' + roomId); s.roomId = null; }
+            });
+            io.to('room_' + roomId).emit('captain_left');
+            delete rooms[roomId];
+          } else {
+            socket.leave('room_' + roomId);
+            socket.roomId = null;
+            if (inTeam0) room.teams[0] = room.teams[0].filter(p => p.id !== socket.userId);
+            if (inTeam1) room.teams[1] = room.teams[1].filter(p => p.id !== socket.userId);
+            if (room.teams[0].length === 0) delete rooms[roomId];
+          }
           break;
         }
       }
@@ -620,19 +686,44 @@ io.on('connection', (socket) => {
     const entry = getGroupBySocket(socket.id);
     if (!entry) return;
     const [code, group] = entry;
+    const isCaptain = group.captain === socket.userId;
+
     group.players = group.players.filter(p => p.socketId !== socket.id);
     socket.leave('group_' + code);
     socket.groupCode = null;
-    if (group.players.length === 0) delete groups[code];
-    else io.to('group_' + code).emit('group_updated', { players: group.players.map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null })), mode: group.mode });
-    // Create a fresh solo group
+
+    if (isCaptain) {
+      // Captain leaves → kick all remaining members back to solo
+      group.players.forEach(p => {
+        const s = io.sockets.sockets.get(p.socketId);
+        if (s) {
+          s.leave('group_' + code);
+          s.groupCode = null;
+          // Create fresh solo group for them
+          const solo = generateCode();
+          const elo = getModeElo(s.userId, group.mode);
+          const rec = db.getUserById(s.userId);
+          groups[solo] = { mode: group.mode, captain: s.userId, players: [{ id: s.userId, pseudo: s.pseudo, elo, avatar: rec?.avatar||null, socketId: s.id }] };
+          s.groupCode = solo;
+          s.join('group_' + solo);
+          s.emit('group_created', { code: solo, mode: group.mode, players: [{ pseudo: s.pseudo, elo }] });
+          s.emit('chat_msg', { author: 'Système', team: 'system', text: '👑 Le capitaine a quitté le groupe.' });
+        }
+      });
+      delete groups[code];
+    } else {
+      if (group.players.length === 0) delete groups[code];
+      else io.to('group_' + code).emit('group_updated', { players: group.players.map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar||null })), mode: group.mode });
+    }
+
+    // Create fresh solo group for the one who left
     const newCode = generateCode();
     const elo = getModeElo(socket.userId, socket.groupMode || '2v2');
     const userRec = db.getUserById(socket.userId);
-    groups[newCode] = { mode: socket.groupMode || '2v2', players: [{ id: socket.userId, pseudo: socket.pseudo, elo, avatar: userRec?.avatar || null, socketId: socket.id }] };
+    groups[newCode] = { mode: socket.groupMode||'2v2', captain: socket.userId, players: [{ id: socket.userId, pseudo: socket.pseudo, elo, avatar: userRec?.avatar||null, socketId: socket.id }] };
     socket.groupCode = newCode;
     socket.join('group_' + newCode);
-    socket.emit('group_created', { code: newCode, mode: socket.groupMode || '2v2', players: [{ pseudo: socket.pseudo, elo }] });
+    socket.emit('group_created', { code: newCode, mode: socket.groupMode||'2v2', players: [{ pseudo: socket.pseudo, elo }] });
   });
 
   // ── CHAT IMAGE ──
@@ -683,7 +774,7 @@ io.on('connection', (socket) => {
     }
   });
 
-  // ── ADMIN DECIDE ──
+  // ── ADMIN DECIDE (with draw) ──
   socket.on('admin_decide', ({ roomId, winner }) => {
     if (!socket.isAdmin) return;
     const room = rooms[roomId];
@@ -691,39 +782,121 @@ io.on('connection', (socket) => {
     room.resultDeclared = true;
     room.status = 'finished';
     clearTimeout(room.banTimer);
-    const winTeam = winner === 1 ? room.teams[0] : room.teams[1];
-    const loseTeam = winner === 1 ? room.teams[1] : room.teams[0];
-    winTeam.filter(p => !p.isBot).forEach(p => db.updateUserElo(p.id, +20, true, room.mode));
-    loseTeam.filter(p => !p.isBot).forEach(p => db.updateUserElo(p.id, -20, false, room.mode));
-    io.to('room_' + roomId).emit('chat_msg', { author: 'Système', team: 'system', text: `⚖️ Décision admin : Équipe ${winner} gagne !` });
-    io.to('room_' + roomId).emit('game_result', { winner, winTeam: winTeam.map(p => p.pseudo), loseTeam: loseTeam.map(p => p.pseudo), mode: room.mode });
+    if (winner === 0) {
+      // Draw — no ELO change
+      io.to('room_' + roomId).emit('chat_msg', { author: 'Système', team: 'system', text: '⚖️ Décision admin : Égalité — aucun ELO modifié.' });
+      io.to('room_' + roomId).emit('game_result', { winner: 0, winTeam: [], loseTeam: [], mode: room.mode, draw: true });
+    } else {
+      const winTeam = winner === 1 ? room.teams[0] : room.teams[1];
+      const loseTeam = winner === 1 ? room.teams[1] : room.teams[0];
+      winTeam.filter(p => !p.isBot).forEach(p => db.updateUserElo(p.id, +20, true, room.mode));
+      loseTeam.filter(p => !p.isBot).forEach(p => db.updateUserElo(p.id, -20, false, room.mode));
+      io.to('room_' + roomId).emit('chat_msg', { author: 'Système', team: 'system', text: `⚖️ Décision admin : Équipe ${winner} gagne !` });
+      io.to('room_' + roomId).emit('game_result', { winner, winTeam: winTeam.map(p => p.pseudo), loseTeam: loseTeam.map(p => p.pseudo), mode: room.mode });
+    }
     setTimeout(() => { archiveRoom(roomId); }, 30000);
   });
 });
 
 server.listen(PORT, () => console.log(`✅ WAGERS sur http://localhost:${PORT}`));
 
+// Fake rooms for live display
+const FAKE_NAMES = ['Shadow','Blaze','Nova','Viper','Ghost','Storm','Frost','Ace','Echo','Raven','Void','Flux','Dusk','Neon','Wolf'];
+const FAKE_MODES = ['1v1','2v2','3v3','5v5'];
+const FAKE_WEAPONS_LIST = ['Vandal/Phantom','Sheriff','Operator','Marshall','Ghost'];
+let fakeRooms = [];
+
+function generateFakeRooms() {
+  const count = 3 + Math.floor(Math.random() * 5); // 3-7
+  fakeRooms = [];
+  for (let i = 0; i < count; i++) {
+    const mode = FAKE_MODES[Math.floor(Math.random() * FAKE_MODES.length)];
+    const size = getTeamSize(mode);
+    const fakeName = () => FAKE_NAMES[Math.floor(Math.random()*FAKE_NAMES.length)] + Math.floor(Math.random()*999);
+    const t1 = Array.from({length:size}, fakeName);
+    const t2 = Array.from({length:size}, fakeName);
+    const statuses = ['playing','playing','playing','weapon_vote'];
+    fakeRooms.push({
+      id: 'FAKE_' + generateCode(4),
+      mode, status: statuses[Math.floor(Math.random()*statuses.length)],
+      duration: Math.floor(Math.random()*15) + 1 + 'm' + Math.floor(Math.random()*59).toString().padStart(2,'0') + 's',
+      weapon: FAKE_WEAPONS_LIST[Math.floor(Math.random()*FAKE_WEAPONS_LIST.length)],
+      map: null,
+      team1: t1.map(p => p.slice(0,2)+'***'),
+      team2: t2.map(p => p.slice(0,2)+'***'),
+      total: size*2, max: size*2, fake: true
+    });
+  }
+}
+generateFakeRooms();
+setInterval(generateFakeRooms, 20 * 60 * 1000); // refresh every 20min
+
+// Friends API (stored in db)
+app.get('/api/friends/:userId', (req, res) => {
+  const dbFile = process.env.NODE_ENV === 'production' ? '/tmp/db.json' : path.join(__dirname, 'db.json');
+  try {
+    const data = JSON.parse(require('fs').readFileSync(dbFile, 'utf8'));
+    const user = data.users.find(u => u.id === req.params.userId);
+    if (!user) return res.json([]);
+    const friends = (user.friends||[]).map(fId => {
+      const f = data.users.find(u => u.id === fId);
+      if (!f) return null;
+      const online = [...io.sockets.sockets.values()].some(s => s.userId === fId);
+      return { id: f.id, pseudo: f.pseudo, avatar: f.avatar||null, online };
+    }).filter(Boolean);
+    res.json(friends);
+  } catch(e) { res.json([]); }
+});
+
+app.post('/api/friends/add', (req, res) => {
+  const { userId, targetPseudo } = req.body;
+  const dbFile = process.env.NODE_ENV === 'production' ? '/tmp/db.json' : path.join(__dirname, 'db.json');
+  try {
+    const data = JSON.parse(require('fs').readFileSync(dbFile, 'utf8'));
+    const user = data.users.find(u => u.id === userId);
+    const target = data.users.find(u => u.pseudo.toLowerCase() === targetPseudo.toLowerCase());
+    if (!user || !target) return res.status(404).json({ error: 'Introuvable' });
+    if (!user.friends) user.friends = [];
+    if (!target.friends) target.friends = [];
+    if (!user.friends.includes(target.id)) user.friends.push(target.id);
+    if (!target.friends.includes(user.id)) target.friends.push(user.id);
+    require('fs').writeFileSync(dbFile, JSON.stringify(data, null, 2));
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/friends/remove', (req, res) => {
+  const { userId, targetId } = req.body;
+  const dbFile = process.env.NODE_ENV === 'production' ? '/tmp/db.json' : path.join(__dirname, 'db.json');
+  try {
+    const data = JSON.parse(require('fs').readFileSync(dbFile, 'utf8'));
+    const user = data.users.find(u => u.id === userId);
+    const target = data.users.find(u => u.id === targetId);
+    if (user) user.friends = (user.friends||[]).filter(f => f !== targetId);
+    if (target) target.friends = (target.friends||[]).filter(f => f !== userId);
+    require('fs').writeFileSync(dbFile, JSON.stringify(data, null, 2));
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 // Broadcast active rooms every 5s
 function getActiveRoomsPayload() {
-  return Object.values(rooms).map(r => {
+  const real = Object.values(rooms).filter(r => r.status !== 'finished').map(r => {
     const elapsed = Math.floor((Date.now() - (r.createdAt || Date.now())) / 1000);
     const mins = Math.floor(elapsed / 60);
     const secs = elapsed % 60;
     const duration = mins > 0 ? `${mins}m${secs.toString().padStart(2,'0')}s` : `${secs}s`;
     const blur = (pseudo) => pseudo.slice(0,2) + '***';
     return {
-      id: r.id,
-      mode: r.mode,
-      status: r.status,
-      duration,
-      weapon: r.chosenWeapon || null,
-      map: r.chosenMap || null,
-      team1: (r.teams[0] || []).map(p => blur(p.pseudo)),
-      team2: (r.teams[1] || []).map(p => blur(p.pseudo)),
+      id: r.id, mode: r.mode, status: r.status, duration,
+      weapon: r.chosenWeapon || null, map: r.chosenMap || null,
+      team1: (r.teams[0]||[]).map(p => blur(p.pseudo)),
+      team2: (r.teams[1]||[]).map(p => blur(p.pseudo)),
       total: ((r.teams[0]||[]).length + (r.teams[1]||[]).length),
-      max: (getTeamSize(r.mode) * 2)
+      max: getTeamSize(r.mode) * 2, fake: false
     };
-  }).filter(r => r.status !== 'finished');
+  });
+  return [...real, ...fakeRooms];
 }
 
 setInterval(() => {

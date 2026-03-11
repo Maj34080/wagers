@@ -312,7 +312,10 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
         </div>
         <!-- Quitter -->
         <button onclick="leaveGroup()" title="Quitter le groupe" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:15px;padding:0 12px;transition:color 0.2s;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--muted)'">🚪</button>
+        <button onclick="resetGroupCode()" title="Réinitialiser le code" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:13px;padding:0 10px;transition:color 0.2s;font-weight:700;" onmouseover="this.style.color='#f7c948'" onmouseout="this.style.color='var(--muted)'">🔄</button>
       </div>
+
+      <button onclick="openFriendsPanel()" style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:8px 14px;color:var(--text);font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;" title="Amis">👥 <span id="friends-online-count" style="color:var(--green);font-size:11px;"></span></button>
 
       <div class="avatar" id="nav-avatar" onclick="openProfile()">?</div>
       <span class="nav-pseudo" id="nav-pseudo" style="font-size:14px;font-weight:700;"></span>
@@ -416,6 +419,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
           <div style="display:flex;gap:8px;">
             <button onclick="showAdminSection('rooms')" id="admin-sec-rooms" class="btn-mini" style="color:var(--accent);">🕹️ Rooms</button>
             <button onclick="showAdminSection('tickets')" id="admin-sec-tickets" class="btn-mini">🎫 Tickets</button>
+            <button onclick="showAdminSection('banned')" id="admin-sec-banned" class="btn-mini">🚫 Bannis</button>
             <button onclick="refreshAdminLogs()" class="btn-mini">🔄 Actualiser</button>
           </div>
         </div>
@@ -426,6 +430,15 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
         </div>
         <div id="admin-section-tickets" style="display:none;">
           <div id="admin-tickets-list" style="display:flex;flex-direction:column;gap:10px;">
+            <div style="color:var(--muted);text-align:center;padding:40px;">Chargement…</div>
+          </div>
+        </div>
+        <div id="admin-section-banned" style="display:none;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+            <div style="font-weight:700;font-size:14px;">Joueurs bannis</div>
+            <button onclick="refreshBannedList()" class="btn-mini">🔄 Actualiser</button>
+          </div>
+          <div id="admin-banned-list" style="display:flex;flex-direction:column;gap:8px;">
             <div style="color:var(--muted);text-align:center;padding:40px;">Chargement…</div>
           </div>
         </div>
@@ -565,11 +578,41 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
   <div class="admin-spec-label">👁️ MODE ADMIN — <span id="admin-spec-room"></span></div>
   <button class="btn-admin-win1" onclick="adminDecide(1)">✅ Équipe 1 gagne</button>
   <button class="btn-admin-win2" onclick="adminDecide(2)">✅ Équipe 2 gagne</button>
+  <button onclick="adminDecide(0)" style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.5);color:#333;border-radius:8px;padding:7px 14px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Space Grotesk',sans-serif;">🤝 Égalité</button>
   <button onclick="adminLeaveSpectator()" style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);color:#000;border-radius:8px;padding:7px 14px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Space Grotesk',sans-serif;">🚪 Quitter</button>
   <button class="btn-admin-close" onclick="adminLeave()">✕</button>
 </div>
 
 <div class="notify" id="notify"></div>
+
+<!-- BAN SCREEN -->
+<div id="ban-screen" style="display:none;position:fixed;inset:0;z-index:9999;background:#0a0a0f;display:none;align-items:center;justify-content:center;flex-direction:column;gap:20px;">
+  <div style="font-size:64px;">🚫</div>
+  <div style="font-family:'Space Grotesk',sans-serif;font-size:28px;font-weight:800;color:#ff4655;">Compte banni</div>
+  <div style="font-size:15px;color:var(--muted);text-align:center;max-width:420px;line-height:1.6;">
+    <b>Raison :</b> <span id="ban-reason-text">violation des règles</span>
+  </div>
+  <div style="font-size:13px;color:var(--muted);text-align:center;">Si tu penses que c'est une erreur, contacte un staff sur notre <b>Discord</b>.</div>
+</div>
+
+<!-- FRIENDS PANEL -->
+<div id="friends-panel" style="display:none;position:fixed;right:20px;bottom:20px;z-index:500;width:280px;background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--surface2);border-bottom:1px solid var(--border);">
+    <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:14px;">👥 Amis</div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <button onclick="toggleAddFriend()" style="font-size:12px;background:var(--accent);color:#fff;border:none;border-radius:6px;padding:4px 10px;cursor:pointer;font-weight:700;">+ Ajouter</button>
+      <button onclick="closeFriendsPanel()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;">✕</button>
+    </div>
+  </div>
+  <div id="add-friend-bar" style="display:none;padding:10px 14px;border-bottom:1px solid var(--border);">
+    <div style="display:flex;gap:8px;">
+      <input id="add-friend-input" placeholder="Pseudo exact…" style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:7px 10px;color:var(--text);font-size:13px;outline:none;"/>
+      <button onclick="doAddFriend()" style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:7px 12px;cursor:pointer;font-weight:700;font-size:13px;">OK</button>
+    </div>
+    <div id="add-friend-error" style="font-size:11px;color:var(--accent);margin-top:5px;"></div>
+  </div>
+  <div id="friends-list" style="max-height:300px;overflow-y:auto;padding:8px 0;"></div>
+</div>
 
 <script>
 const MAPS = ['Ascent','Bind','Haven','Icebox','Lotus','Pearl','Split'];
@@ -584,6 +627,13 @@ const MAP_IMGS = {
 };
 let socket = null;
 let state = { pseudo:'', elo:500, stats:{}, isAdmin:false, isSpectator:false, avatar:null, userId:null, groupCode:null, roomId:null, myTeam:null, mode:'2v2', lbMode:'1v1', groupSize:0 };
+// Restore persisted ELO/mode across F5
+try {
+  const savedElo = localStorage.getItem('rv_elo');
+  if (savedElo) state.elo = parseInt(savedElo) || 500;
+  const savedMode = localStorage.getItem('rv_mode');
+  if (savedMode) state.mode = savedMode;
+} catch(e) {}
 let banTimerInterval = null;
 
 function notify(msg) {
@@ -621,13 +671,6 @@ function showMainTab(tab) {
 }
 
 // ── ADMIN SECTIONS ──
-function showAdminSection(sec) {
-  document.getElementById('admin-section-rooms').style.display = sec === 'rooms' ? '' : 'none';
-  document.getElementById('admin-section-tickets').style.display = sec === 'tickets' ? '' : 'none';
-  document.getElementById('admin-sec-rooms').style.color = sec === 'rooms' ? 'var(--accent)' : '';
-  document.getElementById('admin-sec-tickets').style.color = sec === 'tickets' ? 'var(--accent)' : '';
-  if (sec === 'tickets') refreshAdminTickets();
-}
 
 async function refreshAdminTickets() {
   if (!state.isAdmin) return;
@@ -782,6 +825,8 @@ async function showPlayerProfile(pseudo) {
           : `<button onclick="adminMutePlayer('${pseudo}');closeProfileModal()" style="background:rgba(255,209,102,0.1);border:1px solid var(--gold);color:var(--gold);border-radius:8px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;">🔇 Mute</button>`
         }
       </div>` : '';
+    const isSelf = pseudo === state.pseudo;
+    const friendBtn = !isSelf ? `<button onclick="addFriendFromProfile('${pseudo}');closeProfileModal()" style="background:rgba(79,142,247,0.1);border:1px solid rgba(79,142,247,0.4);color:#4f8ef7;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;">👥 Ajouter</button>` : '';
     const modal = document.createElement('div');
     modal.id = 'player-profile-modal';
     modal.style.cssText = 'position:fixed;inset:0;z-index:500;background:rgba(10,10,15,0.85);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;';
@@ -795,6 +840,7 @@ async function showPlayerProfile(pseudo) {
         </div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">${statsHtml}</div>
+      <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">${friendBtn}</div>
       ${adminActions}
     </div>`;
     modal.addEventListener('click', e => { if (e.target === modal) closeProfileModal(); });
@@ -805,6 +851,14 @@ async function showPlayerProfile(pseudo) {
 function closeProfileModal() {
   const m = document.getElementById('player-profile-modal');
   if (m) m.remove();
+}
+
+async function addFriendFromProfile(pseudo) {
+  const r = await fetch('/api/friends/add', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: state.userId, targetPseudo: pseudo }) });
+  const d = await r.json();
+  if (d.ok) notify('✅ ' + pseudo + ' ajouté en ami !');
+  else notify('❌ ' + (d.error||'Erreur'));
+  loadFriends();
 }
 
 function voteWeapon(weapon) {
@@ -864,7 +918,7 @@ function selectMode(mode, el) {
   state.mode = mode;
   document.querySelectorAll('#mode-selector .mode-btn').forEach(b => b.classList.remove('active'));
   el.classList.add('active');
-  if (socket) socket.emit('create_group', { mode });
+  if (socket) socket.emit('change_mode', { mode });
   updateRoomBtn();
 }
 
@@ -907,6 +961,8 @@ function initSocket() {
     state.isAdmin = isAdmin || false;
     state.avatar = avatar || null;
     state.userId = userId || null;
+    // Persist to survive F5
+    try { localStorage.setItem('rv_elo', state.elo); localStorage.setItem('rv_mode', state.mode); } catch(e) {}
     document.getElementById('login-error').textContent = '';
     document.getElementById('reg-error').textContent = '';
     enterMain();
@@ -926,13 +982,6 @@ function initSocket() {
     updateRoomBtn();
   });
 
-  socket.on('group_updated', ({ players, mode }) => {
-    state.groupSize = players.length;
-    renderGroupMembers(players);
-    updateRoomBtn();
-    const teamSize = getTeamSize(state.mode);
-    if (players.length >= teamSize) notify('🎉 Groupe complet !');
-  });
 
   socket.on('group_joined', ({ code, players, mode }) => {
     state.groupCode = code;
@@ -1137,20 +1186,26 @@ function initSocket() {
     if (state.isAdmin && state.isSpectator) setTimeout(() => { document.getElementById('declare-section').style.display = ''; }, 500);
   });
 
-  socket.on('game_result', ({ winner, winTeam, loseTeam, mode }) => {
-    const iWon = winTeam.includes(state.pseudo);
-    state.elo += iWon ? 20 : -20;
-    document.getElementById('result-title').textContent = iWon ? 'VICTOIRE' : 'DÉFAITE';
-    document.getElementById('result-title').className = 'result-title ' + (iWon ? 'win' : 'lose');
-    document.getElementById('result-elo').textContent = (iWon ? '+20' : '-20') + ' ELO → ' + state.elo;
-    document.getElementById('result-map').textContent = 'Mode ' + mode + ' — Gagnants : ' + winTeam.join(' & ');
+  socket.on('game_result', ({ winner, winTeam, loseTeam, mode, draw }) => {
+    if (draw || winner === 0) {
+      document.getElementById('result-title').textContent = 'ÉGALITÉ';
+      document.getElementById('result-title').className = 'result-title';
+      document.getElementById('result-title').style.color = 'var(--gold)';
+      document.getElementById('result-elo').textContent = '±0 ELO — Aucun changement';
+      document.getElementById('result-map').textContent = 'Mode ' + mode + ' — Décision admin : Égalité';
+    } else {
+      const iWon = winTeam.includes(state.pseudo);
+      state.elo += iWon ? 20 : -20;
+      try { localStorage.setItem('rv_elo', state.elo); } catch(e) {}
+      document.getElementById('result-title').textContent = iWon ? 'VICTOIRE' : 'DÉFAITE';
+      document.getElementById('result-title').className = 'result-title ' + (iWon ? 'win' : 'lose');
+      document.getElementById('result-elo').textContent = (iWon ? '+20' : '-20') + ' ELO → ' + state.elo;
+      document.getElementById('result-map').textContent = 'Mode ' + mode + ' — Gagnants : ' + winTeam.join(' & ');
+      document.getElementById('nav-elo').textContent = state.elo;
+    }
     document.getElementById('result-overlay').classList.add('show');
-    document.getElementById('nav-elo').textContent = state.elo;
-    // Auto retour après 30s si personne clique
     setTimeout(() => {
-      if (document.getElementById('result-overlay').classList.contains('show')) {
-        backToLobby();
-      }
+      if (document.getElementById('result-overlay').classList.contains('show')) backToLobby();
     }, 30000);
   });
 
@@ -1175,6 +1230,30 @@ function initSocket() {
   });
 
   socket.on('ban_error', (msg) => notify('❌ ' + msg));
+
+  socket.on('you_are_banned', ({ reason }) => {
+    showBanScreen(reason);
+  });
+
+  socket.on('captain_left', () => {
+    notify('👑 Le capitaine a quitté la room.');
+    document.getElementById('searching-box').classList.remove('show');
+    updateRoomBtn();
+  });
+
+  socket.on('group_updated', ({ players, mode, newCode }) => {
+    if (newCode) {
+      state.groupCode = newCode;
+      const el = document.getElementById('nav-group-code');
+      if (el) el.textContent = newCode;
+    }
+    if (mode) state.mode = mode;
+    state.groupSize = players.length;
+    renderGroupMembers(players);
+    updateRoomBtn();
+    const teamSize = getTeamSize(state.mode);
+    if (players.length >= teamSize) notify('🎉 Groupe complet !');
+  });
 }
 
 // ── BAN TIMER BAR ──
@@ -1249,9 +1328,13 @@ function renderLeaderboard(data) {
     const isMe = r.pseudo === state.pseudo;
     const games = r.wins + r.losses;
     const wr = games > 0 ? Math.round(r.wins / games * 100) : 0;
-    return `<div class="lb-row${isMe?' me':''}" onclick="showPlayerProfile('${r.pseudo}')" style="cursor:pointer;" title="Voir le profil de ${r.pseudo}">
-      <div class="lb-rank ${rc}">${ri}</div>
-      <div class="lb-name">${r.pseudo}${isMe?' <span class="you-badge">toi</span>':''}</div>
+    const avatarHTML = r.avatar
+      ? `<img src="${r.avatar}" style="width:30px;height:30px;border-radius:50%;object-fit:cover;border:2px solid var(--border);flex-shrink:0;">`
+      : `<div style="width:30px;height:30px;border-radius:50%;background:var(--surface2);border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;">${r.pseudo[0].toUpperCase()}</div>`;
+    return `<div class="lb-row${isMe?' me':''}" onclick="showPlayerProfile('${r.pseudo}')" style="cursor:pointer;display:flex;align-items:center;gap:10px;" title="Voir le profil de ${r.pseudo}">
+      <div class="lb-rank ${rc}" style="min-width:36px;">${ri}</div>
+      ${avatarHTML}
+      <div class="lb-name" style="flex:1;">${r.pseudo}${isMe?' <span class="you-badge">toi</span>':''}</div>
       <div class="lb-wins" style="font-size:12px;color:var(--muted);">${r.wins}V ${r.losses}D · ${wr}%</div>
       <div class="lb-elo">${r.elo}</div>
     </div>`;
@@ -1326,8 +1409,116 @@ function renderGroupMembers(players) {
   }
 }
 
+function showBanScreen(reason) {
+  document.getElementById('ban-reason-text').textContent = reason || 'violation des règles';
+  const bs = document.getElementById('ban-screen');
+  bs.style.display = 'flex';
+}
+
+function resetGroupCode() {
+  if (!socket) return;
+  socket.emit('reset_group_code');
+}
+
+// ── FRIENDS ──
+function openFriendsPanel() {
+  const panel = document.getElementById('friends-panel');
+  panel.style.display = 'flex';
+  panel.style.flexDirection = 'column';
+  loadFriends();
+}
+function closeFriendsPanel() {
+  document.getElementById('friends-panel').style.display = 'none';
+}
+function toggleAddFriend() {
+  const bar = document.getElementById('add-friend-bar');
+  bar.style.display = bar.style.display === 'none' ? '' : 'none';
+  if (bar.style.display !== 'none') document.getElementById('add-friend-input').focus();
+}
+async function doAddFriend() {
+  const pseudo = document.getElementById('add-friend-input').value.trim();
+  const errEl = document.getElementById('add-friend-error');
+  if (!pseudo) return;
+  try {
+    const r = await fetch('/api/friends/add', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: state.userId, targetPseudo: pseudo }) });
+    const d = await r.json();
+    if (d.error) { errEl.textContent = d.error; return; }
+    errEl.textContent = '';
+    document.getElementById('add-friend-input').value = '';
+    document.getElementById('add-friend-bar').style.display = 'none';
+    notify('✅ Ami ajouté !');
+    loadFriends();
+  } catch(e) { errEl.textContent = 'Erreur réseau'; }
+}
+async function loadFriends() {
+  if (!state.userId) return;
+  try {
+    const r = await fetch('/api/friends/' + state.userId);
+    const friends = await r.json();
+    const list = document.getElementById('friends-list');
+    const onlineCount = friends.filter(f => f.online).length;
+    const countEl = document.getElementById('friends-online-count');
+    if (countEl) countEl.textContent = onlineCount > 0 ? `${onlineCount} en ligne` : '';
+    if (!friends.length) { list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted);font-size:13px;">Aucun ami pour l\'instant</div>'; return; }
+    list.innerHTML = friends.map(f => `
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);">
+        <div style="position:relative;">
+          ${f.avatar ? `<img src="${f.avatar}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;">` : `<div style="width:32px;height:32px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-weight:700;">${f.pseudo[0]}</div>`}
+          <div style="position:absolute;bottom:0;right:0;width:9px;height:9px;border-radius:50%;background:${f.online?'#2ecc71':'#666'};border:2px solid var(--surface);"></div>
+        </div>
+        <div style="flex:1;">
+          <div style="font-weight:700;font-size:13px;">${f.pseudo}</div>
+          <div style="font-size:11px;color:${f.online?'var(--green)':'var(--muted)'};">${f.online?'En ligne':'Hors ligne'}</div>
+        </div>
+        <button onclick="removeFriend('${f.id}','${f.pseudo}')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:15px;" title="Supprimer">✕</button>
+      </div>`).join('');
+  } catch(e) {}
+}
+async function removeFriend(targetId, pseudo) {
+  if (!confirm(`Supprimer ${pseudo} de vos amis ?`)) return;
+  await fetch('/api/friends/remove', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: state.userId, targetId }) });
+  loadFriends();
+}
+
+// ── ADMIN BANNED LIST ──
+async function refreshBannedList() {
+  const list = document.getElementById('admin-banned-list');
+  if (!list) return;
+  list.innerHTML = '<div style="color:var(--muted);text-align:center;padding:20px;">Chargement…</div>';
+  try {
+    const r = await fetch('/api/admin/banned', { headers: { 'x-admin-key': 'revenge_admin_secret' } });
+    const data = await r.json();
+    if (!data.length) { list.innerHTML = '<div style="color:var(--muted);text-align:center;padding:20px;">Aucun joueur banni</div>'; return; }
+    list.innerHTML = data.map(u => `
+      <div style="display:flex;align-items:center;justify-content:space-between;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;">
+        <div>
+          <div style="font-weight:700;font-size:14px;">${u.pseudo}</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px;">Raison : ${u.banReason||'—'}</div>
+        </div>
+        <button onclick="adminUnbanFromList('${u.pseudo}',this)" style="background:rgba(46,204,113,0.15);border:1px solid rgba(46,204,113,0.4);color:#2ecc71;border-radius:8px;padding:6px 14px;cursor:pointer;font-weight:700;font-size:12px;">✅ Débannir</button>
+      </div>`).join('');
+  } catch(e) { list.innerHTML = '<div style="color:var(--accent);text-align:center;padding:20px;">Erreur de chargement</div>'; }
+}
+async function adminUnbanFromList(pseudo, btn) {
+  btn.disabled = true; btn.textContent = '…';
+  await fetch('/api/admin/unban', { method:'POST', headers:{'Content-Type':'application/json','x-admin-key':'revenge_admin_secret'}, body: JSON.stringify({ pseudo }) });
+  notify('✅ ' + pseudo + ' débanni !');
+  refreshBannedList();
+}
+
+function showAdminSection(sec) {
+  ['rooms','tickets','banned'].forEach(s => {
+    const el = document.getElementById('admin-section-' + s);
+    const btn = document.getElementById('admin-sec-' + s);
+    if (el) el.style.display = s === sec ? '' : 'none';
+    if (btn) btn.style.color = s === sec ? 'var(--accent)' : '';
+  });
+  if (sec === 'banned') refreshBannedList();
+  if (sec === 'tickets') refreshAdminTickets();
+  if (sec === 'rooms') refreshAdminLogs();
+}
+
 function copyCode() {
-  if (!state.groupCode) return;
   navigator.clipboard?.writeText(state.groupCode).catch(() => {});
   notify('Code ' + state.groupCode + ' copié !');
 }
