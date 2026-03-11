@@ -445,6 +445,20 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
       <div style="display:flex;gap:20px;align-items:flex-start;max-width:1100px;margin:0 auto;">
         <!-- Left: main leaderboard -->
         <div style="flex:1;min-width:0;">
+          <!-- Season banner -->
+          <div id="season-banner" style="background:linear-gradient(135deg,rgba(52,211,153,0.08),rgba(52,211,153,0.03));border:1px solid rgba(52,211,153,0.2);border-radius:12px;padding:12px 16px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:10px;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span style="font-size:18px;">🏆</span>
+              <div>
+                <div id="season-banner-title" style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:14px;color:#34d399;">Saison —</div>
+                <div id="season-banner-sub" style="font-size:11px;color:var(--muted);">Chargement…</div>
+              </div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;">Reset dans</div>
+              <div id="season-banner-countdown" style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:16px;color:#34d399;">—</div>
+            </div>
+          </div>
           <div class="lb-header">
             <div class="lb-title">Classement</div>
             <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
@@ -755,6 +769,8 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
             <button onclick="showAdminSection('premium')" id="admin-sec-premium" class="btn-mini" style="color:var(--gold);">👑 Premium</button>
             <button onclick="showAdminSection('staff')" id="admin-sec-staff" class="btn-mini" style="color:#4fd1c5;">🛡️ Staff</button>
             <button onclick="showAdminSection('lookup')" id="admin-sec-lookup" class="btn-mini" style="color:#a78bfa;">🔍 Joueur</button>
+            <button onclick="showAdminSection('logs')" id="admin-sec-logs" class="btn-mini" style="color:#f472b6;">📋 Logs</button>
+            <button onclick="showAdminSection('seasons')" id="admin-sec-seasons" class="btn-mini" style="color:#34d399;">🏆 Saisons</button>
           </div>
         </div>
 
@@ -879,6 +895,29 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
             <button onclick="adminLookupPlayer()" style="background:#a78bfa;color:#fff;border:none;border-radius:10px;padding:10px 18px;font-weight:800;font-size:13px;cursor:pointer;">Rechercher</button>
           </div>
           <div id="lookup-result"></div>
+        </div>
+
+        <!-- LOGS ADMIN -->
+        <div id="admin-section-logs" style="display:none;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+            <div style="font-weight:700;font-size:14px;">📋 Logs des actions admin</div>
+            <button onclick="loadAdminActionLogs()" class="btn-mini">🔄 Actualiser</button>
+          </div>
+          <div id="admin-logs-list" style="display:flex;flex-direction:column;gap:6px;max-height:480px;overflow-y:auto;">
+            <div style="color:var(--muted);text-align:center;padding:40px;">Chargement…</div>
+          </div>
+        </div>
+
+        <!-- SAISONS -->
+        <div id="admin-section-seasons" style="display:none;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+            <div style="font-weight:700;font-size:14px;">🏆 Saisons</div>
+            <button onclick="loadSeasonsAdmin()" class="btn-mini">🔄 Actualiser</button>
+          </div>
+          <!-- Current season -->
+          <div id="admin-season-current" style="background:var(--surface);border:1px solid rgba(52,211,153,0.3);border-radius:14px;padding:18px;margin-bottom:14px;"></div>
+          <!-- Archives -->
+          <div id="admin-season-archives" style="display:flex;flex-direction:column;gap:12px;"></div>
         </div>
 
         <div id="admin-section-premium" style="display:none;">
@@ -1327,7 +1366,7 @@ function showMainTab(tab) {
     if (btn) btn.classList.toggle('active', tab === t);
     if (content) content.classList.toggle('active', tab === t);
   });
-  if (tab === 'lb') { loadLeaderboard(state.lbMode); loadCotd(); }
+  if (tab === 'lb') { loadLeaderboard(state.lbMode); loadCotd(); loadSeasonBanner(); }
   if (tab === 'room') { loadGlobalChat(); fetchLiveRooms(); loadTwitchLive(); }
   if (tab === 'admin') { refreshAdminLogs(); refreshAdminTickets(); loadAdminStats(); loadPremiumAdmin(); loadStaffStatus(); showAdminSection('stats'); }
   if (tab === 'tickets') loadMyTickets();
@@ -2802,7 +2841,7 @@ async function refreshBannedList() {
   if (!list) return;
   list.innerHTML = '<div style="color:var(--muted);text-align:center;padding:20px;">Chargement…</div>';
   try {
-    const r = await fetch('/api/admin/banned', { headers: { 'x-admin-key': 'revenge_admin_secret' } });
+    const r = await fetch('/api/admin/banned', { headers: { 'x-admin-key': 'revenge_admin_secret', 'x-admin-pseudo': state.pseudo || '' } });
     const data = await r.json();
     if (!data.length) { list.innerHTML = '<div style="color:var(--muted);text-align:center;padding:20px;">Aucun joueur banni</div>'; return; }
     list.innerHTML = data.map(u => `
@@ -2826,7 +2865,7 @@ async function adminUnbanFromList(pseudo, btn) {
 async function loadAdminStats() {
   if (!state.isAdmin) return;
   try {
-    const r = await fetch('/api/admin/stats', { headers: { 'x-admin-key': 'revenge_admin_secret' } });
+    const r = await fetch('/api/admin/stats', { headers: { 'x-admin-key': 'revenge_admin_secret', 'x-admin-pseudo': state.pseudo || '' } });
     const s = await r.json();
 
     // Cards
@@ -2901,12 +2940,12 @@ function scrollAdminTop() {
 }
 
 function showAdminSection(sec) {
-  ['rooms','tickets','banned','stats','premium','smurfs','staff','lookup'].forEach(s => {
+  ['rooms','tickets','banned','stats','premium','smurfs','staff','lookup','logs','seasons'].forEach(s => {
     const el = document.getElementById('admin-section-' + s);
     const btn = document.getElementById('admin-sec-' + s);
     if (el) el.style.display = s === sec ? '' : 'none';
     if (btn) btn.style.color = s === sec
-      ? (s === 'premium' ? 'var(--gold)' : s === 'smurfs' ? '#f97316' : s === 'staff' ? '#4fd1c5' : s === 'lookup' ? '#a78bfa' : 'var(--accent)')
+      ? (s === 'premium' ? 'var(--gold)' : s === 'smurfs' ? '#f97316' : s === 'staff' ? '#4fd1c5' : s === 'lookup' ? '#a78bfa' : s === 'logs' ? '#f472b6' : s === 'seasons' ? '#34d399' : 'var(--accent)')
       : '';
   });
   if (sec === 'banned') refreshBannedList();
@@ -2916,6 +2955,8 @@ function showAdminSection(sec) {
   if (sec === 'premium') loadPremiumAdmin();
   if (sec === 'smurfs') loadSmurfDetection();
   if (sec === 'staff') loadStaffStatus();
+  if (sec === 'logs') loadAdminActionLogs();
+  if (sec === 'seasons') loadSeasonsAdmin();
   requestAnimationFrame(() => {
     const ms = document.getElementById('screen-main');
     if (ms) ms.scrollTop = 0;
@@ -3079,7 +3120,7 @@ async function adminLookupPlayer() {
   if (!pseudo) { out.innerHTML = '<div style="color:var(--muted);font-size:13px;">Entre un pseudo.</div>'; return; }
   out.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:20px;text-align:center;">Chargement…</div>';
   try {
-    const r = await fetch('/api/admin/find-user?pseudo=' + encodeURIComponent(pseudo), { headers: { 'x-admin-key': 'revenge_admin_secret' } });
+    const r = await fetch('/api/admin/find-user?pseudo=' + encodeURIComponent(pseudo), { headers: { 'x-admin-key': 'revenge_admin_secret', 'x-admin-pseudo': state.pseudo || '' } });
     if (!r.ok) { const e = await r.json(); out.innerHTML = `<div style="color:var(--accent);font-size:13px;">❌ ${e.error}</div>`; return; }
     const d = await r.json();
     const totalGames = Object.values(d.stats || {}).reduce((s, m) => s + (m.wins||0) + (m.losses||0), 0);
@@ -3162,6 +3203,93 @@ async function adminMuteFromLookup(userId) {
 async function grantPremiumById(userId) {
   const r = await fetch('/api/admin/premium', { method:'POST', headers:{'Content-Type':'application/json','x-admin-key':'revenge_admin_secret'}, body: JSON.stringify({ userId, months: 1 }) });
   if (r.ok) notify('👑 Premium activé', { accent: 'var(--gold)' });
+}
+
+async function loadSeasonBanner() {
+  try {
+    const r = await fetch('/api/season');
+    const d = await r.json();
+    const s = d.season;
+    const endsAt = new Date(s.endsAt);
+    const msLeft = endsAt - Date.now();
+    const daysLeft = Math.max(0, Math.floor(msLeft / 86400000));
+    const hoursLeft = Math.max(0, Math.floor((msLeft % 86400000) / 3600000));
+    const titleEl = document.getElementById('season-banner-title');
+    const subEl = document.getElementById('season-banner-sub');
+    const cdEl = document.getElementById('season-banner-countdown');
+    if (titleEl) titleEl.textContent = `Saison ${s.number}`;
+    if (subEl) subEl.textContent = `Reset ELO le ${endsAt.toLocaleDateString('fr-FR')} — les ELO seront ramenés vers 500`;
+    if (cdEl) cdEl.textContent = daysLeft > 0 ? `${daysLeft}j ${hoursLeft}h` : `${hoursLeft}h`;
+    if (cdEl && daysLeft <= 2) cdEl.style.color = 'var(--accent)';
+  } catch(e) {}
+}
+
+async function loadAdminActionLogs() {
+  const list = document.getElementById('admin-logs-list');
+  if (!list) return;
+  list.innerHTML = '<div style="color:var(--muted);text-align:center;padding:20px;">Chargement…</div>';
+  try {
+    const r = await fetch('/api/admin/logs', { headers: { 'x-admin-key': 'revenge_admin_secret', 'x-admin-pseudo': state.pseudo || '' } });
+    const d = await r.json();
+    const logs = d.logs || [];
+    if (!logs.length) { list.innerHTML = '<div style="color:var(--muted);text-align:center;padding:30px;">Aucun log pour le moment</div>'; return; }
+    const actionColors = { BAN:'var(--accent)', UNBAN:'var(--green)', MUTE:'orange', UNMUTE:'var(--green)', PREMIUM:'var(--gold)', ELO:'var(--blue)' };
+    list.innerHTML = logs.map(l => {
+      const col = actionColors[l.action] || 'var(--muted)';
+      const date = new Date(l.date).toLocaleString('fr-FR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
+      return `<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--surface2);border-radius:10px;border-left:3px solid ${col};font-size:12px;">
+        <span style="font-weight:800;color:${col};min-width:60px;">${l.action}</span>
+        <span style="font-weight:700;flex:1;">${l.admin} <span style="color:var(--muted);font-weight:400;">→</span> ${l.target || '—'}${l.details ? ` <span style="color:var(--muted);">(${l.details})</span>` : ''}</span>
+        <span style="color:var(--muted);white-space:nowrap;">${date}</span>
+      </div>`;
+    }).join('');
+  } catch(e) { list.innerHTML = `<div style="color:var(--accent);font-size:13px;">Erreur: ${e.message}</div>`; }
+}
+
+async function loadSeasonsAdmin() {
+  const cur = document.getElementById('admin-season-current');
+  const arc = document.getElementById('admin-season-archives');
+  if (!cur) return;
+  try {
+    const r = await fetch('/api/season');
+    const d = await r.json();
+    const s = d.season;
+    const endsAt = new Date(s.endsAt);
+    const msLeft = endsAt - Date.now();
+    const daysLeft = Math.max(0, Math.floor(msLeft / 86400000));
+    const hoursLeft = Math.max(0, Math.floor((msLeft % 86400000) / 3600000));
+    cur.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+        <div>
+          <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;">Saison en cours</div>
+          <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:24px;color:#34d399;">Saison ${s.number}</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:3px;">Démarrée le ${new Date(s.startedAt).toLocaleDateString('fr-FR')} · Reset le ${endsAt.toLocaleDateString('fr-FR')}</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">Temps restant</div>
+          <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:20px;color:${daysLeft <= 2 ? 'var(--accent)' : '#34d399'};">${daysLeft}j ${hoursLeft}h</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px;">Reset ELO automatique</div>
+        </div>
+      </div>`;
+    const archives = d.archives || [];
+    if (!archives.length) { arc.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;padding:14px;">Aucune saison archivée</div>'; return; }
+    arc.innerHTML = archives.map(a => {
+      const modeRows = Object.entries(a.top || {}).map(([mode, players]) => {
+        if (!players.length) return '';
+        return `<div style="margin-bottom:8px;">
+          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:4px;">${mode}</div>
+          ${players.slice(0,3).map((p,i) => `<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;">
+            <span>${['🥇','🥈','🥉'][i]} ${p.pseudo}</span>
+            <span style="color:var(--gold);font-weight:700;">${p.elo} ELO</span>
+          </div>`).join('')}
+        </div>`;
+      }).join('');
+      return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;">
+        <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:15px;margin-bottom:12px;color:var(--gold);">🏆 Saison ${a.season} <span style="font-size:11px;font-weight:400;color:var(--muted);">— terminée le ${new Date(a.endedAt).toLocaleDateString('fr-FR')}</span></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">${modeRows}</div>
+      </div>`;
+    }).join('');
+  } catch(e) { cur.innerHTML = `<div style="color:var(--accent);">Erreur: ${e.message}</div>`; }
 }
 
 async function loadStaffStatus() {
@@ -4108,7 +4236,7 @@ async function loadPremiumAdmin() {
   const list = document.getElementById('admin-premium-list');
   if (!list) return;
   try {
-    const res = await fetch('/api/admin/all-users', { headers: { 'x-admin-key': 'revenge_admin_secret' } });
+    const res = await fetch('/api/admin/all-users', { headers: { 'x-admin-key': 'revenge_admin_secret', 'x-admin-pseudo': state.pseudo || '' } });
     const data = await res.json();
     const premiumUsers = (data.users || []).filter(p => p.isPremium);
     if (!premiumUsers.length) {
@@ -4137,13 +4265,13 @@ async function grantPremium() {
   try {
     // Find user directly by pseudo (works even with 0 games played)
     const res = await fetch('/api/admin/find-user?pseudo=' + encodeURIComponent(pseudo), {
-      headers: { 'x-admin-key': 'revenge_admin_secret' }
+      headers: { 'x-admin-key': 'revenge_admin_secret', 'x-admin-pseudo': state.pseudo || '' }
     });
     if (!res.ok) return notify('Joueur introuvable', { accent: 'var(--accent)' });
     const user = await res.json();
     const r = await fetch('/api/admin/premium', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-admin-key': 'revenge_admin_secret' },
+      headers: { 'Content-Type': 'application/json', 'x-admin-key': 'revenge_admin_secret', 'x-admin-pseudo': state.pseudo || '' },
       body: JSON.stringify({ userId: user.id, months })
     });
     if (r.ok) {
@@ -4158,7 +4286,7 @@ async function revokePremiumAdmin(userId) {
   try {
     await fetch('/api/admin/revoke-premium', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-admin-key': 'revenge_admin_secret' },
+      headers: { 'Content-Type': 'application/json', 'x-admin-key': 'revenge_admin_secret', 'x-admin-pseudo': state.pseudo || '' },
       body: JSON.stringify({ userId })
     });
     notify('Premium révoqué', { duration: 3000 });

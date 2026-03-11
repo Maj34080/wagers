@@ -331,4 +331,78 @@ function checkPremiumExpiry() {
   if (changed) saveDB(db);
 }
 
-module.exports = { getUserByPseudo, getUserById, createUser, checkReferralReward, updateUserElo, computeEloChange, getLeaderboard, updateAvatar, getIpAccounts, defaultStats, banUser, unbanUser, muteUser, unmuteUser, checkMuteExpiry, createTicket, getTickets, replyTicket, closeTicket, setPremium, revokePremium, checkPremiumExpiry, loadDB, saveDB };
+// ── ADMIN LOGS ──
+function addAdminLog(adminPseudo, action, targetPseudo, details) {
+  const db = loadDB();
+  if (!db.adminLogs) db.adminLogs = [];
+  db.adminLogs.unshift({
+    id: Date.now().toString(),
+    date: new Date().toISOString(),
+    admin: adminPseudo,
+    action,
+    target: targetPseudo || null,
+    details: details || null
+  });
+  // Keep last 500 logs
+  if (db.adminLogs.length > 500) db.adminLogs = db.adminLogs.slice(0, 500);
+  saveDB(db);
+}
+
+function getAdminLogs() {
+  const db = loadDB();
+  return db.adminLogs || [];
+}
+
+// ── SEASONS ──
+function getCurrentSeason() {
+  const db = loadDB();
+  if (!db.season) {
+    db.season = { number: 1, startedAt: new Date().toISOString(), endsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString() };
+    saveDB(db);
+  }
+  return db.season;
+}
+
+function checkSeasonReset() {
+  const db = loadDB();
+  if (!db.season) { getCurrentSeason(); return; }
+  if (new Date(db.season.endsAt) > new Date()) return; // not yet
+
+  // Archive current season leaderboard
+  if (!db.seasonArchives) db.seasonArchives = [];
+  const topByMode = {};
+  ['1v1','2v2','3v3','5v5'].forEach(mode => {
+    topByMode[mode] = [...db.users]
+      .filter(u => u.stats?.[mode]?.wins > 0 || u.stats?.[mode]?.losses > 0)
+      .sort((a, b) => (b.stats[mode]?.elo || 500) - (a.stats[mode]?.elo || 500))
+      .slice(0, 10)
+      .map(u => ({ pseudo: u.pseudo, elo: u.stats[mode]?.elo || 500, wins: u.stats[mode]?.wins || 0, losses: u.stats[mode]?.losses || 0 }));
+  });
+  db.seasonArchives.unshift({ season: db.season.number, endedAt: new Date().toISOString(), top: topByMode });
+  if (db.seasonArchives.length > 10) db.seasonArchives = db.seasonArchives.slice(0, 10);
+
+  // Soft reset: new ELO = 500 + (oldElo - 500) * 0.5 (keeps some progress)
+  db.users.forEach(u => {
+    ['1v1','2v2','3v3','5v5'].forEach(mode => {
+      if (!u.stats?.[mode]) return;
+      const old = u.stats[mode].elo || 500;
+      u.stats[mode].elo = Math.round(500 + (old - 500) * 0.5);
+    });
+  });
+
+  // Start new season
+  db.season = {
+    number: db.season.number + 1,
+    startedAt: new Date().toISOString(),
+    endsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
+  };
+  saveDB(db);
+  console.log(`[SEASON] Saison ${db.season.number} démarrée, ELO reset.`);
+  return db.season;
+}
+
+function getSeasonArchives() {
+  return loadDB().seasonArchives || [];
+}
+
+module.exports = { getUserByPseudo, getUserById, createUser, checkReferralReward, updateUserElo, computeEloChange, getLeaderboard, updateAvatar, getIpAccounts, defaultStats, banUser, unbanUser, muteUser, unmuteUser, checkMuteExpiry, createTicket, getTickets, replyTicket, closeTicket, setPremium, revokePremium, checkPremiumExpiry, loadDB, saveDB, addAdminLog, getAdminLogs, getCurrentSeason, checkSeasonReset, getSeasonArchives };

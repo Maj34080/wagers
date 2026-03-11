@@ -18,7 +18,7 @@ const WEAPONS = ['Vandal/Phantom', 'Sheriff', 'Operator', 'Marshall', 'Ghost'];
 const WEAPON_VOTE_TIMEOUT = 10000; // 10s pour voter
 const BAN_TIMEOUT = 15000;
 const START_COUNTDOWN = 5000;
-const ADMIN_PSEUDOS = ['Karim34', 'Teleph']; // ← ajoute ton pseudo ici
+const ADMIN_PSEUDOS = ['Karim34']; // ← ajoute ton pseudo ici
 
 // Check premium expiry on boot and every hour
 db.checkPremiumExpiry();
@@ -193,6 +193,7 @@ app.post('/api/admin/elo', express.json(), (req, res) => {
   if (playerSocket) {
     playerSocket.emit('elo_adjusted', { mode, amount: amt, newElo: user.stats[mode].elo });
   }
+  db.addAdminLog(req.headers['x-admin-pseudo'] || 'Admin', 'ELO', user.pseudo, `${mode}: ${amt > 0 ? '+' : ''}${amt} (${before} → ${user.stats[mode].elo})`);
   res.json({ ok: true, pseudo: user.pseudo, mode, before, after: user.stats[mode].elo, change: amt });
 });
 
@@ -271,6 +272,8 @@ app.post('/api/admin/premium', (req, res) => {
   const { userId, months } = req.body;
   const ok = db.setPremium(userId, months || 1);
   if (!ok) return res.status(404).json({ error: 'Utilisateur introuvable' });
+  const pu = db.getUserById(userId);
+  db.addAdminLog(req.headers['x-admin-pseudo'] || 'Admin', 'PREMIUM', pu?.pseudo || userId, `${months || 1} mois`);
   io.sockets.sockets.forEach(s => {
     if (s.userId === userId) s.emit('premium_granted', { months: months || 1 });
   });
@@ -294,7 +297,7 @@ app.post('/api/admin/ban', (req, res) => {
   const user = db.getUserByPseudo(pseudo);
   if (!user) return res.status(404).json({ error: 'Introuvable' });
   db.banUser(user.id, reason);
-  // Kick connected socket immediately
+  db.addAdminLog(req.headers['x-admin-pseudo'] || 'Admin', 'BAN', user.pseudo, reason || 'violation des règles');
   io.sockets.sockets.forEach(s => {
     if (s.userId === user.id) s.emit('you_are_banned', { reason: reason || 'violation des règles' });
   });
@@ -306,6 +309,7 @@ app.post('/api/admin/unban', (req, res) => {
   const user = db.getUserByPseudo(pseudo);
   if (!user) return res.status(404).json({ error: 'Introuvable' });
   db.unbanUser(user.id);
+  db.addAdminLog(req.headers['x-admin-pseudo'] || 'Admin', 'UNBAN', user.pseudo, null);
   res.json({ ok: true });
 });
 app.post('/api/admin/mute', (req, res) => {
@@ -322,6 +326,7 @@ app.post('/api/admin/mute', (req, res) => {
     const msg = duration ? `🔇 Tu as été mute pour ${duration} minute${duration>1?'s':''}.` : '🔇 Tu as été mute indéfiniment par un admin.';
     s.emit('muted_by_admin', { duration, muteUntil: user.muteUntil, message: msg });
   }
+  db.addAdminLog(req.headers['x-admin-pseudo'] || 'Admin', 'MUTE', user.pseudo, duration ? `${duration} min` : 'permanent');
   res.json({ ok: true, pseudo: user.pseudo, duration });
 });
 app.post('/api/admin/unmute', (req, res) => {
@@ -330,6 +335,7 @@ app.post('/api/admin/unmute', (req, res) => {
   const user = db.getUserByPseudo(pseudo);
   if (!user) return res.status(404).json({ error: 'Introuvable' });
   db.unmuteUser(user.id);
+  db.addAdminLog(req.headers['x-admin-pseudo'] || 'Admin', 'UNMUTE', user.pseudo, null);
   res.json({ ok: true });
 });
 
@@ -597,6 +603,20 @@ function startRoomCountdown(roomId) {
     }
   }, 1000);
 }
+
+// ── SEASON CHECK ──
+db.checkSeasonReset();
+setInterval(() => { db.checkSeasonReset(); }, 60 * 1000);
+
+// ── ADMIN LOGS & SEASON API ──
+app.get('/api/admin/logs', (req, res) => {
+  if (!isAdminReq(req)) return res.status(403).json({ error: 'Interdit' });
+  res.json({ logs: db.getAdminLogs() });
+});
+
+app.get('/api/season', (req, res) => {
+  res.json({ season: db.getCurrentSeason(), archives: db.getSeasonArchives() });
+});
 
 io.on('connection', (socket) => {
 
