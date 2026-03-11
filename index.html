@@ -315,7 +315,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
         </div>
         <!-- Quitter -->
         <button onclick="leaveGroup()" title="Quitter le groupe" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:15px;padding:0 12px;transition:color 0.2s;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--muted)'">🚪</button>
-        <button onclick="resetGroupCode()" title="Réinitialiser le code" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:13px;padding:0 10px;transition:color 0.2s;font-weight:700;" onmouseover="this.style.color='#f7c948'" onmouseout="this.style.color='var(--muted)'">🔄</button>
+        <button onclick="resetGroupCode()" title="Réinitialiser le code" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:11px;padding:0 8px;transition:color 0.2s;font-weight:700;letter-spacing:0.5px;" onmouseover="this.style.color='#f7c948'" onmouseout="this.style.color='var(--muted)'">NEW</button>
       </div>
 
       <button onclick="openFriendsPanel()" style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:8px 14px;color:var(--text);font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;" title="Amis">👥 <span id="friends-online-count" style="color:var(--green);font-size:11px;"></span></button>
@@ -1028,33 +1028,41 @@ function updateRoomBtn() {
   const btn = document.getElementById('btn-find-room');
   const hint = document.getElementById('room-hint');
   const searching = document.getElementById('searching-box');
+  const gs = state.groupSize;
 
-  // Grey out 1v1 if group has more than 1 player
-  const btn1v1 = document.querySelector('#mode-selector .mode-btn[onclick*="1v1"]');
-  if (btn1v1) {
-    const blocked = state.groupSize > 1;
-    btn1v1.style.opacity = blocked ? '0.35' : '';
-    btn1v1.style.cursor = blocked ? 'not-allowed' : '';
-    btn1v1.style.pointerEvents = blocked ? 'none' : '';
-    btn1v1.title = blocked ? 'Impossible en groupe (1v1 = solo uniquement)' : '';
-    // If currently on 1v1 with >1 player, switch to 2v2
-    if (blocked && state.mode === '1v1') {
-      state.mode = '2v2';
-      document.querySelectorAll('#mode-selector .mode-btn').forEach(b => b.classList.remove('active'));
-      const btn2v2 = document.querySelector('#mode-selector .mode-btn[onclick*="2v2"]');
-      if (btn2v2) btn2v2.classList.add('active');
-      if (socket) socket.emit('change_mode', { mode: '2v2' });
-    }
+  // Grey out modes that don't match group size
+  const modeReqs = { '1v1': 1, '2v2': 2, '3v3': 3, '5v5': 5 };
+  let forcedSwitch = false;
+  Object.entries(modeReqs).forEach(([mode, required]) => {
+    const mBtn = document.querySelector(`#mode-selector .mode-btn[onclick*="${mode}"]`);
+    if (!mBtn) return;
+    const blocked = gs > required; // too many people
+    mBtn.style.opacity = blocked ? '0.3' : '';
+    mBtn.style.cursor = blocked ? 'not-allowed' : '';
+    mBtn.style.pointerEvents = blocked ? 'none' : '';
+    mBtn.title = blocked ? `Trop de joueurs pour le mode ${mode}` : '';
+    if (blocked && state.mode === mode) forcedSwitch = true;
+  });
+
+  // If current mode is now incompatible, switch to best fitting mode
+  if (forcedSwitch) {
+    const best = gs <= 1 ? '1v1' : gs <= 2 ? '2v2' : gs <= 3 ? '3v3' : '5v5';
+    state.mode = best;
+    document.querySelectorAll('#mode-selector .mode-btn').forEach(b => b.classList.remove('active'));
+    const bestBtn = document.querySelector(`#mode-selector .mode-btn[onclick*="${best}"]`);
+    if (bestBtn) bestBtn.classList.add('active');
+    if (socket) socket.emit('change_mode', { mode: best });
   }
 
   if (searching.classList.contains('show')) return;
-  if (state.groupSize >= teamSize) {
+  const currentTeamSize = getTeamSize(state.mode);
+  if (state.groupSize >= currentTeamSize) {
     btn.disabled = false;
     hint.style.display = 'none';
   } else {
     btn.disabled = true;
     hint.style.display = '';
-    hint.textContent = `Il faut ${teamSize} joueur(s) dans le groupe`;
+    hint.textContent = `Il faut ${currentTeamSize} joueur(s) dans le groupe`;
   }
 }
 
