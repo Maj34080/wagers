@@ -480,11 +480,12 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
                 <button onclick="createClan()" style="width:100%;background:var(--accent);color:#fff;border:none;border-radius:10px;padding:11px;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:14px;cursor:pointer;">Créer le clan</button>
                 <div id="clan-create-error" style="color:var(--accent);font-size:12px;margin-top:8px;text-align:center;min-height:16px;"></div>
               </div>
-              <!-- Browse hint -->
-              <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:12px;">
-                <div style="font-size:36px;">🔍</div>
-                <div style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:15px;">Rejoindre un clan</div>
-                <div style="color:var(--muted);font-size:13px;">Parcours les clans actifs à droite et postule pour rejoindre celui que tu veux.</div>
+              <!-- Clan list to join -->
+              <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;">
+                <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:16px;margin-bottom:16px;">🔍 Rejoindre un clan</div>
+                <div id="clan-join-list" style="display:flex;flex-direction:column;gap:10px;">
+                  <div style="color:var(--muted);font-size:13px;text-align:center;padding:20px;">Chargement…</div>
+                </div>
               </div>
             </div>
           </div>
@@ -1983,13 +1984,6 @@ async function sendFriendMsg() {
   renderFriendMessages(msgs, fpState.chatWith.id);
 }
 
-async function addFriendFromProfile(pseudo) {
-  const r = await fetch('/api/friends/request', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: state.userId, targetPseudo: pseudo }) });
-  const d = await r.json();
-  if (d.ok) notify('✅ Demande envoyée à ' + pseudo + ' !');
-  else notify('❌ ' + (d.error||'Erreur'));
-}
-
 // ── ADMIN BANNED LIST ──
 async function refreshBannedList() {
   const list = document.getElementById('admin-banned-list');
@@ -2297,79 +2291,134 @@ async function initClanTab() {
   await loadClanLeaderboard();
 }
 
+async function showClanModal(clanId) {
+  let modal = document.getElementById('clan-detail-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'clan-detail-modal';
+    modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(6px);z-index:9999;display:flex;align-items:center;justify-content:center;';
+    modal.onclick = e => { if (e.target === modal) modal.remove(); };
+    document.body.appendChild(modal);
+  }
+  modal.innerHTML = '<div style="color:var(--muted);font-size:14px;padding:40px;">Chargement...</div>';
+  try {
+    const r = await fetch('/api/clans/' + clanId);
+    const clan = await r.json();
+    if (!clan || clan.error) { modal.remove(); return; }
+    modal.innerHTML = `
+      <div style="background:var(--surface);border:1px solid rgba(255,255,255,0.08);border-radius:20px;padding:30px;width:420px;max-width:95vw;max-height:85vh;overflow-y:auto;position:relative;">
+        <button onclick="document.getElementById('clan-detail-modal').remove()" style="position:absolute;top:16px;right:16px;background:rgba(255,255,255,0.07);border:none;color:var(--text);width:30px;height:30px;border-radius:50%;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;">x</button>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
+          <span style="background:var(--accent);color:#fff;font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:14px;padding:4px 10px;border-radius:6px;">${clan.tag}</span>
+          <div>
+            <div style="font-weight:800;font-size:18px;">${clan.name}</div>
+            ${clan.description ? '<div style="font-size:12px;color:var(--muted);margin-top:2px;">' + clan.description + '</div>' : ''}
+          </div>
+        </div>
+        <div style="display:flex;gap:16px;margin-bottom:20px;">
+          <div style="flex:1;background:var(--bg);border-radius:12px;padding:12px;text-align:center;">
+            <div style="font-family:Space Grotesk,sans-serif;font-weight:800;font-size:20px;color:var(--gold);">${clan.totalElo || 0}</div>
+            <div style="font-size:11px;color:var(--muted);">ELO total</div>
+          </div>
+          <div style="flex:1;background:var(--bg);border-radius:12px;padding:12px;text-align:center;">
+            <div style="font-family:Space Grotesk,sans-serif;font-weight:800;font-size:20px;">${clan.members.length}/10</div>
+            <div style="font-size:11px;color:var(--muted);">Membres</div>
+          </div>
+        </div>
+        <div style="font-weight:700;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">Membres</div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          ${clan.members.map(m =>
+            '<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg);border-radius:12px;">' +
+            (m.avatar ? '<img src="' + m.avatar + '" style="width:36px;height:36px;border-radius:50%;object-fit:cover;flex-shrink:0;">' : '<div style="width:36px;height:36px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;flex-shrink:0;">' + m.pseudo[0].toUpperCase() + '</div>') +
+            '<div style="flex:1;"><div style="font-weight:700;font-size:13px;display:flex;align-items:center;gap:6px;">' + m.pseudo +
+            (m.isLeader ? '<span style="font-size:10px;background:rgba(255,209,102,0.15);color:var(--gold);border-radius:4px;padding:1px 6px;font-weight:700;">CHEF</span>' : '') +
+            '</div><div style="font-size:11px;color:var(--muted);">' + m.maxElo + ' ELO max</div></div></div>'
+          ).join('')}
+        </div>
+      </div>`;
+  } catch(e) { modal.remove(); }
+}
+
 async function loadMyClan() {
   if (!state.userId) return;
   try {
     const r = await fetch('/api/clans/user/' + state.userId);
     const clan = await r.json();
     state.clanId = clan ? clan.id : null;
+    state._myClanData = clan; // cache for when tab opens
+
     // Update nav clan tag
     const navTag = document.getElementById('nav-clan-tag');
     if (navTag) { if (clan) { navTag.textContent = '[' + clan.tag + ']'; navTag.style.display = ''; } else { navTag.style.display = 'none'; } }
-    const myPanel = document.getElementById('my-clan-panel');
-    const noPanel = document.getElementById('no-clan-panel');
-    const chatBox = document.getElementById('clan-chat-box');
-    if (!myPanel) return;
-    if (!clan) {
-      myPanel.style.display = 'none';
-      if (noPanel) noPanel.style.display = '';
-      if (chatBox) chatBox.style.display = 'none';
-      return;
-    }
-    myPanel.style.display = '';
-    if (noPanel) noPanel.style.display = 'none';
-    if (chatBox) { chatBox.style.display = 'flex'; loadClanChat(clan.id); }
 
-    document.getElementById('my-clan-tag').textContent = '[' + clan.tag + ']';
-    document.getElementById('my-clan-name').textContent = clan.name;
-    document.getElementById('my-clan-desc').textContent = clan.description || '';
-    document.getElementById('my-clan-count').textContent = clan.members.length + '/10';
-
-    // Leader actions
-    const leaderActions = document.getElementById('my-clan-leader-actions');
-    const isLeader = clan.leaderId === state.userId;
-    leaderActions.innerHTML = isLeader
-      ? `<button onclick="editClanDesc()" class="btn-mini" style="font-size:12px;">✏️ Modifier</button>`
-      : '';
-
-    // Leave btn label
-    const leaveBtn = document.getElementById('leave-clan-btn');
-    if (leaveBtn) leaveBtn.textContent = isLeader ? '💥 Dissoudre le clan' : 'Quitter le clan';
-
-    // Members
-    const membersEl = document.getElementById('my-clan-members');
-    membersEl.innerHTML = clan.members.map(m => `
-      <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg);border-radius:10px;">
-        ${m.avatar ? `<img src="${m.avatar}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;flex-shrink:0;">` : `<div style="width:32px;height:32px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex-shrink:0;">${m.pseudo[0].toUpperCase()}</div>`}
-        <div style="flex:1;">
-          <div style="font-weight:700;font-size:13px;display:flex;align-items:center;gap:6px;">
-            ${m.pseudo}
-            ${m.isLeader ? '<span style="font-size:10px;background:rgba(255,209,102,0.15);color:var(--gold);border-radius:4px;padding:1px 6px;font-weight:700;">CHEF</span>' : ''}
-            ${m.id === state.userId ? '<span style="font-size:10px;background:rgba(255,70,85,0.12);color:var(--accent);border-radius:4px;padding:1px 6px;font-weight:700;">VOUS</span>' : ''}
-          </div>
-          <div style="font-size:11px;color:var(--muted);">${m.maxElo} ELO max</div>
-        </div>
-        ${isLeader && m.id !== state.userId ? `<button onclick="kickClanMember('${m.id}','${m.pseudo}')" style="background:rgba(255,70,85,0.1);border:1px solid rgba(255,70,85,0.3);color:var(--accent);border-radius:7px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;">Kick</button>` : ''}
-      </div>`).join('');
-
-    // Join requests (leader only)
-    const reqSection = document.getElementById('my-clan-requests-section');
-    const reqList = document.getElementById('my-clan-requests');
-    const reqCount = document.getElementById('my-clan-req-count');
-    if (isLeader && clan.joinRequests && clan.joinRequests.length > 0) {
-      reqSection.style.display = '';
-      reqCount.textContent = `(${clan.joinRequests.length})`;
-      reqList.innerHTML = clan.joinRequests.map(u => `
-        <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg);border-radius:10px;">
-          ${u.avatar ? `<img src="${u.avatar}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;">` : `<div style="width:28px;height:28px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:11px;">${u.pseudo[0].toUpperCase()}</div>`}
-          <div style="flex:1;font-weight:700;font-size:13px;">${u.pseudo}</div>
-          <button onclick="acceptClanRequest('${u.id}','${clan.id}')" style="background:rgba(46,204,113,0.15);border:1px solid #2ecc71;color:#2ecc71;border-radius:7px;padding:5px 10px;font-size:12px;font-weight:700;cursor:pointer;margin-right:4px;">✓</button>
-          <button onclick="declineClanRequest('${u.id}','${clan.id}')" style="background:rgba(255,70,85,0.1);border:1px solid rgba(255,70,85,0.4);color:var(--accent);border-radius:7px;padding:5px 10px;font-size:12px;font-weight:700;cursor:pointer;">✕</button>
-        </div>`).join('');
-    } else {
-      reqSection.style.display = 'none';
-    }
+    renderMyClanPanel(clan);
   } catch(e) {}
+}
+
+function renderMyClanPanel(clan) {
+  const myPanel = document.getElementById('my-clan-panel');
+  const noPanel = document.getElementById('no-clan-panel');
+  const chatBox = document.getElementById('clan-chat-box');
+  if (!myPanel) return; // tab not open yet, will render on initClanTab
+  if (!clan) {
+    myPanel.style.display = 'none';
+    if (noPanel) noPanel.style.display = '';
+    if (chatBox) chatBox.style.display = 'none';
+    return;
+  }
+  myPanel.style.display = '';
+  if (noPanel) noPanel.style.display = 'none';
+  if (chatBox) { chatBox.style.display = 'flex'; loadClanChat(clan.id); }
+
+  document.getElementById('my-clan-tag').textContent = '[' + clan.tag + ']';
+  document.getElementById('my-clan-name').textContent = clan.name;
+  document.getElementById('my-clan-desc').textContent = clan.description || '';
+  document.getElementById('my-clan-count').textContent = clan.members.length + '/10';
+
+  // Leader actions
+  const leaderActions = document.getElementById('my-clan-leader-actions');
+  const isLeader = clan.leaderId === state.userId;
+  if (leaderActions) leaderActions.innerHTML = isLeader
+    ? `<button onclick="editClanDesc()" class="btn-mini" style="font-size:12px;">✏️ Modifier</button>`
+    : '';
+
+  // Leave btn label
+  const leaveBtn = document.getElementById('leave-clan-btn');
+  if (leaveBtn) leaveBtn.textContent = isLeader ? '💥 Dissoudre le clan' : 'Quitter le clan';
+
+  // Members
+  const membersEl = document.getElementById('my-clan-members');
+  if (membersEl) membersEl.innerHTML = clan.members.map(m => `
+    <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg);border-radius:10px;">
+      ${m.avatar ? `<img src="${m.avatar}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;flex-shrink:0;">` : `<div style="width:32px;height:32px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex-shrink:0;">${m.pseudo[0].toUpperCase()}</div>`}
+      <div style="flex:1;">
+        <div style="font-weight:700;font-size:13px;display:flex;align-items:center;gap:6px;">
+          ${m.pseudo}
+          ${m.isLeader ? '<span style="font-size:10px;background:rgba(255,209,102,0.15);color:var(--gold);border-radius:4px;padding:1px 6px;font-weight:700;">CHEF</span>' : ''}
+          ${m.id === state.userId ? '<span style="font-size:10px;background:rgba(255,70,85,0.12);color:var(--accent);border-radius:4px;padding:1px 6px;font-weight:700;">VOUS</span>' : ''}
+        </div>
+        <div style="font-size:11px;color:var(--muted);">${m.maxElo} ELO max</div>
+      </div>
+      ${isLeader && m.id !== state.userId ? `<button onclick="kickClanMember('${m.id}','${m.pseudo}')" style="background:rgba(255,70,85,0.1);border:1px solid rgba(255,70,85,0.3);color:var(--accent);border-radius:7px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;">Kick</button>` : ''}
+    </div>`).join('');
+
+  // Join requests (leader only)
+  const reqSection = document.getElementById('my-clan-requests-section');
+  const reqList = document.getElementById('my-clan-requests');
+  const reqCount = document.getElementById('my-clan-req-count');
+  if (isLeader && clan.joinRequests && clan.joinRequests.length > 0) {
+    if (reqSection) reqSection.style.display = '';
+    if (reqCount) reqCount.textContent = `(${clan.joinRequests.length})`;
+    if (reqList) reqList.innerHTML = clan.joinRequests.map(u => `
+      <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg);border-radius:10px;">
+        ${u.avatar ? `<img src="${u.avatar}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;">` : `<div style="width:28px;height:28px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:11px;">${u.pseudo[0].toUpperCase()}</div>`}
+        <div style="flex:1;font-weight:700;font-size:13px;">${u.pseudo}</div>
+        <button onclick="acceptClanRequest('${u.id}','${clan.id}')" style="background:rgba(46,204,113,0.15);border:1px solid #2ecc71;color:#2ecc71;border-radius:7px;padding:5px 10px;font-size:12px;font-weight:700;cursor:pointer;margin-right:4px;">✓</button>
+        <button onclick="declineClanRequest('${u.id}','${clan.id}')" style="background:rgba(255,70,85,0.1);border:1px solid rgba(255,70,85,0.4);color:var(--accent);border-radius:7px;padding:5px 10px;font-size:12px;font-weight:700;cursor:pointer;">✕</button>
+      </div>`).join('');
+  } else {
+    if (reqSection) reqSection.style.display = 'none';
+  }
 }
 
 async function createClan() {
@@ -2438,14 +2487,38 @@ async function editClanDesc() {
 
 async function loadClanLeaderboard() {
   const el = document.getElementById('clan-leaderboard');
+  const joinList = document.getElementById('clan-join-list');
   if (!el) return;
   try {
     const r = await fetch('/api/clans');
     const clans = await r.json();
-    if (!clans.length) { el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted);font-size:12px;">Aucun clan encore</div>'; return; }
+    if (!clans.length) {
+      el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted);font-size:12px;">Aucun clan encore</div>';
+      if (joinList) joinList.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:20px;">Aucun clan disponible</div>';
+      return;
+    }
+    // Populate join list in no-clan-panel
+    if (joinList) {
+      joinList.innerHTML = clans.map(c => `
+        <div onclick="showClanModal('${c.id}')" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg);border-radius:12px;cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background='var(--bg)'">
+          <span style="background:var(--accent);color:#fff;font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:11px;padding:2px 8px;border-radius:4px;flex-shrink:0;">${c.tag}</span>
+          <div style="flex:1;min-width:0;">
+            <div style="font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.name}</div>
+            <div style="font-size:11px;color:var(--muted);">${c.memberCount}/10 membres</div>
+          </div>
+          <div style="text-align:right;flex-shrink:0;">
+            <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:12px;color:var(--gold);">${c.totalElo}</div>
+            ${c.id === state.clanId
+              ? '<span style="font-size:10px;background:rgba(255,209,102,0.15);color:var(--gold);border-radius:5px;padding:2px 6px;font-weight:700;">Mon clan</span>'
+              : !state.clanId
+                ? `<button onclick="event.stopPropagation();requestJoinClan('${c.id}',this)" style="background:rgba(255,70,85,0.1);border:1px solid rgba(255,70,85,0.3);color:var(--accent);border-radius:7px;padding:4px 9px;font-size:11px;font-weight:700;cursor:pointer;">Postuler</button>`
+                : ''}
+          </div>
+        </div>`).join('');
+    }
     const medals = ['🥇','🥈','🥉'];
     el.innerHTML = clans.map((c, i) => `
-      <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid rgba(255,255,255,0.04);cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.03)'" onmouseout="this.style.background=''">
+      <div onclick="showClanModal('' + c.id + '')" style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid rgba(255,255,255,0.04);cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.03)'" onmouseout="this.style.background=''">
         <div style="font-size:15px;min-width:20px;">${medals[i] || '<span style="font-size:11px;color:var(--muted);">#'+(i+1)+'</span>'}</div>
         <div style="flex:1;min-width:0;">
           <div style="display:flex;align-items:center;gap:6px;">
@@ -2458,7 +2531,12 @@ async function loadClanLeaderboard() {
           <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:13px;color:var(--gold);">${c.totalElo}</div>
           <div style="font-size:10px;color:var(--muted);">ELO total</div>
         </div>
-        ${!state.clanId && c.id !== state.clanId ? `<button onclick="requestJoinClan('${c.id}',this)" style="background:rgba(255,70,85,0.1);border:1px solid rgba(255,70,85,0.3);color:var(--accent);border-radius:7px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0;">Postuler</button>` : ''}
+        ${c.id === state.clanId
+          ? `<span style="font-size:10px;background:rgba(255,209,102,0.15);color:var(--gold);border-radius:5px;padding:3px 8px;font-weight:700;flex-shrink:0;">Mon clan</span>`
+          : !state.clanId
+            ? `<button onclick="requestJoinClan('${c.id}',this)" style="background:rgba(255,70,85,0.1);border:1px solid rgba(255,70,85,0.3);color:var(--accent);border-radius:7px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0;">Postuler</button>`
+            : ''
+        }
       </div>`).join('');
   } catch(e) {}
 }
