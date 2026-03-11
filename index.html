@@ -46,7 +46,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 .nav-tab:hover:not(.active){color:var(--text);}
 .nav-right{display:flex;align-items:center;gap:12px;position:relative;}
 .elo-badge{background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:7px 13px;font-size:13px;font-weight:700;color:var(--gold);font-family:'Syne',sans-serif;}
-.avatar{width:38px;height:38px;background:var(--accent);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;font-family:'Syne',sans-serif;cursor:pointer;}
+.avatar{width:48px;height:48px;background:var(--accent);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:18px;font-family:'Syne',sans-serif;cursor:pointer;}
 .nav-pseudo{font-size:14px;font-weight:700;cursor:pointer;}
 .nav-pseudo:hover{color:var(--accent);}
 
@@ -327,9 +327,9 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 
       <div class="avatar" id="nav-avatar" onclick="openProfile()">?</div>
       <div style="display:flex;flex-direction:column;align-items:flex-start;gap:1px;">
-        <span class="nav-pseudo" id="nav-pseudo" style="font-size:14px;font-weight:700;"></span>
-        <span id="nav-clan-tag" style="font-size:10px;font-weight:800;color:var(--accent);letter-spacing:1px;display:none;"></span>
-        <span id="nav-rank-badge" style="font-size:11px;"></span>
+        <span class="nav-pseudo" id="nav-pseudo" style="font-size:16px;font-weight:700;"></span>
+        <span id="nav-clan-tag" style="font-size:11px;font-weight:800;color:var(--accent);letter-spacing:1px;display:none;"></span>
+        <span id="nav-rank-badge" style="font-size:13px;"></span>
       </div>
     </div>
   </nav>
@@ -1602,6 +1602,7 @@ function initSocket() {
       document.getElementById('result-elo').textContent = eloChangeDisplay + ' ELO → ' + state.elo;
       document.getElementById('result-map').textContent = 'Mode ' + mode + ' — Gagnants : ' + winTeam.join(' & ');
       document.getElementById('nav-elo').textContent = state.elo;
+      updateNavRank();
     }
     document.getElementById('result-overlay').classList.add('show');
     setTimeout(() => {
