@@ -1236,10 +1236,12 @@ async function submitTicket() {
   const subject = document.getElementById('ticket-subject').value.trim();
   const message = document.getElementById('ticket-message').value.trim();
   if (!subject || !message) return notify('Remplis tous les champs');
-  await fetch('/api/tickets', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: state.userId, pseudo: state.pseudo, subject, message }) });
+  const r = await fetch('/api/tickets', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ userId: state.userId, pseudo: state.pseudo, subject, message }) });
+  const d = await r.json();
+  if (!r.ok) return notify('❌ ' + (d.error || 'Erreur'), { accent: 'var(--accent)', duration: 6000 });
   document.getElementById('ticket-subject').value = '';
   document.getElementById('ticket-message').value = '';
-  notify('✅ Ticket envoyé !');
+  notify('✅ Ticket envoyé !', { accent: '#2ecc71' });
   loadMyTickets();
 }
 

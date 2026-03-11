@@ -144,10 +144,13 @@ function unmuteUser(id) {
 function createTicket(userId, pseudo, subject, message) {
   const db = loadDB();
   if (!db.tickets) db.tickets = [];
+  // Anti-spam: max 2 open tickets per user
+  const openCount = db.tickets.filter(t => t.userId === userId && t.status === 'open').length;
+  if (openCount >= 2) return { error: 'MAX_TICKETS' };
   const ticket = {
     id: Date.now().toString(),
     userId, pseudo, subject, message,
-    status: 'open', // open | closed
+    status: 'open',
     createdAt: new Date().toISOString(),
     replies: []
   };
@@ -158,7 +161,17 @@ function createTicket(userId, pseudo, subject, message) {
 
 function getTickets() {
   const db = loadDB();
-  return (db.tickets || []).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  // Auto-delete closed tickets older than 5 minutes
+  const fiveMin = 5 * 60 * 1000;
+  const now = Date.now();
+  const before = (db.tickets || []).length;
+  db.tickets = (db.tickets || []).filter(t => {
+    if (t.status !== 'closed') return true;
+    const closedAt = t.closedAt ? new Date(t.closedAt).getTime() : new Date(t.createdAt).getTime();
+    return (now - closedAt) < fiveMin;
+  });
+  if (db.tickets.length !== before) saveDB(db);
+  return db.tickets.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 }
 
 function replyTicket(ticketId, author, message) {
@@ -176,7 +189,11 @@ function closeTicket(ticketId) {
   const db = loadDB();
   if (!db.tickets) return null;
   const ticket = db.tickets.find(t => t.id === ticketId);
-  if (ticket) { ticket.status = 'closed'; saveDB(db); }
+  if (ticket) {
+    ticket.status = 'closed';
+    ticket.closedAt = new Date().toISOString();
+    saveDB(db);
+  }
   return ticket;
 }
 

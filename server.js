@@ -125,6 +125,7 @@ app.post('/api/tickets', (req, res) => {
   const { userId, pseudo, subject, message } = req.body;
   if (!userId || !pseudo || !subject || !message) return res.status(400).json({ error: 'Manquant' });
   const ticket = db.createTicket(userId, pseudo, subject, message);
+  if (ticket.error === 'MAX_TICKETS') return res.status(429).json({ error: 'Tu as déjà 2 tickets ouverts. Attends qu\'ils soient résolus avant d\'en créer un autre.' });
   res.json(ticket);
 });
 app.post('/api/tickets/:id/reply', (req, res) => {
