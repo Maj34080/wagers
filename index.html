@@ -3058,7 +3058,15 @@ let _groupChatUnread = 0;
 
 function showGroupChat() {
   const panel = document.getElementById('group-chat-panel');
-  if (panel) { panel.style.display = 'flex'; _groupChatUnread = 0; updateGroupChatBadge(); }
+  if (!panel) return;
+  panel.style.display = 'flex';
+  _groupChatOpen = true;
+  _groupChatUnread = 0;
+  const body = document.getElementById('group-chat-body');
+  const icon = document.getElementById('group-chat-toggle-icon');
+  if (body) body.style.display = 'flex';
+  if (icon) icon.textContent = '▼';
+  updateGroupChatBadge();
 }
 function hideGroupChat() {
   const panel = document.getElementById('group-chat-panel');
@@ -3067,11 +3075,16 @@ function hideGroupChat() {
 function toggleGroupChat() {
   const body = document.getElementById('group-chat-body');
   const icon = document.getElementById('group-chat-toggle-icon');
-  if (!body) return;
+  if (!body || !icon) return;
   _groupChatOpen = !_groupChatOpen;
   body.style.display = _groupChatOpen ? 'flex' : 'none';
   icon.textContent = _groupChatOpen ? '▼' : '▲';
-  if (_groupChatOpen) { _groupChatUnread = 0; updateGroupChatBadge(); const box = document.getElementById('group-chat-messages'); if (box) box.scrollTop = box.scrollHeight; }
+  if (_groupChatOpen) {
+    _groupChatUnread = 0;
+    updateGroupChatBadge();
+    const box = document.getElementById('group-chat-messages');
+    if (box) box.scrollTop = box.scrollHeight;
+  }
 }
 function updateGroupChatBadge() {
   const badge = document.getElementById('group-chat-badge');
