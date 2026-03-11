@@ -1583,7 +1583,7 @@ function initSocket() {
     if (state.isAdmin && state.isSpectator) setTimeout(() => { document.getElementById('declare-section').style.display = ''; }, 500);
   });
 
-  socket.on('game_result', ({ winner, winTeam, loseTeam, mode, draw }) => {
+  socket.on('game_result', ({ winner, winTeam, loseTeam, mode, draw, eloChanges }) => {
     if (draw || winner === 0) {
       document.getElementById('result-title').textContent = 'ÉGALITÉ';
       document.getElementById('result-title').className = 'result-title';
@@ -1597,7 +1597,9 @@ function initSocket() {
       state.stats[mode].elo = state.elo;
       document.getElementById('result-title').textContent = iWon ? 'VICTOIRE' : 'DÉFAITE';
       document.getElementById('result-title').className = 'result-title ' + (iWon ? 'win' : 'lose');
-      document.getElementById('result-elo').textContent = (iWon ? '+20' : '-20') + ' ELO → ' + state.elo;
+      const myEloChange = eloChanges && eloChanges[state.userId];
+      const eloChangeDisplay = myEloChange !== undefined ? (myEloChange > 0 ? '+' + myEloChange : myEloChange) : (iWon ? '+?' : '-?');
+      document.getElementById('result-elo').textContent = eloChangeDisplay + ' ELO → ' + state.elo;
       document.getElementById('result-map').textContent = 'Mode ' + mode + ' — Gagnants : ' + winTeam.join(' & ');
       document.getElementById('nav-elo').textContent = state.elo;
     }

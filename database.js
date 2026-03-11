@@ -67,6 +67,16 @@ function getIpAccounts(ip) {
   return loadDB().users.filter(u => u.ip === ip);
 }
 
+function computeEloChange(myElo, opponentAvgElo, won, K=30) {
+  // Expected score based on ELO difference
+  const expected = 1 / (1 + Math.pow(10, (opponentAvgElo - myElo) / 400));
+  const actual = won ? 1 : 0;
+  const change = Math.round(K * (actual - expected));
+  // Clamp: min 3, max 30 (or -30, min -3)
+  if (won) return Math.max(3, Math.min(K, change));
+  else return Math.min(-3, Math.max(-K, change));
+}
+
 function updateUserElo(id, eloChange, won, mode, opponents, teammates, draw) {
   const db = loadDB();
   const user = db.users.find(u => u.id === id);
@@ -175,4 +185,4 @@ function getLeaderboard(mode) {
     .slice(0, 50);
 }
 
-module.exports = { getUserByPseudo, getUserById, createUser, updateUserElo, getLeaderboard, updateAvatar, getIpAccounts, defaultStats, banUser, unbanUser, muteUser, unmuteUser, createTicket, getTickets, replyTicket, closeTicket };
+module.exports = { getUserByPseudo, getUserById, createUser, updateUserElo, computeEloChange, getLeaderboard, updateAvatar, getIpAccounts, defaultStats, banUser, unbanUser, muteUser, unmuteUser, createTicket, getTickets, replyTicket, closeTicket };

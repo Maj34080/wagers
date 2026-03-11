@@ -688,6 +688,31 @@ io.on('connection', (socket) => {
     }
   });
 
+
+function avgTeamElo(team, mode) {
+  const players = team.filter(p => !p.isBot);
+  if (!players.length) return 500;
+  return Math.round(players.reduce((sum, p) => sum + (p.stats?.[mode]?.elo || p.elo || 500), 0) / players.length);
+}
+
+function applyEloResult(winTeam, loseTeam, mode) {
+  const winAvg = avgTeamElo(winTeam, mode);
+  const loseAvg = avgTeamElo(loseTeam, mode);
+  const eloChanges = {};
+  winTeam.filter(p => !p.isBot).forEach(p => {
+    const myElo = p.stats?.[mode]?.elo || p.elo || 500;
+    const change = db.computeEloChange(myElo, loseAvg, true);
+    eloChanges[p.id] = change;
+    db.updateUserElo(p.id, change, true, mode, loseTeam, winTeam, false);
+  });
+  loseTeam.filter(p => !p.isBot).forEach(p => {
+    const myElo = p.stats?.[mode]?.elo || p.elo || 500;
+    const change = db.computeEloChange(myElo, winAvg, false);
+    eloChanges[p.id] = change;
+    db.updateUserElo(p.id, change, false, mode, winTeam, loseTeam, false);
+  });
+  return eloChanges;
+}
   // ── RESULT ──
   socket.on('declare_result', ({ winner }) => {
     if (!socket.roomId) return;
@@ -701,15 +726,15 @@ io.on('connection', (socket) => {
     const winTeam = winner === 1 ? room.teams[0] : room.teams[1];
     const loseTeam = winner === 1 ? room.teams[1] : room.teams[0];
 
-    winTeam.filter(p => !p.isBot).forEach(p => db.updateUserElo(p.id, +20, true, room.mode, loseTeam, winTeam, false));
-    loseTeam.filter(p => !p.isBot).forEach(p => db.updateUserElo(p.id, -20, false, room.mode, winTeam, loseTeam, false));
+    const eloChanges = applyEloResult(winTeam, loseTeam, room.mode);
     computeCotd();
 
     io.to('room_' + socket.roomId).emit('game_result', {
       winner,
       winTeam: winTeam.map(p => p.pseudo),
       loseTeam: loseTeam.map(p => p.pseudo),
-      mode: room.mode
+      mode: room.mode,
+      eloChanges
     });
 
     setTimeout(() => { archiveRoom(socket.roomId); }, 30000);
@@ -890,11 +915,10 @@ io.on('connection', (socket) => {
     } else {
       const winTeam = winner === 1 ? room.teams[0] : room.teams[1];
       const loseTeam = winner === 1 ? room.teams[1] : room.teams[0];
-      winTeam.filter(p => !p.isBot).forEach(p => db.updateUserElo(p.id, +20, true, room.mode, loseTeam, winTeam, false));
-      loseTeam.filter(p => !p.isBot).forEach(p => db.updateUserElo(p.id, -20, false, room.mode, winTeam, loseTeam, false));
+      const eloChanges = applyEloResult(winTeam, loseTeam, room.mode);
       computeCotd();
       io.to('room_' + roomId).emit('chat_msg', { author: 'Système', team: 'system', text: `⚖️ Décision admin : Équipe ${winner} gagne !` });
-      io.to('room_' + roomId).emit('game_result', { winner, winTeam: winTeam.map(p => p.pseudo), loseTeam: loseTeam.map(p => p.pseudo), mode: room.mode });
+      io.to('room_' + roomId).emit('game_result', { winner, winTeam: winTeam.map(p => p.pseudo), loseTeam: loseTeam.map(p => p.pseudo), mode: room.mode, eloChanges });
     }
     setTimeout(() => { archiveRoom(roomId); }, 30000);
   });
