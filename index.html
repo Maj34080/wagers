@@ -1399,10 +1399,14 @@ async function adminUnbanPlayer(pseudo) {
   notify(`✅ ${pseudo} débanni`);
   loadLeaderboard(state.lbMode);
 }
-async function adminMutePlayer(pseudo) {
-  await fetch('/api/admin/mute', { method:'POST', headers:{'Content-Type':'application/json','x-admin-key':ADMIN_KEY}, body: JSON.stringify({ pseudo }) });
-  notify(`🔇 ${pseudo} mute`);
-  loadLeaderboard(state.lbMode);
+async function adminMutePlayer(pseudo, duration) {
+  const r = await fetch('/api/admin/mute', { method:'POST', headers:{'Content-Type':'application/json','x-admin-key':ADMIN_KEY}, body: JSON.stringify({ pseudo, duration: duration || null }) });
+  const d = await r.json();
+  if (d.ok) {
+    const label = duration ? `${duration < 60 ? duration + ' min' : duration < 1440 ? (duration/60) + 'h' : (duration/1440) + ' jour(s)'}` : 'permanent';
+    notify(`🔇 ${pseudo} mute (${label})`);
+  } else notify('❌ ' + (d.error || 'Erreur'));
+  closeProfileModal();
 }
 async function adminUnmutePlayer(pseudo) {
   await fetch('/api/admin/unmute', { method:'POST', headers:{'Content-Type':'application/json','x-admin-key':ADMIN_KEY}, body: JSON.stringify({ pseudo }) });
@@ -1434,7 +1438,17 @@ async function showPlayerProfile(pseudo) {
         }
         ${p.muted
           ? `<button onclick="adminUnmutePlayer('${pseudo}');closeProfileModal()" style="background:rgba(58,255,160,0.1);border:1px solid var(--green);color:var(--green);border-radius:8px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;">🔊 Unmute</button>`
-          : `<button onclick="adminMutePlayer('${pseudo}');closeProfileModal()" style="background:rgba(255,209,102,0.1);border:1px solid var(--gold);color:var(--gold);border-radius:8px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;">🔇 Mute</button>`
+          : `<div style="display:flex;flex-direction:column;gap:6px;width:100%;margin-top:4px;">
+              <div style="font-size:11px;color:var(--gold);font-weight:700;text-transform:uppercase;letter-spacing:0.05em;">🔇 Mute — choisir la durée</div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                <button onclick="adminMutePlayer('${pseudo}',10)" style="background:rgba(255,209,102,0.1);border:1px solid rgba(255,209,102,0.4);color:var(--gold);border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;">10 min</button>
+                <button onclick="adminMutePlayer('${pseudo}',30)" style="background:rgba(255,209,102,0.1);border:1px solid rgba(255,209,102,0.4);color:var(--gold);border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;">30 min</button>
+                <button onclick="adminMutePlayer('${pseudo}',60)" style="background:rgba(255,209,102,0.1);border:1px solid rgba(255,209,102,0.4);color:var(--gold);border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;">1 heure</button>
+                <button onclick="adminMutePlayer('${pseudo}',360)" style="background:rgba(255,209,102,0.1);border:1px solid rgba(255,209,102,0.4);color:var(--gold);border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;">6 heures</button>
+                <button onclick="adminMutePlayer('${pseudo}',1440)" style="background:rgba(255,209,102,0.1);border:1px solid rgba(255,209,102,0.4);color:var(--gold);border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;">1 jour</button>
+                <button onclick="adminMutePlayer('${pseudo}',null)" style="background:rgba(255,70,85,0.1);border:1px solid rgba(255,70,85,0.4);color:var(--accent);border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;">Permanent</button>
+              </div>
+            </div>`
         }
       </div>` : '';
     const isSelf = pseudo === state.pseudo;
@@ -2966,61 +2980,6 @@ function shareResult() {
   }, 'image/png');
 }
 
-// ── ADMIN MUTE POPUP (GLOBAL CHAT) ──
-let _mutePseudo = null;
-let _muteDuration = 10; // default 10 min
-
-function openMutePopup(pseudo, event) {
-  event.stopPropagation();
-  _mutePseudo = pseudo;
-  _muteDuration = 10;
-  document.getElementById('mute-popup-pseudo').textContent = pseudo;
-  // Reset selection
-  document.querySelectorAll('.mute-dur-btn').forEach(b => b.classList.remove('selected'));
-  document.querySelector('.mute-dur-btn').classList.add('selected');
-  // Position near click
-  const popup = document.getElementById('admin-mute-popup');
-  popup.style.display = 'block';
-  const x = Math.min(event.clientX, window.innerWidth - 250);
-  const y = Math.min(event.clientY + 8, window.innerHeight - 260);
-  popup.style.left = x + 'px';
-  popup.style.top = y + 'px';
-}
-
-function closeMutePopup() {
-  document.getElementById('admin-mute-popup').style.display = 'none';
-  _mutePseudo = null;
-}
-
-function selectMuteDuration(mins) {
-  _muteDuration = mins;
-  document.querySelectorAll('.mute-dur-btn').forEach(b => {
-    b.classList.toggle('selected', (mins === null ? b.textContent === 'Permanent' : b.textContent.includes(mins < 60 ? mins + ' min' : mins === 60 ? '1 heure' : mins === 360 ? '6 heures' : '1 jour')));
-  });
-}
-
-async function applyMute() {
-  if (!_mutePseudo) return;
-  try {
-    const r = await fetch('/api/admin/mute', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-admin-key': ADMIN_KEY },
-      body: JSON.stringify({ pseudo: _mutePseudo, duration: _muteDuration })
-    });
-    const d = await r.json();
-    if (!r.ok) { notify('❌ ' + (d.error || 'Erreur')); return; }
-    const label = _muteDuration ? `${_muteDuration} min` : 'permanent';
-    notify(`🔇 ${_mutePseudo} mute pour ${label}`);
-    closeMutePopup();
-  } catch(e) { notify('Erreur réseau'); }
-}
-
-// Close popup on outside click
-document.addEventListener('click', (e) => {
-  const popup = document.getElementById('admin-mute-popup');
-  if (popup && popup.style.display !== 'none' && !popup.contains(e.target)) closeMutePopup();
-});
-
 // ── ADMIN ELO ADJUSTMENT ──
 async function adminAdjustElo() {
   const pseudo = document.getElementById('elo-adj-pseudo').value.trim();
@@ -3179,12 +3138,9 @@ function appendGlobalChatMsg(msg, scroll = true) {
     ? `<img src="${msg.avatar}" style="width:20px;height:20px;border-radius:50%;object-fit:cover;flex-shrink:0;${gcPremBorder}">`
     : `<div style="width:20px;height:20px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;flex-shrink:0;${gcPremBorder}">${msg.pseudo[0].toUpperCase()}</div>`;
 
-  const muteBtn = (!isMe && state.isAdmin)
-    ? `<button onclick="openMutePopup('${msg.pseudo.replace(/'/g,"\'")}',event)" title="Mute" style="background:none;border:none;cursor:pointer;color:rgba(255,70,85,0.5);font-size:11px;padding:0 2px;line-height:1;opacity:0;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0" class="admin-mute-inline-btn">🔇</button>`
-    : '';
   const pseudoHtml = isMe
     ? `<span style="font-size:11px;font-weight:700;color:var(--accent);">Toi ${state.isPremium ? '👑' : ''}</span>`
-    : `<span style="display:flex;align-items:center;gap:3px;">${muteBtn}<span onclick="openGlobalChatProfile('${msg.pseudo.replace(/'/g,"\'")}',event)" style="font-size:11px;font-weight:700;color:${msg.isPremium ? '#f7c948' : 'var(--muted)'};cursor:pointer;">${msg.isPremium ? '👑 ' : ''}${msg.pseudo}</span></span>`;
+    : `<span onclick="openGlobalChatProfile('${msg.pseudo.replace(/'/g,"\'")}',event)" style="font-size:11px;font-weight:700;color:${msg.isPremium ? '#f7c948' : 'var(--muted)'};cursor:pointer;">${msg.isPremium ? '👑 ' : ''}${msg.pseudo}</span>`;
 
   div.innerHTML = `
     <div style="display:flex;align-items:center;gap:5px;${isMe?'flex-direction:row-reverse;':''}">
@@ -4157,24 +4113,5 @@ async function loadProfileHistory(userId) {
 }
 
 </script>
-<!-- ADMIN MUTE POPUP (global chat) -->
-<div id="admin-mute-popup" style="display:none;position:fixed;z-index:9999;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;min-width:220px;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
-  <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:13px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;">
-    🔇 Mute <span id="mute-popup-pseudo" style="color:var(--accent);"></span>
-    <button onclick="closeMutePopup()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;padding:0;">✕</button>
-  </div>
-  <div style="display:flex;flex-direction:column;gap:8px;">
-    <div style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Durée</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;" id="mute-duration-btns">
-      <button class="mute-dur-btn" onclick="selectMuteDuration(10)">10 min</button>
-      <button class="mute-dur-btn" onclick="selectMuteDuration(30)">30 min</button>
-      <button class="mute-dur-btn" onclick="selectMuteDuration(60)">1 heure</button>
-      <button class="mute-dur-btn" onclick="selectMuteDuration(360)">6 heures</button>
-      <button class="mute-dur-btn" onclick="selectMuteDuration(1440)">1 jour</button>
-      <button class="mute-dur-btn" onclick="selectMuteDuration(null)">Permanent</button>
-    </div>
-    <button onclick="applyMute()" style="width:100%;background:rgba(255,70,85,0.15);border:1px solid rgba(255,70,85,0.4);color:var(--accent);border-radius:10px;padding:9px;font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:13px;cursor:pointer;margin-top:4px;" onmouseover="this.style.background='rgba(255,70,85,0.25)'" onmouseout="this.style.background='rgba(255,70,85,0.15)'">🔇 Appliquer le mute</button>
-  </div>
-</div>
 </body>
 </html>
