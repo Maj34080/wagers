@@ -760,19 +760,41 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
       <div style="max-width:900px;margin:0 auto;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
           <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:20px;">🔐 Panel Admin</div>
-          <div style="display:flex;gap:8px;">
-            <button onclick="showAdminSection('stats')" id="admin-sec-stats" class="btn-mini" style="color:var(--accent);">📊 Stats</button>
-            <button onclick="showAdminSection('rooms')" id="admin-sec-rooms" class="btn-mini">🕹️ Rooms</button>
-            <button onclick="showAdminSection('tickets')" id="admin-sec-tickets" class="btn-mini">🎫 Tickets</button>
-            <button onclick="showAdminSection('banned')" id="admin-sec-banned" class="btn-mini">🚫 Bannis</button>
-            <button onclick="showAdminSection('smurfs')" id="admin-sec-smurfs" class="btn-mini" style="color:#f97316;">🕵️ Smurfs</button>
-            <button onclick="showAdminSection('premium')" id="admin-sec-premium" class="btn-mini" style="color:var(--gold);">👑 Premium</button>
-            <button onclick="showAdminSection('staff')" id="admin-sec-staff" class="btn-mini" style="color:#4fd1c5;">🛡️ Staff</button>
-            <button onclick="showAdminSection('lookup')" id="admin-sec-lookup" class="btn-mini" style="color:#a78bfa;">🔍 Joueur</button>
-            <button onclick="showAdminSection('logs')" id="admin-sec-logs" class="btn-mini" style="color:#f472b6;">📋 Logs</button>
-            <button onclick="showAdminSection('seasons')" id="admin-sec-seasons" class="btn-mini" style="color:#34d399;">🏆 Saisons</button>
-          </div>
         </div>
+        <!-- Admin nav grid -->
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:20px;">
+          <button onclick="showAdminSection('stats')" id="admin-sec-stats" style="background:rgba(255,70,85,0.12);border:1px solid rgba(255,70,85,0.3);border-radius:12px;padding:12px 8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;transition:all 0.2s;" onmouseover="this.style.background='rgba(255,70,85,0.2)'" onmouseout="this.style.background='rgba(255,70,85,0.12)'">
+            <span style="font-size:20px;">📊</span><span style="font-size:11px;font-weight:700;color:var(--accent);">Stats</span>
+          </button>
+          <button onclick="showAdminSection('rooms')" id="admin-sec-rooms" style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px 8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;transition:all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.07)'" onmouseout="this.style.background='var(--surface2)'">
+            <span style="font-size:20px;">🕹️</span><span style="font-size:11px;font-weight:700;color:var(--muted);">Rooms</span>
+          </button>
+          <button onclick="showAdminSection('tickets')" id="admin-sec-tickets" style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px 8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;transition:all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.07)'" onmouseout="this.style.background='var(--surface2)'">
+            <span style="font-size:20px;">🎫</span><span style="font-size:11px;font-weight:700;color:var(--muted);">Tickets</span>
+          </button>
+          <button onclick="showAdminSection('banned')" id="admin-sec-banned" style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px 8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;transition:all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.07)'" onmouseout="this.style.background='var(--surface2)'">
+            <span style="font-size:20px;">🚫</span><span style="font-size:11px;font-weight:700;color:var(--muted);">Bannis</span>
+          </button>
+          <button onclick="showAdminSection('smurfs')" id="admin-sec-smurfs" style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px 8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;transition:all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.07)'" onmouseout="this.style.background='var(--surface2)'">
+            <span style="font-size:20px;">🕵️</span><span style="font-size:11px;font-weight:700;color:#f97316;">Smurfs</span>
+          </button>
+          <button onclick="showAdminSection('premium')" id="admin-sec-premium" style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px 8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;transition:all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.07)'" onmouseout="this.style.background='var(--surface2)'">
+            <span style="font-size:20px;">👑</span><span style="font-size:11px;font-weight:700;color:var(--gold);">Premium</span>
+          </button>
+          <button onclick="showAdminSection('staff')" id="admin-sec-staff" style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px 8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;transition:all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.07)'" onmouseout="this.style.background='var(--surface2)'">
+            <span style="font-size:20px;">🛡️</span><span style="font-size:11px;font-weight:700;color:#4fd1c5;">Staff</span>
+          </button>
+          <button onclick="showAdminSection('lookup')" id="admin-sec-lookup" style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px 8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;transition:all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.07)'" onmouseout="this.style.background='var(--surface2)'">
+            <span style="font-size:20px;">🔍</span><span style="font-size:11px;font-weight:700;color:#a78bfa;">Joueur</span>
+          </button>
+          <button onclick="showAdminSection('logs')" id="admin-sec-logs" style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px 8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;transition:all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.07)'" onmouseout="this.style.background='var(--surface2)'">
+            <span style="font-size:20px;">📋</span><span style="font-size:11px;font-weight:700;color:#f472b6;">Logs</span>
+          </button>
+          <button onclick="showAdminSection('seasons')" id="admin-sec-seasons" style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px 8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;transition:all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.07)'" onmouseout="this.style.background='var(--surface2)'">
+            <span style="font-size:20px;">🏆</span><span style="font-size:11px;font-weight:700;color:#34d399;">Saisons</span>
+          </button>
+        </div>
+        <div style="display:none"><!-- spacer -->
 
         <!-- STATS DASHBOARD -->
         <div id="admin-section-stats">
@@ -2940,13 +2962,20 @@ function scrollAdminTop() {
 }
 
 function showAdminSection(sec) {
+  const colors = { stats:'255,70,85', rooms:'240,240,248', tickets:'240,240,248', banned:'240,240,248', smurfs:'249,115,22', premium:'255,209,102', staff:'79,209,197', lookup:'167,139,250', logs:'244,114,182', seasons:'52,211,153' };
+  const textColors = { stats:'var(--accent)', rooms:'var(--text)', tickets:'var(--text)', banned:'var(--text)', smurfs:'#f97316', premium:'var(--gold)', staff:'#4fd1c5', lookup:'#a78bfa', logs:'#f472b6', seasons:'#34d399' };
   ['rooms','tickets','banned','stats','premium','smurfs','staff','lookup','logs','seasons'].forEach(s => {
     const el = document.getElementById('admin-section-' + s);
     const btn = document.getElementById('admin-sec-' + s);
     if (el) el.style.display = s === sec ? '' : 'none';
-    if (btn) btn.style.color = s === sec
-      ? (s === 'premium' ? 'var(--gold)' : s === 'smurfs' ? '#f97316' : s === 'staff' ? '#4fd1c5' : s === 'lookup' ? '#a78bfa' : s === 'logs' ? '#f472b6' : s === 'seasons' ? '#34d399' : 'var(--accent)')
-      : '';
+    if (btn) {
+      const rgb = colors[s] || '240,240,248';
+      const isActive = s === sec;
+      btn.style.background = isActive ? `rgba(${rgb},0.2)` : 'var(--surface2)';
+      btn.style.borderColor = isActive ? `rgba(${rgb},0.6)` : 'var(--border)';
+      const label = btn.querySelector('span:last-child');
+      if (label) label.style.color = isActive ? textColors[s] : (textColors[s] !== 'var(--text)' ? textColors[s] : 'var(--muted)');
+    }
   });
   if (sec === 'banned') refreshBannedList();
   if (sec === 'tickets') refreshAdminTickets();
