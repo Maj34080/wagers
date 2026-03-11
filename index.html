@@ -3058,19 +3058,22 @@ let _groupChatUnread = 0;
 
 function showGroupChat() {
   const panel = document.getElementById('group-chat-panel');
+  const bubble = document.getElementById('group-chat-bubble');
   if (!panel) return;
   panel.style.display = 'flex';
+  if (bubble) bubble.style.display = 'none';
   _groupChatOpen = true;
   _groupChatUnread = 0;
   const body = document.getElementById('group-chat-body');
-  const icon = document.getElementById('group-chat-toggle-icon');
   if (body) body.style.display = 'flex';
-  if (icon) icon.textContent = '▼';
   updateGroupChatBadge();
 }
 function hideGroupChat() {
   const panel = document.getElementById('group-chat-panel');
+  const bubble = document.getElementById('group-chat-bubble');
   if (panel) panel.style.display = 'none';
+  if (bubble) bubble.style.display = 'flex';
+  _groupChatOpen = false;
 }
 function toggleGroupChat() {
   const body = document.getElementById('group-chat-body');
@@ -3088,10 +3091,15 @@ function toggleGroupChat() {
 }
 function updateGroupChatBadge() {
   const badge = document.getElementById('group-chat-badge');
-  if (!badge) return;
+  const bubbleBadge = document.getElementById('group-chat-bubble-badge');
   if (_groupChatUnread > 0 && !_groupChatOpen) {
-    badge.style.display = 'flex'; badge.textContent = _groupChatUnread > 9 ? '9+' : _groupChatUnread;
-  } else { badge.style.display = 'none'; }
+    const txt = _groupChatUnread > 9 ? '9+' : _groupChatUnread;
+    if (badge) { badge.style.display = 'flex'; badge.textContent = txt; }
+    if (bubbleBadge) { bubbleBadge.style.display = 'flex'; bubbleBadge.textContent = txt; }
+  } else {
+    if (badge) badge.style.display = 'none';
+    if (bubbleBadge) bubbleBadge.style.display = 'none';
+  }
 }
 function appendGroupChatMsg(msg) {
   const box = document.getElementById('group-chat-messages');
@@ -4250,13 +4258,13 @@ async function loadProfileHistory(userId) {
 </script>
 <!-- GROUP CHAT FLOATING PANEL -->
 <div id="group-chat-panel" style="display:none;position:fixed;bottom:20px;right:20px;width:300px;background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.5);z-index:400;flex-direction:column;">
-  <div id="group-chat-header" style="padding:12px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;cursor:pointer;background:var(--surface2);border-radius:16px 16px 0 0;user-select:none;" onclick="toggleGroupChat()">
-    <div style="display:flex;align-items:center;gap:8px;pointer-events:none;">
+  <div id="group-chat-header" style="padding:12px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--surface2);border-radius:16px 16px 0 0;">
+    <div style="display:flex;align-items:center;gap:8px;">
       <span style="font-size:15px;">💬</span>
       <span style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:13px;">Chat Groupe</span>
       <span id="group-chat-badge" style="display:none;background:var(--accent);color:#fff;border-radius:50%;width:16px;height:16px;font-size:10px;font-weight:800;align-items:center;justify-content:center;"></span>
     </div>
-    <span id="group-chat-toggle-icon" style="color:var(--muted);font-size:14px;pointer-events:none;">▼</span>
+    <button onclick="hideGroupChat()" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:0;line-height:1;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">✕</button>
   </div>
   <div id="group-chat-body" style="display:flex;flex-direction:column;height:320px;border-radius:0 0 16px 16px;overflow:hidden;">
     <div id="group-chat-messages" style="flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:6px;"></div>
@@ -4269,5 +4277,11 @@ async function loadProfileHistory(userId) {
     </div>
   </div>
 </div>
+<!-- GROUP CHAT REOPEN BUBBLE -->
+<div id="group-chat-bubble" style="display:none;position:fixed;bottom:20px;right:20px;background:var(--surface);border:1px solid var(--border);border-radius:50px;padding:10px 16px;box-shadow:0 4px 20px rgba(0,0,0,0.4);z-index:400;cursor:pointer;display:none;align-items:center;gap:8px;" onclick="showGroupChat()">
+  <span style="font-size:16px;">💬</span>
+  <span style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:13px;">Chat Groupe</span>
+  <span id="group-chat-bubble-badge" style="display:none;background:var(--accent);color:#fff;border-radius:50%;width:18px;height:18px;font-size:10px;font-weight:800;align-items:center;justify-content:center;"></span>
+</div>-e 
 </body>
 </html>
