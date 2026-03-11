@@ -382,6 +382,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
               </div>
               <button class="btn-find" id="btn-find-room" onclick="createRoom()" disabled style="padding:18px;font-size:15px;border-radius:14px;">🔍 Rechercher une Room</button>
               <div class="room-hint" id="room-hint" style="margin-top:14px;font-size:13px;">Forme ton équipe d'abord</div>
+              <div id="premium-queue-badge" style="display:none;margin-top:8px;background:linear-gradient(135deg,rgba(247,201,72,0.12),rgba(255,149,0,0.08));border:1px solid rgba(247,201,72,0.3);border-radius:10px;padding:8px 14px;font-size:12px;font-weight:700;color:var(--gold);text-align:center;">⚡ File d'attente prioritaire — Premium actif</div>
               <div class="searching-box" id="searching-box">
                 <div class="searching-dots">Recherche en cours<span>.</span><span>.</span><span>.</span></div>
                 <div style="font-size:11px;color:var(--muted);margin-top:4px;" id="searching-mode"></div>
@@ -1616,7 +1617,7 @@ function initSocket() {
     document.getElementById('btn-find-room').disabled = false;
   });
 
-  socket.on('chat_msg', ({ author, team, text, time }) => addMsg(author, team || 'system', text, time));
+  socket.on('chat_msg', (msg) => addMsg(msg.author, msg.team || 'system', msg.text, msg.time, msg.isPremium));
 
   socket.on('chat_img', ({ author, team, img, time }) => addMsgImg(author, team, img, time));
 
@@ -1912,7 +1913,7 @@ function initSocket() {
     });
   });
 
-  socket.on('friend_message', ({ from, text, time }) => {
+  socket.on('friend_message', ({ from, text, time, isPremium }) => {
     if (fpState.chatWith && fpState.chatWith.id === from) {
       fetch(`/api/friends/messages/${state.userId}/${from}`).then(r=>r.json()).then(msgs => renderFriendMessages(msgs, from));
     } else {
@@ -2024,6 +2025,12 @@ function sendBrowserNotif(title, body) {
   setTimeout(() => notif.close(), 8000);
 }
 
+// Returns styled pseudo HTML for premium users
+function premiumName(pseudo, isPremium, isMe = false) {
+  if (!isPremium) return pseudo;
+  return `<span style="background:linear-gradient(90deg,#f7c948,#ff9500,#f7c948);background-size:200% auto;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:premiumText 3s linear infinite;font-weight:800;">👑 ${pseudo}</span>`;
+}
+
 function updateNavPremium() {
   const navAvatar = document.getElementById('nav-avatar');
   const navPseudo = document.getElementById('nav-pseudo');
@@ -2074,6 +2081,8 @@ function enterMain() {
   updateNavPremium();
   const premBtn = document.getElementById('nav-premium-btn');
   if (premBtn) premBtn.style.display = state.isPremium ? 'none' : '';
+  const qBadge = document.getElementById('premium-queue-badge');
+  if (qBadge) qBadge.style.display = state.isPremium ? '' : 'none';
   if (getMaxElo(state.stats) >= 901 && state.userId) {
     fetch('/api/radiant-rank/' + state.userId).then(r=>r.json()).then(d => {
       state.radiantPos = d.position;
@@ -2126,7 +2135,7 @@ function renderLeaderboard(data) {
     return `<div class="lb-row${isMe?' me':''}" onclick="showPlayerProfile('${r.pseudo}')" style="cursor:pointer;display:flex;align-items:center;gap:10px;${i<3?'background:'+nameColor+'08;border-color:'+nameColor+'22;':''}" title="Voir le profil de ${r.pseudo}">
       <div class="lb-rank ${rc}" style="min-width:36px;">${ri}</div>
       ${avatarHTML}
-      <div class="lb-name" style="flex:1;${nameStyle}">${r.pseudo}${isMe?' <span class="you-badge">toi</span>':''} ${_clansByUser[r.id] ? `<span style="font-size:10px;background:rgba(255,70,85,0.12);color:var(--accent);border-radius:4px;padding:1px 6px;font-weight:700;margin-left:3px;">[${_clansByUser[r.id]}]</span>` : ''}</div>
+      <div class="lb-name" style="flex:1;${nameStyle}">${r.isPremium ? '<span style="background:linear-gradient(90deg,#f7c948,#ff9500);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-weight:800;">👑 ' + r.pseudo + '</span>' : r.pseudo}${isMe?' <span class="you-badge">toi</span>':''}  ${_clansByUser[r.id] ? `<span style="font-size:10px;background:rgba(255,70,85,0.12);color:var(--accent);border-radius:4px;padding:1px 6px;font-weight:700;margin-left:3px;">[${_clansByUser[r.id]}]</span>` : ''}</div>
       <div class="lb-wins" style="font-size:12px;color:var(--muted);">${r.wins}V ${r.losses}D · ${wr}%</div>
       <div style="text-align:right;">
         <div class="lb-elo" style="${i<3?'color:'+nameColor+';':''}">${r.elo}</div>
@@ -2366,10 +2375,14 @@ async function openChat(friendId, pseudo, avatar, online) {
 function renderFriendMessages(msgs, friendId) {
   const box = document.getElementById('fp-chat-messages');
   if (!msgs.length) { box.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:12px;margin-top:20px;">Commencez la conversation !</div>'; return; }
+  // Check if friend is premium (from most recent message)
+  const friendIsPremium = msgs.find(m => m.from !== state.userId)?.isPremium || fpState.chatWith?.isPremium;
   box.innerHTML = msgs.map(m => {
     const isMe = m.from === state.userId;
-    return `<div style="display:flex;justify-content:${isMe?'flex-end':'flex-start'};">
-      <div style="max-width:75%;background:${isMe?'var(--accent)':'rgba(255,255,255,0.07)'};color:${isMe?'#fff':'var(--text)'};border-radius:${isMe?'14px 14px 4px 14px':'14px 14px 14px 4px'};padding:8px 12px;font-size:13px;word-break:break-word;">${m.text}</div>
+    const isPrem = isMe ? state.isPremium : friendIsPremium;
+    return `<div style="display:flex;flex-direction:column;align-items:${isMe?'flex-end':'flex-start'};gap:2px;">
+      ${!isMe && isPrem ? `<span style="font-size:10px;color:#f7c948;font-weight:800;padding:0 4px;">👑 ${fpState.chatWith?.pseudo||''}</span>` : ''}
+      <div style="max-width:75%;background:${isMe?'var(--accent)':'rgba(255,255,255,0.07)'};color:${isMe?'#fff':'var(--text)'};border:${isPrem&&!isMe?'1px solid rgba(247,201,72,0.25)':'none'};border-radius:${isMe?'14px 14px 4px 14px':'14px 14px 14px 4px'};padding:8px 12px;font-size:13px;word-break:break-word;">${m.text}</div>
     </div>`;
   }).join('');
   box.scrollTop = box.scrollHeight;
@@ -2561,8 +2574,8 @@ function appendGlobalChatMsg(msg, scroll = true) {
     : `<div style="width:20px;height:20px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;flex-shrink:0;">${msg.pseudo[0].toUpperCase()}</div>`;
 
   const pseudoHtml = isMe
-    ? `<span style="font-size:11px;font-weight:700;color:var(--accent);">Toi</span>`
-    : `<span onclick="openGlobalChatProfile('${msg.pseudo.replace(/'/g,"\\'")}',event)" style="font-size:11px;font-weight:700;color:var(--muted);cursor:pointer;transition:color 0.15s;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">${msg.pseudo}</span>`;
+    ? `<span style="font-size:11px;font-weight:700;color:var(--accent);">Toi ${state.isPremium ? '👑' : ''}</span>`
+    : `<span onclick="openGlobalChatProfile('${msg.pseudo.replace(/'/g,"\\'")}',event)" style="font-size:11px;font-weight:700;color:${msg.isPremium ? '#f7c948' : 'var(--muted)'};cursor:pointer;">${msg.isPremium ? '👑 ' : ''}${msg.pseudo}</span>`;
 
   div.innerHTML = `
     <div style="display:flex;align-items:center;gap:5px;${isMe?'flex-direction:row-reverse;':''}">
@@ -2968,7 +2981,7 @@ function appendClanChatMsg(msg, scroll = true) {
   div.innerHTML = `
     <div style="display:flex;align-items:center;gap:5px;${isMe?'flex-direction:row-reverse;':''}">
       ${msg.avatar ? `<img src="${msg.avatar}" style="width:18px;height:18px;border-radius:50%;object-fit:cover;">` : `<div style="width:18px;height:18px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;">${msg.pseudo[0].toUpperCase()}</div>`}
-      <span style="font-size:11px;font-weight:700;color:${isMe?'var(--gold)':'var(--muted)'};">${isMe?'Toi':msg.pseudo}</span>
+      <span style="font-size:11px;font-weight:700;color:${isMe?'var(--gold)':msg.isPremium?'#f7c948':'var(--muted)'};">${isMe?'Toi':(msg.isPremium?'👑 ':'')+msg.pseudo}</span>
       <span style="font-size:10px;color:rgba(255,255,255,0.2);">${time}</span>
     </div>
     <div style="max-width:210px;background:${isMe?'rgba(255,209,102,0.15)':'rgba(255,255,255,0.07)'};color:${isMe?'var(--gold)':'var(--text)'};border:${isMe?'1px solid rgba(255,209,102,0.2)':'none'};border-radius:${isMe?'12px 12px 4px 12px':'12px 12px 12px 4px'};padding:7px 11px;font-size:13px;word-break:break-word;">${msg.text.replace(/</g,'&lt;')}</div>`;
@@ -3250,16 +3263,19 @@ function declareResult(result) {
   document.getElementById('declare-section').style.display = 'none';
 }
 
-function addMsg(author, team, text, time) {
+function addMsg(author, team, text, time, isPremium = false) {
   const box = document.getElementById('chat-messages');
   const isSystem = team === 'system' || author === 'Système';
   const t = time ? new Date(time) : new Date();
   const ts = t.getHours().toString().padStart(2,'0') + ':' + t.getMinutes().toString().padStart(2,'0');
   const div = document.createElement('div');
   div.className = 'msg' + (isSystem ? ' system-msg' : '');
+  const authorHtml = isPremium
+    ? `<span class="msg-author ${team}" style="background:linear-gradient(90deg,#f7c948,#ff9500);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-weight:800;">👑 ${author}</span>`
+    : `<span class="msg-author ${team}">${author}</span>`;
   div.innerHTML = isSystem
     ? `<div class="msg-text">${text}</div>`
-    : `<div class="msg-header"><span class="msg-author ${team}">${author}</span><span class="msg-time">${ts}</span></div><div class="msg-text">${text}</div>`;
+    : `<div class="msg-header">${authorHtml}<span class="msg-time">${ts}</span></div><div class="msg-text">${text}</div>`;
   box.appendChild(div);
   box.scrollTop = box.scrollHeight;
 }

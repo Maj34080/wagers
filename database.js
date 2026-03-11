@@ -186,7 +186,7 @@ function getLeaderboard(mode) {
     .filter(u => !u.banned)
     .map(u => {
       const s = u.stats?.[mode] || { wins: 0, losses: 0, elo: 500 };
-      return { id: u.id, pseudo: u.pseudo, elo: s.elo, wins: s.wins, losses: s.losses, avatar: u.avatar || null, banned: !!u.banned, muted: !!u.muted, stats: u.stats };
+      return { id: u.id, pseudo: u.pseudo, elo: s.elo, wins: s.wins, losses: s.losses, avatar: u.avatar || null, banned: !!u.banned, muted: !!u.muted, stats: u.stats, isPremium: !!u.isPremium, premiumUntil: u.premiumUntil || null };
     })
     .sort((a, b) => b.elo - a.elo)
     .slice(0, 50);

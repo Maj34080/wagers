@@ -233,7 +233,7 @@ app.post('/api/global-chat', (req, res) => {
   const user = db.getUserById(userId);
   if (!user || user.banned) return res.status(403).json({ error: 'Interdit' });
   if (user.muted) return res.status(403).json({ error: 'Mute' });
-  const msg = { pseudo, text: text.trim(), time: Date.now(), avatar: user.avatar||null };
+  const msg = { pseudo, text: text.trim(), time: Date.now(), avatar: user.avatar||null, isPremium: !!user.isPremium };
   globalChat.push(msg);
   if (globalChat.length > GLOBAL_CHAT_MAX) globalChat.shift();
   io.emit('global_chat_msg', msg);
@@ -686,7 +686,8 @@ io.on('connection', (socket) => {
     const isSpectatingAdmin = socket.isAdmin && !inTeam;
     const team = isSpectatingAdmin ? 'admin' : (room.teams[0].some(p => p.id === socket.userId) ? 'team1' : 'team2');
     const displayPseudo = isSpectatingAdmin ? `${socket.pseudo} [ADMIN]` : socket.pseudo;
-    const msg = { author: displayPseudo, team, text: text.trim(), time: Date.now() };
+    const userRec = db.getUserById(socket.userId);
+    const msg = { author: displayPseudo, team, text: text.trim(), time: Date.now(), isPremium: !!(userRec?.isPremium) };
     room.chat.push(msg);
     io.to('room_' + socket.roomId).emit('chat_msg', msg);
   });
@@ -1202,11 +1203,12 @@ app.post('/api/friends/messages', (req, res) => {
   if (!fromId || !toId || !text) return res.status(400).json({ error: 'Manquant' });
   const key = [fromId, toId].sort().join('_');
   if (!friendMessages[key]) friendMessages[key] = [];
-  const msg = { from: fromId, text: text.slice(0,300), time: Date.now() };
+  const fromUser = db.getUserById(fromId);
+  const msg = { from: fromId, text: text.slice(0,300), time: Date.now(), isPremium: !!(fromUser?.isPremium) };
   friendMessages[key].push(msg);
   // Notify recipient if online
   io.sockets.sockets.forEach(s => {
-    if (s.userId === toId) s.emit('friend_message', { from: fromId, text: msg.text, time: msg.time });
+    if (s.userId === toId) s.emit('friend_message', { from: fromId, text: msg.text, time: msg.time, isPremium: msg.isPremium });
   });
   res.json({ ok: true });
 });
@@ -1370,7 +1372,9 @@ app.post('/api/clans/request', express.json(), (req, res) => {
     const clan = (data.clans || []).find(c => c.id === clanId);
     if (!user || !clan) return res.status(404).json({ error: 'Introuvable' });
     if (user.clanId) return res.status(400).json({ error: 'Vous êtes déjà dans un clan' });
-    if (clan.members.length >= 10) return res.status(400).json({ error: 'Clan complet (10/10)' });
+    const leaderUser = data.users.find(u => u.id === clan.leaderId);
+    const maxMembers = leaderUser?.isPremium ? 20 : 10;
+    if (clan.members.length >= maxMembers) return res.status(400).json({ error: `Clan complet (${maxMembers}/${maxMembers})` });
     if (!clan.joinRequests) clan.joinRequests = [];
     if (clan.joinRequests.includes(userId)) return res.status(400).json({ error: 'Demande déjà envoyée' });
     clan.joinRequests.push(userId);
@@ -1389,7 +1393,9 @@ app.post('/api/clans/accept', express.json(), (req, res) => {
     const clan = (data.clans || []).find(c => c.id === clanId);
     if (!clan) return res.status(404).json({ error: 'Clan introuvable' });
     if (clan.leaderId !== leaderId) return res.status(403).json({ error: 'Non autorisé' });
-    if (clan.members.length >= 10) return res.status(400).json({ error: 'Clan complet' });
+    const leaderUser2 = data.users.find(u => u.id === clan.leaderId);
+    const maxMembers2 = leaderUser2?.isPremium ? 20 : 10;
+    if (clan.members.length >= maxMembers2) return res.status(400).json({ error: `Clan complet (${maxMembers2}/${maxMembers2})` });
     clan.joinRequests = (clan.joinRequests || []).filter(id => id !== userId);
     if (!clan.members.includes(userId)) clan.members.push(userId);
     const target = data.users.find(u => u.id === userId);
@@ -1466,7 +1472,7 @@ app.post('/api/clans/:id/chat', express.json(), (req, res) => {
   const clan = (data.clans || []).find(c => c.id === req.params.id);
   if (!clan || !clan.members.includes(userId)) return res.status(403).json({ error: 'Pas membre du clan' });
   if (!clanMessages[req.params.id]) clanMessages[req.params.id] = [];
-  const msg = { pseudo, text: text.trim(), time: Date.now(), avatar: user.avatar || null };
+  const msg = { pseudo, text: text.trim(), time: Date.now(), avatar: user.avatar || null, isPremium: !!user.isPremium };
   clanMessages[req.params.id].push(msg);
   if (clanMessages[req.params.id].length > 100) clanMessages[req.params.id].shift();
   // Emit to all clan members online
