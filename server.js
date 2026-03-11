@@ -236,7 +236,33 @@ app.get('/api/admin/find-user', (req, res) => {
   if (!pseudo) return res.status(400).json({ error: 'Pseudo requis' });
   const user = db.getUserByPseudo(pseudo);
   if (!user) return res.status(404).json({ error: 'Introuvable' });
-  res.json({ id: user.id, pseudo: user.pseudo, isPremium: !!user.isPremium, premiumUntil: user.premiumUntil || null });
+  const data = db.loadDB();
+  // Find all accounts sharing the same IP
+  const sameIpAccounts = user.ip
+    ? data.users.filter(u => u.ip === user.ip && u.id !== user.id).map(u => ({ id: u.id, pseudo: u.pseudo, createdAt: u.createdAt, banned: !!u.banned, stats: u.stats }))
+    : [];
+  // Is user currently online?
+  const onlineSocket = [...io.sockets.sockets.values()].find(s => s.userId === user.id);
+  res.json({
+    id: user.id,
+    pseudo: user.pseudo,
+    ip: user.ip || null,
+    createdAt: user.createdAt,
+    banned: !!user.banned,
+    banReason: user.banReason || null,
+    muted: !!user.muted,
+    muteUntil: user.muteUntil || null,
+    isPremium: !!user.isPremium,
+    premiumUntil: user.premiumUntil || null,
+    stats: user.stats || {},
+    matchHistory: (user.matchHistory || []),
+    sameIpAccounts,
+    online: !!onlineSocket,
+    clanId: user.clanId || null,
+    referralCode: user.referralCode || null,
+    referredBy: user.referredBy || null,
+    referrals: (user.referrals || []).map(r => { const ru = data.users.find(u => u.id === r.userId); return { ...r, pseudo: ru?.pseudo || r.pseudo }; })
+  });
 });
 
 app.post('/api/admin/premium', (req, res) => {
@@ -460,6 +486,7 @@ function resolveWeaponVote(roomId) {
   }
   room.chosenWeapon = chosen;
   room.status = 'playing';
+  room.startedAt = room.startedAt || Date.now();
   const msg = (v1 && v2 && v1 === v2)
     ? `✅ Accord trouvé ! Arme jouée : **${chosen}**`
     : `🎲 Pas d'accord — arme choisie aléatoirement : **${chosen}**`;
@@ -525,6 +552,7 @@ function startBanTimer(roomId) {
       const chosen = newRemaining[0];
       room.chosenMap = chosen;
       room.status = 'playing';
+      room.startedAt = room.startedAt || Date.now();
       io.to('room_' + roomId).emit('map_chosen', { map: chosen });
       io.to('room_' + roomId).emit('chat_msg', { author: 'Système', team: 'system', text: `🗺️ Map jouée : ${chosen} — GO !` });
     } else {
@@ -694,6 +722,7 @@ io.on('connection', (socket) => {
       captains: [botCap1?.pseudo || null, null],
       waiting: false
     };
+    if (rooms[roomId]) rooms[roomId].startedAt = rooms[roomId].startedAt || Date.now();
     io.to('room_' + roomId).emit('room_ready', payload);
     io.to('room_' + roomId).emit('chat_msg', { author: 'Système', team: 'system', text: '🤖 Bots adverses ajoutés ! Début dans 10 secondes…' });
     startRoomCountdown(roomId);
@@ -903,6 +932,7 @@ io.on('connection', (socket) => {
         waiting: true,
         avgElo: groupAvgElo
       };
+      rooms[roomId].startedAt = rooms[roomId].startedAt || Date.now();
       io.to('room_' + roomId).emit('room_ready', payload);
       io.to('room_' + roomId).emit('elo_window_start', { avgElo: groupAvgElo, createdAt: room.createdAt });
       io.to('room_' + roomId).emit('chat_msg', { author: 'Système', team: 'system', text: `⏳ Recherche d'adversaires (~${groupAvgElo} ELO)…` });
@@ -1002,6 +1032,7 @@ io.on('connection', (socket) => {
       const chosen = remainingMaps[0];
       room.chosenMap = chosen;
       room.status = 'playing';
+      room.startedAt = room.startedAt || Date.now();
       io.to('room_' + socket.roomId).emit('map_chosen', { map: chosen });
       io.to('room_' + socket.roomId).emit('chat_msg', { author: 'Système', team: 'system', text: `🗺️ Map jouée : ${chosen} — GO !` });
     } else {
@@ -1064,6 +1095,13 @@ function applyEloResult(winTeam, loseTeam, mode) {
     const room = rooms[socket.roomId];
     if (!room || room.status !== 'playing') return;
     if (room.resultDeclared) return;
+    // Block vote if room started less than 5 minutes ago
+    const VOTE_DELAY_MS = 5 * 60 * 1000;
+    if (room.startedAt && (Date.now() - room.startedAt) < VOTE_DELAY_MS) {
+      const remaining = Math.ceil((VOTE_DELAY_MS - (Date.now() - room.startedAt)) / 1000);
+      socket.emit('vote_too_early', { remaining });
+      return;
+    }
     // Check if this socket is a captain
     const capIndex = (room.captains || []).indexOf(socket.userId);
     if (capIndex === -1) return;

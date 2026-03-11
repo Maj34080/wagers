@@ -12,13 +12,8 @@
   --accent:#ff4655; --accent2:#ff6b78; --text:#f0f0f8; --muted:#5a5a72;
   --muted2:#3a3a52; --green:#3affa0; --gold:#ffd166; --blue:#4da6ff;
 }
-[data-theme="light"] {
-  --bg:#f0f0f5; --surface:#ffffff; --surface2:#e8e8f0; --border:#d0d0e0;
-  --accent:#ff4655; --accent2:#ff6b78; --text:#0a0a1a; --muted:#7a7a96;
-  --muted2:#c0c0d8; --green:#00b870; --gold:#d4900a; --blue:#2a7fd4;
-}
 *{margin:0;padding:0;box-sizing:border-box;}
-body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;height:100vh;overflow:hidden;transition:background 0.25s,color 0.25s;}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;height:100vh;overflow:hidden;}
 .screen{display:none;height:100vh;overflow:hidden;}
 .screen.active{display:flex;}
 
@@ -343,8 +338,6 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
         <button onclick="leaveGroup()" title="Quitter le groupe" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:15px;padding:0 12px;transition:color 0.2s;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--muted)'">🚪</button>
         <button onclick="resetGroupCode()" title="Nouveau code" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:16px;padding:0 10px;transition:color 0.2s;opacity:0.7;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.7">↻</button>
       </div>
-
-      <button onclick="toggleTheme()" id="theme-toggle-btn" style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:8px 12px;color:var(--text);font-size:16px;cursor:pointer;transition:all 0.2s;" title="Mode clair/sombre">🌙</button>
 
       <button onclick="openFriendsPanel()" style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:8px 14px;color:var(--text);font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;" title="Amis">👥 <span id="friends-online-count" style="color:var(--green);font-size:11px;"></span></button>
 
@@ -761,6 +754,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
             <button onclick="showAdminSection('smurfs')" id="admin-sec-smurfs" class="btn-mini" style="color:#f97316;">🕵️ Smurfs</button>
             <button onclick="showAdminSection('premium')" id="admin-sec-premium" class="btn-mini" style="color:var(--gold);">👑 Premium</button>
             <button onclick="showAdminSection('staff')" id="admin-sec-staff" class="btn-mini" style="color:#4fd1c5;">🛡️ Staff</button>
+            <button onclick="showAdminSection('lookup')" id="admin-sec-lookup" class="btn-mini" style="color:#a78bfa;">🔍 Joueur</button>
           </div>
         </div>
 
@@ -875,6 +869,16 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
           <div id="admin-staff-list" style="display:flex;flex-direction:column;gap:10px;">
             <div style="color:var(--muted);text-align:center;padding:40px;">Chargement…</div>
           </div>
+        </div>
+
+        <!-- LOOKUP JOUEUR -->
+        <div id="admin-section-lookup" style="display:none;">
+          <div style="font-weight:700;font-size:14px;margin-bottom:14px;">🔍 Fiche complète joueur</div>
+          <div style="display:flex;gap:8px;margin-bottom:16px;">
+            <input id="lookup-input" placeholder="Pseudo exact…" onkeydown="if(event.key==='Enter')adminLookupPlayer()" style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;color:var(--text);font-size:13px;outline:none;">
+            <button onclick="adminLookupPlayer()" style="background:#a78bfa;color:#fff;border:none;border-radius:10px;padding:10px 18px;font-weight:800;font-size:13px;cursor:pointer;">Rechercher</button>
+          </div>
+          <div id="lookup-result"></div>
         </div>
 
         <div id="admin-section-premium" style="display:none;">
@@ -999,7 +1003,13 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
       <!-- Captain vote section -->
       <div id="captain-vote-section" style="display:none;margin-top:12px;background:rgba(255,209,102,0.07);border:1px solid rgba(255,209,102,0.2);border-radius:14px;padding:14px 18px;text-align:center;">
         <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:13px;color:var(--gold);margin-bottom:10px;">⚖️ Vote du capitaine — Qui a gagné ?</div>
-        <div style="display:flex;gap:10px;justify-content:center;">
+        <!-- Lock timer shown before 5min -->
+        <div id="vote-lock-banner" style="display:none;background:rgba(255,70,85,0.08);border:1px solid rgba(255,70,85,0.25);border-radius:10px;padding:10px 14px;margin-bottom:10px;">
+          <div style="font-size:12px;color:var(--muted);">🔒 Vote disponible dans</div>
+          <div id="vote-lock-countdown" style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:20px;color:var(--accent);">5:00</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px;">Anti win-trade — min. 5 min de jeu requis</div>
+        </div>
+        <div id="vote-buttons" style="display:flex;gap:10px;justify-content:center;">
           <button onclick="voteResult(true)" style="background:rgba(46,204,113,0.15);border:1px solid #2ecc71;color:#2ecc71;border-radius:10px;padding:9px 18px;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:13px;cursor:pointer;">✅ Mon équipe a gagné</button>
           <button onclick="voteResult(false)" style="background:rgba(255,70,85,0.1);border:1px solid rgba(255,70,85,0.4);color:var(--accent);border-radius:10px;padding:9px 18px;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:13px;cursor:pointer;">❌ Mon équipe a perdu</button>
         </div>
@@ -2004,7 +2014,11 @@ function initSocket() {
     addMsg('Système', 'system', `🗺️ Map jouée : ${map} — Bonne chance !`, null);
     document.getElementById('room-status-text').textContent = 'En jeu — ' + map;
     if (state.isAdmin && state.isSpectator) setTimeout(() => { document.getElementById('declare-section').style.display = ''; }, 500);
-    if (state.isCaptain && !state.isSpectator) setTimeout(() => { const v = document.getElementById('captain-vote-section'); if (v) { v.style.display = ''; const btns = v.querySelectorAll('button'); btns.forEach(b => b.disabled = false); } }, 500);
+    if (state.isCaptain && !state.isSpectator) setTimeout(() => {
+      const v = document.getElementById('captain-vote-section');
+      if (v) { v.style.display = ''; const btns = v.querySelectorAll('button'); btns.forEach(b => b.disabled = false); }
+      startVoteLockTimer(Date.now());
+    }, 500);
   });
 
   socket.on('premium_granted', ({ months }) => {
@@ -2072,7 +2086,17 @@ function initSocket() {
   socket.on('game_start', ({ mode }) => {
     document.getElementById('room-status-text').textContent = 'En jeu — ' + mode;
     if (state.isAdmin && state.isSpectator) setTimeout(() => { document.getElementById('declare-section').style.display = ''; }, 500);
-    if (state.isCaptain && !state.isSpectator) setTimeout(() => { const v = document.getElementById('captain-vote-section'); if (v) { v.style.display = ''; const btns = v.querySelectorAll('button'); btns.forEach(b => b.disabled = false); } }, 500);
+    if (state.isCaptain && !state.isSpectator) setTimeout(() => {
+      const v = document.getElementById('captain-vote-section');
+      if (v) { v.style.display = ''; const btns = v.querySelectorAll('button'); btns.forEach(b => b.disabled = false); }
+      startVoteLockTimer(Date.now());
+    }, 500);
+  });
+
+  socket.on('vote_too_early', ({ remaining }) => {
+    const m = Math.floor(remaining / 60);
+    const s = remaining % 60;
+    notify(`🔒 Vote bloqué — encore ${m}:${s.toString().padStart(2,'0')} avant de pouvoir voter`, { accent: 'var(--accent)', duration: 4000 });
   });
 
   socket.on('game_result', ({ winner, winTeam, loseTeam, mode, draw, eloChanges }) => {
@@ -2270,28 +2294,6 @@ function doRegister() {
 }
 
 // ── MAIN ──
-function toggleTheme() {
-  const isLight = document.documentElement.getAttribute('data-theme') === 'light';
-  const next = isLight ? 'dark' : 'light';
-  applyTheme(next);
-  try { localStorage.setItem('rv_theme', next); } catch(e) {}
-}
-function applyTheme(theme) {
-  if (theme === 'light') {
-    document.documentElement.setAttribute('data-theme', 'light');
-    const btn = document.getElementById('theme-toggle-btn');
-    if (btn) btn.textContent = '☀️';
-  } else {
-    document.documentElement.removeAttribute('data-theme');
-    const btn = document.getElementById('theme-toggle-btn');
-    if (btn) btn.textContent = '🌙';
-  }
-}
-// Apply saved theme immediately
-(function() {
-  try { const t = localStorage.getItem('rv_theme'); if (t) applyTheme(t); } catch(e) {}
-})();
-
 function requestNotifPermission() {
   if ('Notification' in window && Notification.permission === 'default') {
     Notification.requestPermission();
@@ -2899,12 +2901,12 @@ function scrollAdminTop() {
 }
 
 function showAdminSection(sec) {
-  ['rooms','tickets','banned','stats','premium','smurfs','staff'].forEach(s => {
+  ['rooms','tickets','banned','stats','premium','smurfs','staff','lookup'].forEach(s => {
     const el = document.getElementById('admin-section-' + s);
     const btn = document.getElementById('admin-sec-' + s);
     if (el) el.style.display = s === sec ? '' : 'none';
     if (btn) btn.style.color = s === sec
-      ? (s === 'premium' ? 'var(--gold)' : s === 'smurfs' ? '#f97316' : s === 'staff' ? '#4fd1c5' : 'var(--accent)')
+      ? (s === 'premium' ? 'var(--gold)' : s === 'smurfs' ? '#f97316' : s === 'staff' ? '#4fd1c5' : s === 'lookup' ? '#a78bfa' : 'var(--accent)')
       : '';
   });
   if (sec === 'banned') refreshBannedList();
@@ -3071,6 +3073,97 @@ function shareResult() {
 }
 
 // ── STAFF STATUS ──
+async function adminLookupPlayer() {
+  const pseudo = (document.getElementById('lookup-input')?.value || '').trim();
+  const out = document.getElementById('lookup-result');
+  if (!pseudo) { out.innerHTML = '<div style="color:var(--muted);font-size:13px;">Entre un pseudo.</div>'; return; }
+  out.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:20px;text-align:center;">Chargement…</div>';
+  try {
+    const r = await fetch('/api/admin/find-user?pseudo=' + encodeURIComponent(pseudo), { headers: { 'x-admin-key': 'revenge_admin_secret' } });
+    if (!r.ok) { const e = await r.json(); out.innerHTML = `<div style="color:var(--accent);font-size:13px;">❌ ${e.error}</div>`; return; }
+    const d = await r.json();
+    const totalGames = Object.values(d.stats || {}).reduce((s, m) => s + (m.wins||0) + (m.losses||0), 0);
+    const statRows = Object.entries(d.stats || {}).map(([mode, s]) =>
+      `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;">
+        <span style="font-weight:700;color:var(--muted);text-transform:uppercase;">${mode}</span>
+        <span>${s.elo} ELO · ${s.wins}W ${s.losses}L</span>
+      </div>`).join('');
+    const histRows = (d.matchHistory || []).map(h => {
+      const col = h.result === 'win' ? '#2ecc71' : h.result === 'loss' ? 'var(--accent)' : 'var(--gold)';
+      const sign = h.eloChange > 0 ? '+' : '';
+      const date = new Date(h.date).toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
+      const with_ = h.teammates?.length ? `<span style="color:var(--muted)">avec ${h.teammates.join(', ')}</span>` : '';
+      const vs = h.opponents?.length ? `<span style="color:var(--muted)">vs ${h.opponents.join(', ')}</span>` : '';
+      return `<div style="display:flex;gap:10px;align-items:flex-start;padding:7px 0;border-bottom:1px solid var(--border);font-size:11px;">
+        <div style="min-width:36px;font-weight:800;color:${col};text-transform:uppercase;">${h.result}</div>
+        <div style="flex:1;"><span style="font-weight:700;">${h.mode}</span> ${with_} ${vs}</div>
+        <div style="text-align:right;min-width:80px;"><div style="font-weight:700;color:${col}">${sign}${h.eloChange} ELO</div><div style="color:var(--muted)">${date}</div></div>
+      </div>`;
+    }).join('') || '<div style="color:var(--muted);font-size:12px;padding:10px 0;">Aucune partie</div>';
+    const sameIpHtml = d.sameIpAccounts?.length
+      ? d.sameIpAccounts.map(u => `<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:12px;border-bottom:1px solid var(--border);">
+          <span style="font-weight:700;color:${u.banned ? 'var(--accent)' : 'var(--text)'}">${u.pseudo}${u.banned ? ' 🚫' : ''}</span>
+          <span style="color:var(--muted)">créé ${new Date(u.createdAt).toLocaleDateString('fr-FR')}</span>
+        </div>`).join('')
+      : '<div style="color:var(--muted);font-size:12px;padding:6px 0;">Aucun autre compte</div>';
+    const onlineDot = d.online ? '<span style="color:var(--green);font-weight:700;">● En ligne</span>' : '<span style="color:var(--muted);">● Hors ligne</span>';
+    out.innerHTML = `
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:16px;">
+        <!-- Header -->
+        <div style="display:flex;align-items:center;gap:14px;">
+          <div style="width:48px;height:48px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:20px;overflow:hidden;">
+            ${d.avatar ? `<img src="${d.avatar}" style="width:100%;height:100%;object-fit:cover;">` : d.pseudo[0].toUpperCase()}
+          </div>
+          <div style="flex:1;">
+            <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:18px;">${d.pseudo}</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:2px;">${onlineDot} · ID: ${d.id} · inscrit ${new Date(d.createdAt).toLocaleDateString('fr-FR')}</div>
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            ${d.banned ? '<span style="background:rgba(255,70,85,0.15);color:var(--accent);border-radius:6px;padding:3px 8px;font-size:11px;font-weight:700;">🚫 BANNI</span>' : ''}
+            ${d.muted ? '<span style="background:rgba(255,165,0,0.15);color:orange;border-radius:6px;padding:3px 8px;font-size:11px;font-weight:700;">🔇 MUTE</span>' : ''}
+            ${d.isPremium ? '<span style="background:rgba(247,201,72,0.15);color:var(--gold);border-radius:6px;padding:3px 8px;font-size:11px;font-weight:700;">👑 PREMIUM</span>' : ''}
+          </div>
+        </div>
+        <!-- IP + smurfs -->
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px;">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);letter-spacing:0.05em;margin-bottom:8px;">🌐 IP & Comptes liés</div>
+          <div style="font-family:monospace;font-size:13px;color:#a78bfa;margin-bottom:10px;background:rgba(167,139,250,0.08);padding:6px 10px;border-radius:6px;">${d.ip || 'IP inconnue'}</div>
+          ${sameIpHtml}
+        </div>
+        <!-- Stats -->
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px;">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);letter-spacing:0.05em;margin-bottom:8px;">📊 Stats · ${totalGames} parties totales</div>
+          ${statRows}
+        </div>
+        <!-- History -->
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px;">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);letter-spacing:0.05em;margin-bottom:8px;">🕹️ Historique complet (${(d.matchHistory||[]).length} parties)</div>
+          <div style="max-height:260px;overflow-y:auto;">${histRows}</div>
+        </div>
+        <!-- Actions rapides -->
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button onclick="adminBanFromLookup('${d.id}')" style="background:rgba(255,70,85,0.12);border:1px solid rgba(255,70,85,0.3);color:var(--accent);border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;">🚫 Bannir</button>
+          <button onclick="adminMuteFromLookup('${d.id}')" style="background:rgba(255,165,0,0.1);border:1px solid rgba(255,165,0,0.3);color:orange;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;">🔇 Mute 1h</button>
+          <button onclick="grantPremiumById('${d.id}')" style="background:rgba(247,201,72,0.1);border:1px solid rgba(247,201,72,0.3);color:var(--gold);border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;">👑 Premium 1 mois</button>
+        </div>
+      </div>`;
+  } catch(e) { out.innerHTML = `<div style="color:var(--accent);font-size:13px;">Erreur: ${e.message}</div>`; }
+}
+
+async function adminBanFromLookup(userId) {
+  const reason = prompt('Raison du ban ?') || 'Violation des règles';
+  const r = await fetch('/api/admin/ban', { method:'POST', headers:{'Content-Type':'application/json','x-admin-key':'revenge_admin_secret'}, body: JSON.stringify({ userId, reason }) });
+  if (r.ok) notify('🚫 Joueur banni', { accent: 'var(--accent)' });
+}
+async function adminMuteFromLookup(userId) {
+  const r = await fetch('/api/admin/mute', { method:'POST', headers:{'Content-Type':'application/json','x-admin-key':'revenge_admin_secret'}, body: JSON.stringify({ userId, duration: 60 }) });
+  if (r.ok) notify('🔇 Joueur mute 1h', { accent: 'orange' });
+}
+async function grantPremiumById(userId) {
+  const r = await fetch('/api/admin/premium', { method:'POST', headers:{'Content-Type':'application/json','x-admin-key':'revenge_admin_secret'}, body: JSON.stringify({ userId, months: 1 }) });
+  if (r.ok) notify('👑 Premium activé', { accent: 'var(--gold)' });
+}
+
 async function loadStaffStatus() {
   const list = document.getElementById('admin-staff-list');
   if (!list) return;
@@ -3916,11 +4009,41 @@ function banMap(map) {
   MAPS.forEach(m => { const b = document.getElementById('mapbtn-t1-' + m); if(b) b.disabled = true; });
 }
 
+let _voteLockTimer = null;
+let _roomStartedAt = null;
+
+function startVoteLockTimer(startedAt) {
+  _roomStartedAt = startedAt || Date.now();
+  const LOCK_MS = 5 * 60 * 1000;
+  const lockBanner = document.getElementById('vote-lock-banner');
+  const voteBtns = document.getElementById('vote-buttons');
+  const countdown = document.getElementById('vote-lock-countdown');
+  if (!lockBanner || !voteBtns) return;
+  clearInterval(_voteLockTimer);
+
+  function tick() {
+    const elapsed = Date.now() - _roomStartedAt;
+    const remaining = LOCK_MS - elapsed;
+    if (remaining <= 0) {
+      clearInterval(_voteLockTimer);
+      lockBanner.style.display = 'none';
+      voteBtns.style.display = 'flex';
+      return;
+    }
+    const m = Math.floor(remaining / 60000);
+    const s = Math.floor((remaining % 60000) / 1000);
+    if (countdown) countdown.textContent = `${m}:${s.toString().padStart(2,'0')}`;
+    lockBanner.style.display = '';
+    voteBtns.style.display = 'none';
+  }
+  tick();
+  _voteLockTimer = setInterval(tick, 1000);
+}
+
 function voteResult(myTeamWon) {
   socket.emit('vote_result', { myTeamWon });
   const status = document.getElementById('captain-vote-status');
   if (status) status.textContent = myTeamWon ? '✅ Vote enregistré : votre équipe a gagné' : '✅ Vote enregistré : votre équipe a perdu';
-  // Disable buttons after vote
   const btns = document.querySelectorAll('#captain-vote-section button');
   btns.forEach(b => b.disabled = true);
 }
