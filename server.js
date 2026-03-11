@@ -94,6 +94,30 @@ if (TWITCH_CLIENT_ID) {
 }
 function isAdminReq(req) { return req.headers['x-admin-key'] === ADMIN_KEY; }
 // ── ADMIN: PREMIUM ──
+// Smurf detection: find IPs with 2+ accounts having ELO difference > 150
+app.get('/api/admin/smurfs', (req, res) => {
+  if (!isAdminReq(req)) return res.status(403).json({ error: 'Interdit' });
+  try {
+    const data = (() => { try { return require('fs').existsSync(DBFILE()) ? JSON.parse(require('fs').readFileSync(DBFILE(),'utf8')) : {users:[]}; } catch(e) { return {users:[]}; } })();
+    const byIp = {};
+    (data.users || []).forEach(u => {
+      if (!u.ip) return;
+      if (!byIp[u.ip]) byIp[u.ip] = [];
+      const maxElo = Math.max(...['1v1','2v2','3v3','5v5'].map(m => u.stats?.[m]?.elo || 500));
+      byIp[u.ip].push({ id: u.id, pseudo: u.pseudo, maxElo, banned: !!u.banned, createdAt: u.createdAt });
+    });
+    const suspects = [];
+    Object.entries(byIp).forEach(([ip, accounts]) => {
+      if (accounts.length < 2) return;
+      const elos = accounts.map(a => a.maxElo);
+      const eloDiff = Math.max(...elos) - Math.min(...elos);
+      if (eloDiff >= 150) suspects.push({ ip, accounts, eloDiff });
+    });
+    suspects.sort((a, b) => b.eloDiff - a.eloDiff);
+    res.json({ suspects });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 app.get('/api/admin/all-users', (req, res) => {
   if (!isAdminReq(req)) return res.status(403).json({ error: 'Interdit' });
   const { loadDB } = require('./database');
@@ -939,6 +963,59 @@ function applyEloResult(winTeam, loseTeam, mode) {
       group.players = group.players.filter(p => p.socketId !== socket.id);
       if (group.players.length === 0) delete groups[code];
       else io.to('group_' + code).emit('group_updated', { players: group.players.map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null, stats: p.stats || null })), mode: group.mode });
+    }
+  });
+
+  // ── REMATCH ──
+  socket.on('request_rematch', () => {
+    if (!socket.roomId) return;
+    const room = rooms[socket.roomId];
+    if (!room || room.status !== 'finished') return;
+    if (!room.rematchRequests) room.rematchRequests = new Set();
+    room.rematchRequests.add(socket.userId);
+    // Notify everyone in room
+    const allPlayers = [...(room.teams[0] || []), ...(room.teams[1] || [])].filter(p => !p.isBot);
+    io.to('room_' + socket.roomId).emit('rematch_update', {
+      count: room.rematchRequests.size,
+      total: allPlayers.length
+    });
+    // If all players accepted — create new room
+    if (room.rematchRequests.size >= allPlayers.length) {
+      const newRoomId = Date.now().toString() + '_rematch';
+      rooms[newRoomId] = {
+        id: newRoomId,
+        mode: room.mode,
+        teams: [room.teams[0].map(p => ({...p})), room.teams[1].map(p => ({...p}))],
+        status: 'playing',
+        map: room.map || null,
+        weapon: room.weapon || null,
+        createdAt: new Date().toISOString(),
+        captains: room.captains ? [...room.captains] : [],
+        votes: {},
+        rematchRequests: new Set(),
+        resultDeclared: false,
+        isRematch: true
+      };
+      // Move all players to new room
+      allPlayers.forEach(p => {
+        const s = [...io.sockets.sockets.values()].find(s => s.userId === p.id);
+        if (s) {
+          s.leave('room_' + socket.roomId);
+          s.join('room_' + newRoomId);
+          s.roomId = newRoomId;
+        }
+      });
+      const payload = {
+        roomId: newRoomId,
+        mode: room.mode,
+        team1: room.teams[0].map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null, stats: p.stats || null, isPremium: !!p.isPremium, isBot: !!p.isBot })),
+        team2: room.teams[1].map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null, stats: p.stats || null, isPremium: !!p.isPremium, isBot: !!p.isBot })),
+        captains: room.captains || [],
+        map: room.map,
+        weapon: room.weapon,
+        isRematch: true
+      };
+      io.to('room_' + newRoomId).emit('room_ready', payload);
     }
   });
 

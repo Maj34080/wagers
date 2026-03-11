@@ -215,13 +215,18 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
 /* RESULT */
 .result-overlay{display:none;position:fixed;inset:0;z-index:200;background:rgba(10,10,15,0.85);backdrop-filter:blur(8px);align-items:center;justify-content:center;}
 .result-overlay.show{display:flex;}
-.result-card{background:var(--surface);border:1px solid var(--border);border-radius:24px;padding:48px 40px;text-align:center;width:400px;animation:scaleIn 0.4s cubic-bezier(0.34,1.56,0.64,1);}
+.result-card{background:var(--surface);border:1px solid var(--border);border-radius:24px;padding:48px 40px;text-align:center;width:440px;animation:scaleIn 0.4s cubic-bezier(0.34,1.56,0.64,1);}
 .result-title{font-family:'Syne',sans-serif;font-size:40px;font-weight:800;margin-bottom:8px;}
 .result-title.win{color:var(--green);}.result-title.lose{color:var(--accent);}
 .result-elo{font-family:'Syne',sans-serif;font-size:18px;font-weight:700;color:var(--gold);margin-bottom:6px;}
-.result-map{font-size:12px;color:var(--muted);margin-bottom:24px;}
+.result-map{font-size:12px;color:var(--muted);margin-bottom:16px;}
 .result-btn{background:var(--accent);color:white;border:none;border-radius:12px;padding:12px 28px;font-family:'Syne',sans-serif;font-weight:700;font-size:14px;cursor:pointer;transition:all 0.2s;}
 .result-btn:hover{background:var(--accent2);}
+.result-btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:12px;padding:11px 20px;font-family:'Syne',sans-serif;font-weight:700;font-size:13px;cursor:pointer;transition:all 0.2s;}
+.result-btn-secondary:hover{border-color:var(--accent);color:var(--accent);}
+.rematch-btn{background:linear-gradient(135deg,rgba(58,255,160,0.12),rgba(58,255,160,0.06));color:var(--green);border:1px solid rgba(58,255,160,0.35);border-radius:12px;padding:11px 20px;font-family:'Syne',sans-serif;font-weight:700;font-size:13px;cursor:pointer;transition:all 0.2s;}
+.rematch-btn:hover{background:rgba(58,255,160,0.18);border-color:var(--green);}
+.rematch-btn:disabled{opacity:0.5;cursor:not-allowed;}
 
 .chat-img-btn{background:var(--surface2);border:1px solid var(--border);border-radius:9px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;flex-shrink:0;transition:all 0.2s;}
 .chat-img-btn:hover{border-color:var(--accent);}
@@ -735,6 +740,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
             <button onclick="showAdminSection('rooms')" id="admin-sec-rooms" class="btn-mini">🕹️ Rooms</button>
             <button onclick="showAdminSection('tickets')" id="admin-sec-tickets" class="btn-mini">🎫 Tickets</button>
             <button onclick="showAdminSection('banned')" id="admin-sec-banned" class="btn-mini">🚫 Bannis</button>
+            <button onclick="showAdminSection('smurfs')" id="admin-sec-smurfs" class="btn-mini" style="color:#f97316;">🕵️ Smurfs</button>
             <button onclick="showAdminSection('premium')" id="admin-sec-premium" class="btn-mini" style="color:var(--gold);">👑 Premium</button>
           </div>
         </div>
@@ -810,6 +816,17 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
             <button onclick="refreshBannedList()" class="btn-mini">🔄 Actualiser</button>
           </div>
           <div id="admin-banned-list" style="display:flex;flex-direction:column;gap:8px;">
+            <div style="color:var(--muted);text-align:center;padding:40px;">Chargement…</div>
+          </div>
+        </div>
+
+        <div id="admin-section-smurfs" style="display:none;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <div style="font-weight:700;font-size:14px;">🕵️ Détection Smurfs</div>
+            <button onclick="loadSmurfDetection()" class="btn-mini">🔄 Actualiser</button>
+          </div>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:14px;">Comptes sur la même IP avec une différence d'ELO ≥ 150 points.</div>
+          <div id="admin-smurf-list" style="display:flex;flex-direction:column;gap:10px;">
             <div style="color:var(--muted);text-align:center;padding:40px;">Chargement…</div>
           </div>
         </div>
@@ -1021,7 +1038,17 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
     <div class="result-title" id="result-title">VICTOIRE</div>
     <div class="result-elo" id="result-elo">+20 ELO</div>
     <div class="result-map" id="result-map"></div>
-    <button class="result-btn" onclick="backToLobby()">Retour au Lobby</button>
+    <!-- Rematch progress -->
+    <div id="rematch-status" style="display:none;margin-bottom:14px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;font-size:12px;color:var(--muted);">
+      <span id="rematch-status-text">En attente des autres joueurs…</span>
+    </div>
+    <!-- Share card preview (canvas) -->
+    <canvas id="share-canvas" style="display:none;border-radius:12px;margin-bottom:14px;max-width:100%;"></canvas>
+    <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+      <button class="result-btn" onclick="backToLobby()">Retour au Lobby</button>
+      <button class="rematch-btn" id="rematch-btn" onclick="requestRematch()">⚔️ Revanche</button>
+      <button class="result-btn-secondary" onclick="shareResult()">📤 Partager</button>
+    </div>
   </div>
 </div>
 
@@ -2649,21 +2676,176 @@ function scrollAdminTop() {
 }
 
 function showAdminSection(sec) {
-  ['rooms','tickets','banned','stats','premium'].forEach(s => {
+  ['rooms','tickets','banned','stats','premium','smurfs'].forEach(s => {
     const el = document.getElementById('admin-section-' + s);
     const btn = document.getElementById('admin-sec-' + s);
     if (el) el.style.display = s === sec ? '' : 'none';
-    if (btn) btn.style.color = s === sec ? (s === 'premium' ? 'var(--gold)' : 'var(--accent)') : '';
+    if (btn) btn.style.color = s === sec
+      ? (s === 'premium' ? 'var(--gold)' : s === 'smurfs' ? '#f97316' : 'var(--accent)')
+      : '';
   });
   if (sec === 'banned') refreshBannedList();
   if (sec === 'tickets') refreshAdminTickets();
   if (sec === 'rooms') refreshAdminLogs();
   if (sec === 'stats') loadAdminStats();
   if (sec === 'premium') loadPremiumAdmin();
-  // Scroll to top after content switch
+  if (sec === 'smurfs') loadSmurfDetection();
   requestAnimationFrame(() => {
     const ms = document.getElementById('screen-main');
     if (ms) ms.scrollTop = 0;
+  });
+}
+
+// ── REMATCH ──
+let _lastMatchData = null;
+function requestRematch() {
+  const btn = document.getElementById('rematch-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ En attente…'; }
+  socket.emit('request_rematch');
+}
+
+socket.on('rematch_update', ({ count, total }) => {
+  const status = document.getElementById('rematch-status');
+  const statusText = document.getElementById('rematch-status-text');
+  if (status) status.style.display = '';
+  if (statusText) statusText.textContent = `Revanche : ${count}/${total} joueurs acceptés`;
+});
+
+// ── SHARE RESULT (Canvas card) ──
+function shareResult() {
+  const canvas = document.getElementById('share-canvas');
+  if (!canvas) return;
+  const title = document.getElementById('result-title').textContent;
+  const elo = document.getElementById('result-elo').textContent;
+  const map = document.getElementById('result-map').textContent;
+  const isWin = title === 'VICTOIRE';
+  const isDraw = title === 'ÉGALITÉ';
+
+  canvas.width = 600;
+  canvas.height = 280;
+  const ctx = canvas.getContext('2d');
+
+  // Background
+  ctx.fillStyle = '#0a0a0f';
+  ctx.fillRect(0, 0, 600, 280);
+
+  // Colored side stripe
+  const stripeColor = isWin ? '#3affa0' : isDraw ? '#ffd166' : '#ff4655';
+  ctx.fillStyle = stripeColor;
+  ctx.fillRect(0, 0, 6, 280);
+
+  // Subtle glow background
+  const grd = ctx.createRadialGradient(300, 0, 0, 300, 0, 300);
+  grd.addColorStop(0, isWin ? 'rgba(58,255,160,0.08)' : isDraw ? 'rgba(255,209,102,0.08)' : 'rgba(255,70,85,0.08)');
+  grd.addColorStop(1, 'transparent');
+  ctx.fillStyle = grd;
+  ctx.fillRect(0, 0, 600, 280);
+
+  // REVENGE logo
+  ctx.font = '800 15px "Space Grotesk", sans-serif';
+  ctx.fillStyle = '#ff4655';
+  ctx.fillText('REVENGE', 30, 36);
+
+  // Title
+  ctx.font = '800 64px "Syne", sans-serif';
+  ctx.fillStyle = stripeColor;
+  ctx.fillText(title, 30, 110);
+
+  // ELO
+  ctx.font = '700 22px "Syne", sans-serif';
+  ctx.fillStyle = '#ffd166';
+  ctx.fillText(elo, 30, 150);
+
+  // Map/mode info
+  ctx.font = '400 14px "Inter", sans-serif';
+  ctx.fillStyle = '#5a5a72';
+  ctx.fillText(map, 30, 180);
+
+  // Player pseudo
+  ctx.font = '700 16px "Space Grotesk", sans-serif';
+  ctx.fillStyle = '#f0f0f8';
+  ctx.fillText(state.pseudo, 30, 220);
+
+  // Site URL
+  ctx.font = '500 13px "Inter", sans-serif';
+  ctx.fillStyle = '#3a3a52';
+  ctx.textAlign = 'right';
+  ctx.fillText('wagers.onrender.com', 570, 258);
+  ctx.textAlign = 'left';
+
+  // Border
+  ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(0.5, 0.5, 599, 279);
+
+  canvas.style.display = 'block';
+
+  // Try native share, fallback to download
+  canvas.toBlob(blob => {
+    if (navigator.share && navigator.canShare && navigator.canShare({ files: [new File([blob], 'revenge-result.png', { type: 'image/png' })] })) {
+      navigator.share({
+        title: `${title} sur REVENGE`,
+        text: `${elo} — ${map}`,
+        files: [new File([blob], 'revenge-result.png', { type: 'image/png' })]
+      }).catch(() => {});
+    } else {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'revenge-result.png';
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 3000);
+    }
+  }, 'image/png');
+}
+
+// ── SMURF DETECTION ──
+async function loadSmurfDetection() {
+  const list = document.getElementById('admin-smurf-list');
+  if (!list) return;
+  list.innerHTML = '<div style="color:var(--muted);text-align:center;padding:40px;">Chargement…</div>';
+  try {
+    const r = await fetch('/api/admin/smurfs', { headers: { 'x-admin-key': ADMIN_KEY } });
+    const data = await r.json();
+    scrollAdminTop();
+    if (!data.suspects || !data.suspects.length) {
+      list.innerHTML = '<div style="color:var(--muted);text-align:center;padding:40px;">✅ Aucun smurf détecté</div>';
+      return;
+    }
+    list.innerHTML = data.suspects.map(s => {
+      const accs = s.accounts.map(a =>
+        `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--bg);border-radius:8px;margin-bottom:4px;">
+          <span style="font-weight:700;font-size:13px;">${a.pseudo} ${a.banned ? '<span style="font-size:10px;color:var(--accent);">[BANNI]</span>' : ''}</span>
+          <span style="font-size:12px;color:var(--gold);font-weight:700;">${a.maxElo} ELO</span>
+        </div>`
+      ).join('');
+      return `<div style="background:var(--surface);border:1px solid rgba(249,115,22,0.3);border-radius:14px;padding:16px;margin-bottom:4px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <div style="font-size:12px;color:#f97316;font-weight:700;">🔍 Même IP — ${s.accounts.length} comptes</div>
+          <div style="background:rgba(249,115,22,0.12);color:#f97316;border-radius:6px;padding:3px 10px;font-size:11px;font-weight:800;">Δ ${s.eloDiff} ELO</div>
+        </div>
+        ${accs}
+        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+          ${s.accounts.filter(a => !a.banned).map(a =>
+            `<button onclick="adminBanUser('${a.id}','${a.pseudo}')" style="background:rgba(255,70,85,0.1);border:1px solid rgba(255,70,85,0.3);color:var(--accent);border-radius:8px;padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer;">🚫 Ban ${a.pseudo}</button>`
+          ).join('')}
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    list.innerHTML = '<div style="color:var(--accent);text-align:center;padding:20px;">Erreur de chargement</div>';
+  }
+}
+
+function adminBanUser(userId, pseudo) {
+  if (!confirm(`Bannir ${pseudo} ?`)) return;
+  fetch('/api/admin/ban', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-admin-key': ADMIN_KEY },
+    body: JSON.stringify({ userId, reason: 'Smurf détecté' })
+  }).then(r => r.json()).then(d => {
+    if (d.ok) { notify(`🚫 ${pseudo} banni.`, { accent: 'var(--accent)' }); loadSmurfDetection(); }
+    else notify('❌ ' + (d.error || 'Erreur'));
   });
 }
 
