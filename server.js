@@ -18,7 +18,7 @@ const WEAPONS = ['Vandal/Phantom', 'Sheriff', 'Operator', 'Marshall', 'Ghost'];
 const WEAPON_VOTE_TIMEOUT = 10000; // 10s pour voter
 const BAN_TIMEOUT = 15000;
 const START_COUNTDOWN = 5000;
-const ADMIN_PSEUDOS = ['Karim34']; // ← ajoute ton pseudo ici
+const ADMIN_PSEUDOS = ['Karim34', 'Teleph']; // ← ajoute ton pseudo ici
 
 // Check premium expiry on boot and every hour
 db.checkPremiumExpiry();
@@ -237,8 +237,9 @@ app.get('/api/admin/find-user', (req, res) => {
   const user = db.getUserByPseudo(pseudo);
   if (!user) return res.status(404).json({ error: 'Introuvable' });
   const data = db.loadDB();
-  // Find all accounts sharing the same IP
-  const sameIpAccounts = user.ip
+  const isTargetAdmin = ADMIN_PSEUDOS.includes(user.pseudo);
+  // Find all accounts sharing the same IP (hidden if target is admin)
+  const sameIpAccounts = (!isTargetAdmin && user.ip)
     ? data.users.filter(u => u.ip === user.ip && u.id !== user.id).map(u => ({ id: u.id, pseudo: u.pseudo, createdAt: u.createdAt, banned: !!u.banned, stats: u.stats }))
     : [];
   // Is user currently online?
@@ -246,7 +247,7 @@ app.get('/api/admin/find-user', (req, res) => {
   res.json({
     id: user.id,
     pseudo: user.pseudo,
-    ip: user.ip || null,
+    ip: isTargetAdmin ? '🔒 Masquée (compte staff)' : (user.ip || null),
     createdAt: user.createdAt,
     banned: !!user.banned,
     banReason: user.banReason || null,
