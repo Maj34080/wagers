@@ -227,6 +227,8 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
 .rematch-btn{background:linear-gradient(135deg,rgba(58,255,160,0.12),rgba(58,255,160,0.06));color:var(--green);border:1px solid rgba(58,255,160,0.35);border-radius:12px;padding:11px 20px;font-family:'Syne',sans-serif;font-weight:700;font-size:13px;cursor:pointer;transition:all 0.2s;}
 .rematch-btn:hover{background:rgba(58,255,160,0.18);border-color:var(--green);}
 .rematch-btn:disabled{opacity:0.5;cursor:not-allowed;}
+.mute-dur-btn{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px 6px;font-size:12px;font-weight:700;cursor:pointer;color:var(--text);font-family:'Syne',sans-serif;transition:all 0.15s;}
+.mute-dur-btn:hover,.mute-dur-btn.selected{background:rgba(255,70,85,0.15);border-color:rgba(255,70,85,0.5);color:var(--accent);}
 
 .chat-img-btn{background:var(--surface2);border:1px solid var(--border);border-radius:9px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;flex-shrink:0;transition:all 0.2s;}
 .chat-img-btn:hover{border-color:var(--accent);}
@@ -512,7 +514,14 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
           <div id="no-clan-panel">
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;">
               <!-- Create clan -->
-              <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;">
+              <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;position:relative;overflow:hidden;" id="clan-create-box">
+                <!-- Premium lock overlay (shown for non-premium) -->
+                <div id="clan-create-lock" style="display:none;position:absolute;inset:0;background:rgba(10,10,15,0.75);backdrop-filter:blur(3px);border-radius:16px;z-index:5;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;">
+                  <div style="font-size:32px;">👑</div>
+                  <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:15px;color:var(--gold);text-align:center;">Créer un clan</div>
+                  <div style="font-size:12px;color:var(--muted);text-align:center;max-width:180px;">Réservé aux membres Premium</div>
+                  <button onclick="showMainTab('boutique')" style="background:linear-gradient(135deg,#f7c948,#ff9500);color:#000;border:none;border-radius:10px;padding:9px 20px;font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:13px;cursor:pointer;">Obtenir Premium →</button>
+                </div>
                 <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:16px;margin-bottom:16px;">⚔️ Créer un clan</div>
                 <div style="margin-bottom:10px;">
                   <label style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:5px;">Nom du clan</label>
@@ -1942,6 +1951,15 @@ function initSocket() {
     notify(`👑 Premium activé pour ${months} mois ! Bienvenue dans l'élite.`, { accent: 'var(--gold)', duration: 6000 });
   });
 
+  socket.on('muted_by_admin', ({ duration, message }) => {
+    state.isMuted = true;
+    notify('🔇 ' + (message || 'Tu as été mute par un admin.'), { accent: 'var(--accent)', duration: 7000 });
+  });
+  socket.on('unmuted_by_admin', ({ message }) => {
+    state.isMuted = false;
+    notify('🔊 ' + (message || "Tu n'es plus mute."), { accent: 'var(--green)', duration: 5000 });
+  });
+
   socket.on('elo_adjusted', ({ mode, amount, newElo }) => {
     const sign = amount > 0 ? '+' : '';
     notify(`⚡ Ton ELO ${mode} a été ajusté : ${sign}${amount} → ${newElo} ELO`, { accent: 'var(--blue)', duration: 6000 });
@@ -2948,6 +2966,61 @@ function shareResult() {
   }, 'image/png');
 }
 
+// ── ADMIN MUTE POPUP (GLOBAL CHAT) ──
+let _mutePseudo = null;
+let _muteDuration = 10; // default 10 min
+
+function openMutePopup(pseudo, event) {
+  event.stopPropagation();
+  _mutePseudo = pseudo;
+  _muteDuration = 10;
+  document.getElementById('mute-popup-pseudo').textContent = pseudo;
+  // Reset selection
+  document.querySelectorAll('.mute-dur-btn').forEach(b => b.classList.remove('selected'));
+  document.querySelector('.mute-dur-btn').classList.add('selected');
+  // Position near click
+  const popup = document.getElementById('admin-mute-popup');
+  popup.style.display = '';
+  const x = Math.min(event.clientX, window.innerWidth - 250);
+  const y = Math.min(event.clientY + 8, window.innerHeight - 260);
+  popup.style.left = x + 'px';
+  popup.style.top = y + 'px';
+}
+
+function closeMutePopup() {
+  document.getElementById('admin-mute-popup').style.display = 'none';
+  _mutePseudo = null;
+}
+
+function selectMuteDuration(mins) {
+  _muteDuration = mins;
+  document.querySelectorAll('.mute-dur-btn').forEach(b => {
+    b.classList.toggle('selected', (mins === null ? b.textContent === 'Permanent' : b.textContent.includes(mins < 60 ? mins + ' min' : mins === 60 ? '1 heure' : mins === 360 ? '6 heures' : '1 jour')));
+  });
+}
+
+async function applyMute() {
+  if (!_mutePseudo) return;
+  try {
+    const r = await fetch('/api/admin/mute', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-key': ADMIN_KEY },
+      body: JSON.stringify({ pseudo: _mutePseudo, duration: _muteDuration })
+    });
+    const d = await r.json();
+    if (!r.ok) { notify('❌ ' + (d.error || 'Erreur')); return; }
+    const label = _muteDuration ? `${_muteDuration} min` : 'permanent';
+    notify(`🔇 ${_mutePseudo} mute pour ${label}`);
+    closeMutePopup();
+  } catch(e) { notify('Erreur réseau'); }
+}
+
+// Close popup on outside click
+document.addEventListener('click', (e) => {
+  const popup = document.getElementById('admin-mute-popup');
+  if (popup && popup.style.display !== 'none' && !popup.contains(e.target)) closeMutePopup();
+});
+
 // ── ADMIN ELO ADJUSTMENT ──
 async function adminAdjustElo() {
   const pseudo = document.getElementById('elo-adj-pseudo').value.trim();
@@ -3094,9 +3167,12 @@ function appendGlobalChatMsg(msg, scroll = true) {
     ? `<img src="${msg.avatar}" style="width:20px;height:20px;border-radius:50%;object-fit:cover;flex-shrink:0;${gcPremBorder}">`
     : `<div style="width:20px;height:20px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;flex-shrink:0;${gcPremBorder}">${msg.pseudo[0].toUpperCase()}</div>`;
 
+  const muteBtn = (!isMe && state.isAdmin)
+    ? `<button onclick="openMutePopup('${msg.pseudo.replace(/'/g,"\'")}',event)" title="Mute" style="background:none;border:none;cursor:pointer;color:rgba(255,70,85,0.5);font-size:11px;padding:0 2px;line-height:1;opacity:0;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0" class="admin-mute-inline-btn">🔇</button>`
+    : '';
   const pseudoHtml = isMe
     ? `<span style="font-size:11px;font-weight:700;color:var(--accent);">Toi ${state.isPremium ? '👑' : ''}</span>`
-    : `<span onclick="openGlobalChatProfile('${msg.pseudo.replace(/'/g,"\\'")}',event)" style="font-size:11px;font-weight:700;color:${msg.isPremium ? '#f7c948' : 'var(--muted)'};cursor:pointer;">${msg.isPremium ? '👑 ' : ''}${msg.pseudo}</span>`;
+    : `<span style="display:flex;align-items:center;gap:3px;">${muteBtn}<span onclick="openGlobalChatProfile('${msg.pseudo.replace(/'/g,"\'")}',event)" style="font-size:11px;font-weight:700;color:${msg.isPremium ? '#f7c948' : 'var(--muted)'};cursor:pointer;">${msg.isPremium ? '👑 ' : ''}${msg.pseudo}</span></span>`;
 
   div.innerHTML = `
     <div style="display:flex;align-items:center;gap:5px;${isMe?'flex-direction:row-reverse;':''}">
@@ -3278,6 +3354,9 @@ async function showClanModal(clanId) {
 }
 
 async function loadMyClan() {
+  // Show/hide clan create lock based on premium status
+  const lockEl = document.getElementById('clan-create-lock');
+  if (lockEl) lockEl.style.display = state.isPremium ? 'none' : 'flex';
   if (!state.userId) return;
   try {
     const r = await fetch('/api/clans/user/' + state.userId);
@@ -4066,5 +4145,24 @@ async function loadProfileHistory(userId) {
 }
 
 </script>
+<!-- ADMIN MUTE POPUP (global chat) -->
+<div id="admin-mute-popup" style="display:none;position:fixed;z-index:9999;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;min-width:220px;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+  <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:13px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;">
+    🔇 Mute <span id="mute-popup-pseudo" style="color:var(--accent);"></span>
+    <button onclick="closeMutePopup()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;padding:0;">✕</button>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:8px;">
+    <div style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Durée</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;" id="mute-duration-btns">
+      <button class="mute-dur-btn" onclick="selectMuteDuration(10)">10 min</button>
+      <button class="mute-dur-btn" onclick="selectMuteDuration(30)">30 min</button>
+      <button class="mute-dur-btn" onclick="selectMuteDuration(60)">1 heure</button>
+      <button class="mute-dur-btn" onclick="selectMuteDuration(360)">6 heures</button>
+      <button class="mute-dur-btn" onclick="selectMuteDuration(1440)">1 jour</button>
+      <button class="mute-dur-btn" onclick="selectMuteDuration(null)">Permanent</button>
+    </div>
+    <button onclick="applyMute()" style="width:100%;background:rgba(255,70,85,0.15);border:1px solid rgba(255,70,85,0.4);color:var(--accent);border-radius:10px;padding:9px;font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:13px;cursor:pointer;margin-top:4px;" onmouseover="this.style.background='rgba(255,70,85,0.25)'" onmouseout="this.style.background='rgba(255,70,85,0.15)'">🔇 Appliquer le mute</button>
+  </div>
+</div>
 </body>
 </html>

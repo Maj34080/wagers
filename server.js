@@ -24,6 +24,19 @@ const ADMIN_PSEUDOS = ['Karim34']; // ← ajoute ton pseudo ici
 db.checkPremiumExpiry();
 setInterval(() => db.checkPremiumExpiry(), 60 * 60 * 1000);
 
+// ── CHECK MUTE EXPIRY EVERY MINUTE ──
+db.checkMuteExpiry();
+setInterval(() => {
+  db.checkMuteExpiry();
+  [...io.sockets.sockets.values()].forEach(s => {
+    if (s.isMuted && s.muteUntil && s.muteUntil <= Date.now()) {
+      s.isMuted = false;
+      s.muteUntil = null;
+      s.emit('unmuted_by_admin', { message: '🔊 Ton mute a expiré, tu peux à nouveau écrire.' });
+    }
+  });
+}, 60 * 1000);
+
 app.use(express.json());
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 app.get('/api/leaderboard/:mode', (req, res) => res.json(db.getLeaderboard(req.params.mode)));
@@ -205,11 +218,19 @@ app.post('/api/admin/unban', (req, res) => {
 });
 app.post('/api/admin/mute', (req, res) => {
   if (!isAdminReq(req)) return res.status(403).json({ error: 'Interdit' });
-  const { pseudo } = req.body;
+  const { pseudo, duration } = req.body; // duration in minutes, null = permanent
   const user = db.getUserByPseudo(pseudo);
   if (!user) return res.status(404).json({ error: 'Introuvable' });
-  db.muteUser(user.id);
-  res.json({ ok: true });
+  db.muteUser(user.id, duration || null);
+  // Update socket state live
+  const s = [...io.sockets.sockets.values()].find(s => s.userId === user.id);
+  if (s) {
+    s.isMuted = true;
+    s.muteUntil = user.muteUntil || null;
+    const msg = duration ? `🔇 Tu as été mute pour ${duration} minute${duration>1?'s':''}.` : '🔇 Tu as été mute indéfiniment par un admin.';
+    s.emit('muted_by_admin', { duration, muteUntil: user.muteUntil, message: msg });
+  }
+  res.json({ ok: true, pseudo: user.pseudo, duration });
 });
 app.post('/api/admin/unmute', (req, res) => {
   if (!isAdminReq(req)) return res.status(403).json({ error: 'Interdit' });
@@ -524,7 +545,8 @@ io.on('connection', (socket) => {
       socket.userId = user.id;
       socket.pseudo = user.pseudo;
       socket.isAdmin = ADMIN_PSEUDOS.includes(pseudo);
-      socket.isMuted = !!user.muted;
+      socket.isMuted = !!user.muted && (!user.muteUntil || user.muteUntil > Date.now());
+      socket.muteUntil = user.muteUntil || null;
       const stats = user.stats || db.defaultStats();
       socket.isPremium = !!user.isPremium;
       socket.emit('auth_ok', {
@@ -824,7 +846,14 @@ io.on('connection', (socket) => {
   socket.on('chat_msg', ({ text }) => {
     if (!socket.roomId) return;
     if (!text || text.trim().length === 0 || text.length > 200) return;
-    if (socket.isMuted) return socket.emit('chat_msg', { author: 'Système', team: 'system', text: '🔇 Vous êtes mute et ne pouvez pas envoyer de messages.' });
+    if (socket.isMuted) {
+      if (socket.muteUntil && socket.muteUntil <= Date.now()) {
+        socket.isMuted = false; socket.muteUntil = null; // expired
+      } else {
+        const timeLeft = socket.muteUntil ? Math.ceil((socket.muteUntil - Date.now()) / 60000) + ' min restante(s)' : 'indéfini';
+        return socket.emit('chat_msg', { author: 'Système', team: 'system', text: `🔇 Tu es mute (${timeLeft}). Tu ne peux pas envoyer de messages.` });
+      }
+    }
     const room = rooms[socket.roomId];
     if (!room) return;
     const inTeam = room.teams[0].some(p => p.id === socket.userId) || (room.teams[1] && room.teams[1].some(p => p.id === socket.userId));
@@ -1559,6 +1588,7 @@ app.post('/api/clans/create', express.json(), (req, res) => {
     if (!data.clans) data.clans = [];
     const user = data.users.find(u => u.id === userId);
     if (!user) return res.status(404).json({ error: 'Joueur introuvable' });
+    if (!user.isPremium || (user.premiumUntil && user.premiumUntil < Date.now())) return res.status(403).json({ error: 'PREMIUM_REQUIRED' });
     if (user.clanId) return res.status(400).json({ error: 'Vous êtes déjà dans un clan' });
     const tagUp = tag.toUpperCase().replace(/[^A-Z0-9]/g, '');
     if (data.clans.find(c => c.tag === tagUp)) return res.status(400).json({ error: 'Ce tag est déjà pris' });
