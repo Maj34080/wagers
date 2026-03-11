@@ -4,6 +4,7 @@ const { Server } = require('socket.io');
 const bcrypt = require('bcryptjs');
 const path = require('path');
 const db = require('./database');
+console.log('ELO test:', db.computeEloChange(605, 500, true));
 
 const app = express();
 const server = http.createServer(app);
