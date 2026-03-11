@@ -1063,3 +1063,218 @@ setInterval(() => {
 }, 5000);
 
 app.get('/api/active-rooms', (req, res) => res.json(getActiveRoomsPayload()));
+
+// ═══════════════════════════════════════════════
+// ── CLAN SYSTEM ──
+// ═══════════════════════════════════════════════
+
+// GET clan info
+app.get('/api/clans', (req, res) => {
+  try {
+    const data = readDB();
+    const clans = (data.clans || []).map(c => {
+      const members = (c.members || []).map(mId => {
+        const u = data.users.find(u => u.id === mId);
+        return u ? { id: u.id, pseudo: u.pseudo, avatar: u.avatar || null } : null;
+      }).filter(Boolean);
+      const totalElo = members.reduce((sum, m) => {
+        const u = data.users.find(u => u.id === m.id);
+        if (!u) return sum;
+        const elos = ['1v1','2v2','3v3','5v5'].map(mode => u.stats?.[mode]?.elo || 500);
+        return sum + Math.max(...elos);
+      }, 0);
+      return { id: c.id, name: c.name, tag: c.tag, description: c.description || '', leaderId: c.leaderId, members, memberCount: members.length, totalElo, createdAt: c.createdAt };
+    }).sort((a, b) => b.totalElo - a.totalElo);
+    res.json(clans);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/clans/:id', (req, res) => {
+  try {
+    const data = readDB();
+    const c = (data.clans || []).find(c => c.id === req.params.id);
+    if (!c) return res.status(404).json({ error: 'Clan introuvable' });
+    const members = (c.members || []).map(mId => {
+      const u = data.users.find(u => u.id === mId);
+      if (!u) return null;
+      const maxElo = Math.max(...['1v1','2v2','3v3','5v5'].map(m => u.stats?.[m]?.elo || 500));
+      return { id: u.id, pseudo: u.pseudo, avatar: u.avatar || null, isLeader: mId === c.leaderId, maxElo };
+    }).filter(Boolean);
+    const requests = (c.joinRequests || []).map(rId => {
+      const u = data.users.find(u => u.id === rId);
+      return u ? { id: u.id, pseudo: u.pseudo, avatar: u.avatar || null } : null;
+    }).filter(Boolean);
+    res.json({ ...c, members, joinRequests: requests });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Create clan
+app.post('/api/clans/create', express.json(), (req, res) => {
+  const { userId, name, tag, description } = req.body;
+  if (!userId || !name || !tag) return res.status(400).json({ error: 'Champs manquants' });
+  if (tag.length < 2 || tag.length > 4) return res.status(400).json({ error: 'Le tag doit faire 2 à 4 caractères' });
+  if (name.length < 3 || name.length > 24) return res.status(400).json({ error: 'Nom: 3 à 24 caractères' });
+  try {
+    const data = readDB();
+    if (!data.clans) data.clans = [];
+    const user = data.users.find(u => u.id === userId);
+    if (!user) return res.status(404).json({ error: 'Joueur introuvable' });
+    if (user.clanId) return res.status(400).json({ error: 'Vous êtes déjà dans un clan' });
+    const tagUp = tag.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (data.clans.find(c => c.tag === tagUp)) return res.status(400).json({ error: 'Ce tag est déjà pris' });
+    if (data.clans.find(c => c.name.toLowerCase() === name.toLowerCase())) return res.status(400).json({ error: 'Ce nom est déjà pris' });
+    const clan = { id: Date.now().toString(), name, tag: tagUp, description: description || '', leaderId: userId, members: [userId], joinRequests: [], createdAt: new Date().toISOString() };
+    data.clans.push(clan);
+    user.clanId = clan.id;
+    writeDB(data);
+    res.json({ ok: true, clan });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Request to join
+app.post('/api/clans/request', express.json(), (req, res) => {
+  const { userId, clanId } = req.body;
+  try {
+    const data = readDB();
+    const user = data.users.find(u => u.id === userId);
+    const clan = (data.clans || []).find(c => c.id === clanId);
+    if (!user || !clan) return res.status(404).json({ error: 'Introuvable' });
+    if (user.clanId) return res.status(400).json({ error: 'Vous êtes déjà dans un clan' });
+    if (clan.members.length >= 10) return res.status(400).json({ error: 'Clan complet (10/10)' });
+    if (!clan.joinRequests) clan.joinRequests = [];
+    if (clan.joinRequests.includes(userId)) return res.status(400).json({ error: 'Demande déjà envoyée' });
+    clan.joinRequests.push(userId);
+    writeDB(data);
+    // Notify leader
+    io.sockets.sockets.forEach(s => { if (s.userId === clan.leaderId) s.emit('clan_join_request', { pseudo: user.pseudo, avatar: user.avatar || null, userId }); });
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Accept/decline join request
+app.post('/api/clans/accept', express.json(), (req, res) => {
+  const { leaderId, userId, clanId } = req.body;
+  try {
+    const data = readDB();
+    const clan = (data.clans || []).find(c => c.id === clanId);
+    if (!clan) return res.status(404).json({ error: 'Clan introuvable' });
+    if (clan.leaderId !== leaderId) return res.status(403).json({ error: 'Non autorisé' });
+    if (clan.members.length >= 10) return res.status(400).json({ error: 'Clan complet' });
+    clan.joinRequests = (clan.joinRequests || []).filter(id => id !== userId);
+    if (!clan.members.includes(userId)) clan.members.push(userId);
+    const target = data.users.find(u => u.id === userId);
+    if (target) target.clanId = clanId;
+    writeDB(data);
+    io.sockets.sockets.forEach(s => { if (s.userId === userId) s.emit('clan_accepted', { clanName: clan.name, tag: clan.tag }); });
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/clans/decline', express.json(), (req, res) => {
+  const { leaderId, userId, clanId } = req.body;
+  try {
+    const data = readDB();
+    const clan = (data.clans || []).find(c => c.id === clanId);
+    if (!clan) return res.status(404).json({ error: 'Clan introuvable' });
+    if (clan.leaderId !== leaderId) return res.status(403).json({ error: 'Non autorisé' });
+    clan.joinRequests = (clan.joinRequests || []).filter(id => id !== userId);
+    writeDB(data);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Leave clan
+app.post('/api/clans/leave', express.json(), (req, res) => {
+  const { userId, clanId } = req.body;
+  try {
+    const data = readDB();
+    const clan = (data.clans || []).find(c => c.id === clanId);
+    const user = data.users.find(u => u.id === userId);
+    if (!clan || !user) return res.status(404).json({ error: 'Introuvable' });
+    if (clan.leaderId === userId) {
+      // Leader leaves → dissolve clan
+      clan.members.forEach(mId => { const m = data.users.find(u => u.id === mId); if (m) { m.clanId = null; } });
+      data.clans = data.clans.filter(c => c.id !== clanId);
+      writeDB(data);
+      return res.json({ ok: true, dissolved: true });
+    }
+    clan.members = clan.members.filter(id => id !== userId);
+    user.clanId = null;
+    writeDB(data);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Kick member (leader only)
+app.post('/api/clans/kick', express.json(), (req, res) => {
+  const { leaderId, targetId, clanId } = req.body;
+  try {
+    const data = readDB();
+    const clan = (data.clans || []).find(c => c.id === clanId);
+    if (!clan || clan.leaderId !== leaderId) return res.status(403).json({ error: 'Non autorisé' });
+    clan.members = clan.members.filter(id => id !== targetId);
+    const target = data.users.find(u => u.id === targetId);
+    if (target) target.clanId = null;
+    writeDB(data);
+    io.sockets.sockets.forEach(s => { if (s.userId === targetId) s.emit('clan_kicked', { clanName: clan.name }); });
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Clan chat messages (in-memory per session)
+const clanMessages = {}; // clanId -> [{pseudo,text,time,avatar}]
+app.get('/api/clans/:id/chat', (req, res) => {
+  const msgs = (clanMessages[req.params.id] || []).slice(-60);
+  res.json(msgs);
+});
+app.post('/api/clans/:id/chat', express.json(), (req, res) => {
+  const { userId, pseudo, text } = req.body;
+  if (!text || text.length > 200) return res.status(400).json({ error: 'Invalide' });
+  const data = readDB();
+  const user = data.users.find(u => u.id === userId);
+  if (!user || user.banned) return res.status(403).json({ error: 'Interdit' });
+  const clan = (data.clans || []).find(c => c.id === req.params.id);
+  if (!clan || !clan.members.includes(userId)) return res.status(403).json({ error: 'Pas membre du clan' });
+  if (!clanMessages[req.params.id]) clanMessages[req.params.id] = [];
+  const msg = { pseudo, text: text.trim(), time: Date.now(), avatar: user.avatar || null };
+  clanMessages[req.params.id].push(msg);
+  if (clanMessages[req.params.id].length > 100) clanMessages[req.params.id].shift();
+  // Emit to all clan members online
+  clan.members.forEach(mId => { io.sockets.sockets.forEach(s => { if (s.userId === mId) s.emit('clan_chat_msg', { clanId: req.params.id, msg }); }); });
+  res.json({ ok: true });
+});
+
+// Update clan description
+app.post('/api/clans/update', express.json(), (req, res) => {
+  const { leaderId, clanId, description } = req.body;
+  try {
+    const data = readDB();
+    const clan = (data.clans || []).find(c => c.id === clanId);
+    if (!clan || clan.leaderId !== leaderId) return res.status(403).json({ error: 'Non autorisé' });
+    clan.description = (description || '').slice(0, 120);
+    writeDB(data);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Get user's clan
+app.get('/api/clans/user/:userId', (req, res) => {
+  try {
+    const data = readDB();
+    const user = data.users.find(u => u.id === req.params.userId);
+    if (!user || !user.clanId) return res.json(null);
+    const clan = (data.clans || []).find(c => c.id === user.clanId);
+    if (!clan) { user.clanId = null; writeDB(data); return res.json(null); }
+    const members = clan.members.map(mId => {
+      const m = data.users.find(u => u.id === mId);
+      if (!m) return null;
+      const maxElo = Math.max(...['1v1','2v2','3v3','5v5'].map(mo => m.stats?.[mo]?.elo || 500));
+      return { id: m.id, pseudo: m.pseudo, avatar: m.avatar || null, isLeader: mId === clan.leaderId, maxElo };
+    }).filter(Boolean);
+    const requests = (clan.joinRequests || []).map(rId => {
+      const u = data.users.find(u => u.id === rId);
+      return u ? { id: u.id, pseudo: u.pseudo, avatar: u.avatar || null } : null;
+    }).filter(Boolean);
+    res.json({ ...clan, members, joinRequests: requests });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
