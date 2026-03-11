@@ -242,8 +242,11 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 .btn-admin-win2{background:#1a1a1a;color:var(--blue);border:2px solid var(--blue);border-radius:8px;padding:8px 16px;font-family:'Syne',sans-serif;font-weight:800;font-size:12px;cursor:pointer;}
 .btn-admin-close{background:transparent;border:none;color:var(--bg);font-size:18px;cursor:pointer;margin-left:8px;}
 
-.notify{position:fixed;top:20px;right:20px;z-index:500;background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:12px;padding:12px 16px;font-size:13px;font-weight:500;max-width:280px;transform:translateX(120%);transition:transform 0.3s ease;pointer-events:none;}
+.notify{position:fixed;top:20px;right:20px;z-index:2000;background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:12px;padding:12px 16px;font-size:13px;font-weight:500;max-width:300px;transform:translateX(120%);transition:transform 0.3s ease;pointer-events:none;}
 .notify.show{transform:translateX(0);}
+.notify.clickable{cursor:pointer;pointer-events:auto;}
+.notify.clickable:hover{border-color:var(--accent);background:var(--surface2);}
+.notify-stack{position:fixed;top:20px;right:20px;z-index:2000;display:flex;flex-direction:column;gap:8px;align-items:flex-end;pointer-events:none;}
 
 @keyframes fadeUp{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
 @keyframes scaleIn{from{opacity:0;transform:scale(0.85);}to{opacity:1;transform:scale(1);}}
@@ -680,11 +683,48 @@ try {
 } catch(e) {}
 let banTimerInterval = null;
 
-function notify(msg) {
+// ── TOAST / NOTIFY SYSTEM ──
+let _notifyTimer = null;
+function notify(msg, { onClick, accent, duration } = {}) {
   const el = document.getElementById('notify');
-  el.textContent = msg;
+  el.innerHTML = msg;
+  el.style.borderLeftColor = accent || 'var(--accent)';
   el.classList.add('show');
-  setTimeout(() => el.classList.remove('show'), 3000);
+  if (onClick) {
+    el.classList.add('clickable');
+    el._clickHandler = onClick;
+    el.onclick = () => { onClick(); el.classList.remove('show'); el.classList.remove('clickable'); };
+  } else {
+    el.classList.remove('clickable');
+    el.onclick = null;
+  }
+  clearTimeout(_notifyTimer);
+  _notifyTimer = setTimeout(() => { el.classList.remove('show'); el.classList.remove('clickable'); }, duration || 4000);
+}
+
+// ── SOUNDS ──
+function playSound(type) {
+  try {
+    const ctx = getAudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    if (type === 'friend_request') {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(600, ctx.currentTime);
+      osc.frequency.setValueAtTime(900, ctx.currentTime + 0.12);
+      gain.gain.setValueAtTime(0.18, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+      osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.35);
+    } else if (type === 'message') {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(660, ctx.currentTime + 0.15);
+      gain.gain.setValueAtTime(0.14, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
+      osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.2);
+    }
+  } catch(e) {}
 }
 
 function showScreen(id) {
@@ -988,6 +1028,25 @@ function updateRoomBtn() {
   const btn = document.getElementById('btn-find-room');
   const hint = document.getElementById('room-hint');
   const searching = document.getElementById('searching-box');
+
+  // Grey out 1v1 if group has more than 1 player
+  const btn1v1 = document.querySelector('#mode-selector .mode-btn[onclick*="1v1"]');
+  if (btn1v1) {
+    const blocked = state.groupSize > 1;
+    btn1v1.style.opacity = blocked ? '0.35' : '';
+    btn1v1.style.cursor = blocked ? 'not-allowed' : '';
+    btn1v1.style.pointerEvents = blocked ? 'none' : '';
+    btn1v1.title = blocked ? 'Impossible en groupe (1v1 = solo uniquement)' : '';
+    // If currently on 1v1 with >1 player, switch to 2v2
+    if (blocked && state.mode === '1v1') {
+      state.mode = '2v2';
+      document.querySelectorAll('#mode-selector .mode-btn').forEach(b => b.classList.remove('active'));
+      const btn2v2 = document.querySelector('#mode-selector .mode-btn[onclick*="2v2"]');
+      if (btn2v2) btn2v2.classList.add('active');
+      if (socket) socket.emit('change_mode', { mode: '2v2' });
+    }
+  }
+
   if (searching.classList.contains('show')) return;
   if (state.groupSize >= teamSize) {
     btn.disabled = false;
@@ -995,7 +1054,7 @@ function updateRoomBtn() {
   } else {
     btn.disabled = true;
     hint.style.display = '';
-    hint.textContent = teamSize === 1 ? 'Prêt à jouer !' : `Il faut ${teamSize} joueur(s) dans le groupe`;
+    hint.textContent = `Il faut ${teamSize} joueur(s) dans le groupe`;
   }
 }
 
@@ -1287,23 +1346,42 @@ function initSocket() {
   });
 
   socket.on('friend_request_received', ({ id, pseudo, avatar }) => {
-    notify('👥 ' + pseudo + ' vous a envoyé une demande d\'ami !');
+    playSound('friend_request');
     const badge = document.getElementById('fp-req-badge');
     if (badge) { const n = (parseInt(badge.textContent)||0)+1; badge.textContent = n; badge.style.display = 'flex'; }
     if (fpState.tab === 'requests') loadFriendRequests();
+    notify(`👥 <b>${pseudo}</b> vous a envoyé une demande d'ami`, {
+      accent: '#4f8ef7',
+      duration: 6000,
+      onClick: () => { openFriendsPanel(); showFriendsTab('requests'); }
+    });
   });
 
   socket.on('friend_request_accepted', ({ pseudo }) => {
-    notify('✅ ' + pseudo + ' a accepté votre demande d\'ami !');
+    playSound('friend_request');
     loadFriends();
+    notify(`✅ <b>${pseudo}</b> a accepté votre demande !`, {
+      accent: '#2ecc71',
+      duration: 5000,
+      onClick: () => { openFriendsPanel(); showFriendsTab('friends'); }
+    });
   });
 
   socket.on('friend_message', ({ from, text, time }) => {
     if (fpState.chatWith && fpState.chatWith.id === from) {
-      // Re-render chat
       fetch(`/api/friends/messages/${state.userId}/${from}`).then(r=>r.json()).then(msgs => renderFriendMessages(msgs, from));
     } else {
-      notify('💬 Nouveau message d\'un ami !');
+      playSound('message');
+      // Find sender pseudo
+      fetch('/api/friends/' + state.userId).then(r=>r.json()).then(({ friends }) => {
+        const sender = friends.find(f => f.id === from);
+        const name = sender ? sender.pseudo : 'Ami';
+        notify(`💬 <b>${name}</b> : ${text.slice(0,40)}${text.length>40?'…':''}`, {
+          accent: '#f7c948',
+          duration: 6000,
+          onClick: () => { openFriendsPanel(); if (sender) openChat(sender.id, sender.pseudo, sender.avatar||'', sender.online); }
+        });
+      });
     }
   });
 
