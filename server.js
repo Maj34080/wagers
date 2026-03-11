@@ -18,7 +18,7 @@ const WEAPONS = ['Vandal/Phantom', 'Sheriff', 'Operator', 'Marshall', 'Ghost'];
 const WEAPON_VOTE_TIMEOUT = 10000; // 10s pour voter
 const BAN_TIMEOUT = 15000;
 const START_COUNTDOWN = 5000;
-const ADMIN_PSEUDOS = ['Karim34'] ['Teleph']; // ← ajoute ton pseudo ici
+const ADMIN_PSEUDOS = ['Karim34', 'Teleph']; // ← ajoute ton pseudo ici
 
 app.use(express.json());
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
