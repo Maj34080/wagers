@@ -1724,7 +1724,7 @@ function initSocket() {
   if (socket) return;
   socket = io({ transports: ['polling', 'websocket'] });
 
-  socket.on('auth_ok', ({ pseudo, elo, stats, isAdmin, avatar, userId, isPremium, premiumUntil }) => {
+  socket.on('auth_ok', ({ pseudo, elo, stats, isAdmin, avatar, userId, isPremium, premiumUntil, referralCode }) => {
     state.pseudo = pseudo;
     state.stats = stats || {};
     state.isAdmin = isAdmin || false;
