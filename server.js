@@ -618,6 +618,12 @@ app.get('/api/season', (req, res) => {
   res.json({ season: db.getCurrentSeason(), archives: db.getSeasonArchives() });
 });
 
+app.post('/api/admin/backup', async (req, res) => {
+  if (!isAdminReq(req)) return res.status(403).json({ error: 'Interdit' });
+  await sendBackupToDiscord();
+  res.json({ ok: true, message: 'Backup envoyée sur Discord' });
+});
+
 io.on('connection', (socket) => {
 
   // ── REGISTER ──
@@ -1474,7 +1480,125 @@ app.get('/api/twitch-live', async (req, res) => {
   res.json({ streams: twitchStreamsCache, configured: true });
 });
 
-server.listen(PORT, () => console.log(`✅ WAGERS sur http://localhost:${PORT}`));
+server.listen(PORT, async () => {
+  console.log(`✅ WAGERS sur http://localhost:${PORT}`);
+  // Restore DB from Discord if /tmp/db.json is missing or empty
+  await restoreDBFromDiscord();
+});
+
+// ── DISCORD BACKUP SYSTEM ──
+const DISCORD_WEBHOOK = process.env.DISCORD_BACKUP_WEBHOOK || null;
+const DISCORD_CHANNEL_ID = process.env.DISCORD_BACKUP_CHANNEL_ID || null;
+const DISCORD_BOT_TOKEN = process.env.DISCORD_BOT_TOKEN || null;
+
+async function sendBackupToDiscord() {
+  if (!DISCORD_WEBHOOK) return;
+  try {
+    const data = db.loadDB();
+    const json = JSON.stringify(data, null, 2);
+    const now = new Date().toLocaleString('fr-FR', { timeZone: 'Europe/Paris' });
+    const users = (data.users || []).length;
+    const matches = (data.users || []).reduce((s, u) => s + (u.matchHistory || []).length, 0);
+
+    // Build multipart form with file attachment
+    const boundary = '----FormBoundary' + Date.now();
+    const filename = `revenge_db_${Date.now()}.json`;
+    const fileContent = Buffer.from(json, 'utf8');
+
+    const payloadJson = JSON.stringify({
+      content: `📦 **Backup automatique** — ${now}\n👤 ${users} comptes · 🎮 ${matches} parties enregistrées`
+    });
+
+    const body = Buffer.concat([
+      Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="payload_json"\r\n\r\n${payloadJson}\r\n`),
+      Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${filename}"\r\nContent-Type: application/json\r\n\r\n`),
+      fileContent,
+      Buffer.from(`\r\n--${boundary}--\r\n`)
+    ]);
+
+    const https = require('https');
+    const url = new URL(DISCORD_WEBHOOK);
+    await new Promise((resolve, reject) => {
+      const req = https.request({
+        hostname: url.hostname,
+        path: url.pathname + url.search,
+        method: 'POST',
+        headers: { 'Content-Type': `multipart/form-data; boundary=${boundary}`, 'Content-Length': body.length }
+      }, res => {
+        res.resume();
+        res.on('end', resolve);
+      });
+      req.on('error', reject);
+      req.write(body);
+      req.end();
+    });
+    console.log(`[BACKUP] ✅ DB envoyée sur Discord (${users} users, ${(json.length/1024).toFixed(1)}KB)`);
+  } catch(e) {
+    console.error('[BACKUP] ❌ Erreur envoi Discord:', e.message);
+  }
+}
+
+async function restoreDBFromDiscord() {
+  if (!DISCORD_BOT_TOKEN || !DISCORD_CHANNEL_ID) return;
+  const DBFILE_PATH = process.env.NODE_ENV === 'production' ? '/tmp/db.json' : null;
+  if (!DBFILE_PATH) return; // local dev, skip restore
+
+  const fs = require('fs');
+  // Only restore if DB is missing or has no users
+  try {
+    if (fs.existsSync(DBFILE_PATH)) {
+      const existing = JSON.parse(fs.readFileSync(DBFILE_PATH, 'utf8'));
+      if ((existing.users || []).length > 0) { console.log('[BACKUP] DB déjà présente, pas de restore.'); return; }
+    }
+  } catch(e) {}
+
+  console.log('[BACKUP] DB vide/absente — tentative de restore depuis Discord…');
+  try {
+    const https = require('https');
+    // Fetch last messages from channel to find latest backup file
+    const messages = await new Promise((resolve, reject) => {
+      const req = https.request({
+        hostname: 'discord.com',
+        path: `/api/v10/channels/${DISCORD_CHANNEL_ID}/messages?limit=20`,
+        headers: { 'Authorization': `Bot ${DISCORD_BOT_TOKEN}` }
+      }, res => {
+        let raw = '';
+        res.on('data', d => raw += d);
+        res.on('end', () => { try { resolve(JSON.parse(raw)); } catch(e) { reject(e); } });
+      });
+      req.on('error', reject);
+      req.end();
+    });
+
+    // Find most recent message with a .json attachment
+    const backupMsg = (messages || []).find(m => m.attachments?.some(a => a.filename?.endsWith('.json')));
+    if (!backupMsg) { console.log('[BACKUP] Aucune backup trouvée dans Discord.'); return; }
+
+    const attachment = backupMsg.attachments.find(a => a.filename?.endsWith('.json'));
+    const fileUrl = new URL(attachment.url);
+    const jsonData = await new Promise((resolve, reject) => {
+      const req = https.request({ hostname: fileUrl.hostname, path: fileUrl.pathname + fileUrl.search }, res => {
+        let raw = '';
+        res.on('data', d => raw += d);
+        res.on('end', () => resolve(raw));
+      });
+      req.on('error', reject);
+      req.end();
+    });
+
+    const parsed = JSON.parse(jsonData);
+    if (!parsed.users) throw new Error('Format invalide');
+    fs.writeFileSync(DBFILE_PATH, JSON.stringify(parsed, null, 2));
+    console.log(`[BACKUP] ✅ DB restaurée depuis Discord (${parsed.users.length} users)`);
+  } catch(e) {
+    console.error('[BACKUP] ❌ Erreur restore:', e.message);
+  }
+}
+
+// Send backup every hour
+setInterval(sendBackupToDiscord, 60 * 60 * 1000);
+// Also send on startup (after 10s to let server fully boot)
+setTimeout(sendBackupToDiscord, 10000);
 
 // Fake rooms for live display
 const FAKE_NAMES = ['Shadow','Blaze','Nova','Viper','Ghost','Storm','Frost','Ace','Echo','Raven','Void','Flux','Dusk','Neon','Wolf'];
