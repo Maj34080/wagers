@@ -331,7 +331,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 
         <!-- Panel gauche : Chat global — plus large et soigné -->
         <div style="flex:0 0 310px;">
-          <div style="background:var(--surface);border:1px solid var(--border);border-radius:18px;overflow:hidden;display:flex;flex-direction:column;height:560px;">
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:18px;overflow:hidden;display:flex;flex-direction:column;height:660px;">
             <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
               <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:15px;display:flex;align-items:center;gap:8px;">
                 <span style="width:7px;height:7px;border-radius:50%;background:var(--green);display:inline-block;box-shadow:0 0 6px var(--green);flex-shrink:0;"></span>
@@ -373,13 +373,13 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
           </div>
         </div>
 
-        <!-- Panel droit : rooms actives en live -->
+        <!-- Panel droit : rooms actives en live — scrollable -->
         <div style="flex:1;min-width:0;">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
             <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:16px;">🟢 Rooms en direct</div>
             <div id="live-rooms-count" style="font-size:12px;color:var(--muted);"></div>
           </div>
-          <div id="live-rooms-list" style="display:flex;flex-direction:column;gap:10px;">
+          <div id="live-rooms-list" style="display:flex;flex-direction:column;gap:10px;max-height:620px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--border) transparent;padding-right:4px;">
             <div style="color:var(--muted);font-size:13px;text-align:center;padding:30px 0;">Aucune room active</div>
           </div>
         </div>
