@@ -35,6 +35,63 @@ app.get('/api/profile/:pseudo', (req, res) => {
 
 // Admin actions
 const ADMIN_KEY = process.env.ADMIN_KEY || 'revenge_admin_secret';
+
+// Twitch live cache
+const TWITCH_CLIENT_ID = process.env.TWITCH_CLIENT_ID || '';
+const TWITCH_CLIENT_SECRET = process.env.TWITCH_CLIENT_SECRET || '';
+let twitchTokenCache = null;
+let twitchStreamsCache = [];
+let twitchLastFetch = 0;
+
+async function getTwitchToken() {
+  if (twitchTokenCache && twitchTokenCache.expiresAt > Date.now()) return twitchTokenCache.token;
+  if (!TWITCH_CLIENT_ID || !TWITCH_CLIENT_SECRET) return null;
+  try {
+    const r = await fetch(`https://id.twitch.tv/oauth2/token?client_id=${TWITCH_CLIENT_ID}&client_secret=${TWITCH_CLIENT_SECRET}&grant_type=client_credentials`, { method: 'POST' });
+    const d = await r.json();
+    if (!d.access_token) return null;
+    twitchTokenCache = { token: d.access_token, expiresAt: Date.now() + (d.expires_in - 60) * 1000 };
+    return twitchTokenCache.token;
+  } catch(e) { return null; }
+}
+
+async function fetchTwitchStreams() {
+  const token = await getTwitchToken();
+  if (!token) return [];
+  try {
+    const r = await fetch('https://api.twitch.tv/helix/streams?game_name=VALORANT&first=20', {
+      headers: { 'Client-ID': TWITCH_CLIENT_ID, 'Authorization': `Bearer ${token}` }
+    });
+    const d = await r.json();
+    // Filter streams with #Revenge or #RevengeGG in their title
+    const streams = (d.data || []).filter(s =>
+      s.title && (
+        s.title.toLowerCase().includes('#revenge') ||
+        s.title.toLowerCase().includes('revenge.gg') ||
+        s.title.toLowerCase().includes('revengegg') ||
+        s.tags?.some?.(t => t.toLowerCase() === 'revenge')
+      )
+    );
+    return streams.map(s => ({
+      user_login: s.user_login,
+      user_name: s.user_name,
+      title: s.title,
+      viewer_count: s.viewer_count,
+      thumbnail_url: s.thumbnail_url.replace('{width}', '320').replace('{height}', '180'),
+      started_at: s.started_at,
+    }));
+  } catch(e) { return []; }
+}
+
+// Refresh every 2 minutes
+async function refreshTwitchCache() {
+  twitchStreamsCache = await fetchTwitchStreams();
+  twitchLastFetch = Date.now();
+}
+if (TWITCH_CLIENT_ID) {
+  refreshTwitchCache();
+  setInterval(refreshTwitchCache, 2 * 60 * 1000);
+}
 function isAdminReq(req) { return req.headers['x-admin-key'] === ADMIN_KEY; }
 // ── ADMIN: PREMIUM ──
 app.get('/api/admin/all-users', (req, res) => {
@@ -1079,6 +1136,16 @@ app.get('/api/match-history/:userId', (req, res) => {
     if (!user) return res.json([]);
     res.json((user.matchHistory || []).slice(0, 20));
   } catch(e) { res.json([]); }
+});
+
+app.get('/api/twitch-live', async (req, res) => {
+  // If no Twitch credentials, return demo/empty
+  if (!TWITCH_CLIENT_ID) {
+    return res.json({ streams: [], configured: false });
+  }
+  // Refresh if cache older than 2 min
+  if (Date.now() - twitchLastFetch > 2 * 60 * 1000) await refreshTwitchCache();
+  res.json({ streams: twitchStreamsCache, configured: true });
 });
 
 server.listen(PORT, () => console.log(`✅ WAGERS sur http://localhost:${PORT}`));
