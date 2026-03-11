@@ -111,14 +111,47 @@ function isAdminReq(req) { return req.headers['x-admin-key'] === ADMIN_KEY; }
 // Referral API
 app.get('/api/referrals/:userId', (req, res) => {
   try {
-    const data = (() => { try { return require('fs').existsSync(DBFILE()) ? JSON.parse(require('fs').readFileSync(DBFILE(),'utf8')) : {users:[]}; } catch(e) { return {users:[]}; } })();
+    const data = db.loadDB();
     const user = data.users.find(u => u.id === req.params.userId);
     if (!user) return res.status(404).json({ error: 'Introuvable' });
-    const referrals = (user.referrals || []).map(r => {
+
+    // Recalculate gamesPlayed live from each referral's actual stats
+    const knownReferrals = (user.referrals || []).map(r => {
       const ru = data.users.find(u => u.id === r.userId);
-      return { ...r, avatar: ru?.avatar || null, pseudo: ru?.pseudo || r.pseudo, gamesPlayed: r.gamesPlayed || 0 };
+      const gamesPlayed = ru
+        ? Object.values(ru.stats || {}).reduce((s, m) => s + (m.wins || 0) + (m.losses || 0), 0)
+        : (r.gamesPlayed || 0);
+      return { userId: r.userId, pseudo: ru?.pseudo || r.pseudo, avatar: ru?.avatar || null, date: r.date, gamesPlayed };
     });
-    res.json({ referralCode: user.referralCode, referrals, rewardGiven: !!user.referralRewardGiven });
+
+    // Also find any referrals not yet in the array (edge case / old accounts)
+    const knownIds = new Set(knownReferrals.map(r => r.userId));
+    const extraReferrals = data.users
+      .filter(u => u.referredBy === user.id && !knownIds.has(u.id))
+      .map(u => ({
+        userId: u.id,
+        pseudo: u.pseudo,
+        avatar: u.avatar || null,
+        date: u.createdAt,
+        gamesPlayed: Object.values(u.stats || {}).reduce((s, m) => s + (m.wins || 0) + (m.losses || 0), 0)
+      }));
+
+    const allReferrals = [...knownReferrals, ...extraReferrals];
+    const qualified = allReferrals.filter(r => r.gamesPlayed >= 3).length;
+
+    // Auto-grant reward if now eligible but not yet given
+    if (qualified >= 3 && !user.referralRewardGiven) {
+      user.referralRewardGiven = true;
+      const weekMs = 7 * 24 * 60 * 60 * 1000;
+      user.isPremium = true;
+      user.premiumUntil = (user.premiumUntil && user.premiumUntil > Date.now())
+        ? user.premiumUntil + weekMs : Date.now() + weekMs;
+      db.saveDB(data);
+      const s = [...io.sockets.sockets.values()].find(s => s.userId === user.id);
+      if (s) s.emit('premium_granted', { months: 0.25, message: '🎁 Tu as parrainé 3 joueurs actifs ! 1 semaine de Premium offerte !' });
+    }
+
+    res.json({ referralCode: user.referralCode, referrals: allReferrals, rewardGiven: !!user.referralRewardGiven });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -1126,7 +1159,7 @@ function applyEloResult(winTeam, loseTeam, mode) {
   // ── REMATCH ──
   socket.on('request_rematch', () => {
     if (!socket.roomId) return;
-    const room = rooms[socket.roomId];
+    const room = rooms[socket.roomId] || archivedRooms[socket.roomId];
     if (!room || room.status !== 'finished') return;
     if (!room.rematchRequests) room.rematchRequests = new Set();
     room.rematchRequests.add(socket.userId);

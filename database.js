@@ -331,4 +331,4 @@ function checkPremiumExpiry() {
   if (changed) saveDB(db);
 }
 
-module.exports = { getUserByPseudo, getUserById, createUser, checkReferralReward, updateUserElo, computeEloChange, getLeaderboard, updateAvatar, getIpAccounts, defaultStats, banUser, unbanUser, muteUser, unmuteUser, checkMuteExpiry, createTicket, getTickets, replyTicket, closeTicket, setPremium, revokePremium, checkPremiumExpiry };
+module.exports = { getUserByPseudo, getUserById, createUser, checkReferralReward, updateUserElo, computeEloChange, getLeaderboard, updateAvatar, getIpAccounts, defaultStats, banUser, unbanUser, muteUser, unmuteUser, checkMuteExpiry, createTicket, getTickets, replyTicket, closeTicket, setPremium, revokePremium, checkPremiumExpiry, loadDB, saveDB };
