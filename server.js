@@ -110,9 +110,23 @@ app.post('/api/avatar', express.json({ limit: '2mb' }), (req, res) => {
 });
 
 // ── CLASSEMENT OF THE DAY ──
-let eloSnapshot = {}; // userId -> { pseudo, avatar, eloByMode }
+let eloSnapshot = {};
 let cotdData = [];
-let lastSnapshotAt = Date.now();
+let lastSnapshotAt = 0;
+
+const SNAPSHOT_FILE = () => process.env.NODE_ENV === 'production' ? '/tmp/elo_snapshot.json' : require('path').join(__dirname, 'elo_snapshot.json');
+
+function loadSnapshot() {
+  try {
+    const raw = require('fs').readFileSync(SNAPSHOT_FILE(), 'utf8');
+    const saved = JSON.parse(raw);
+    eloSnapshot = saved.snapshot || {};
+    lastSnapshotAt = saved.takenAt || 0;
+  } catch(e) {
+    // No snapshot yet — take one now as baseline
+    takeEloSnapshot();
+  }
+}
 
 function takeEloSnapshot() {
   try {
@@ -122,19 +136,22 @@ function takeEloSnapshot() {
       eloSnapshot[u.id] = { pseudo: u.pseudo, avatar: u.avatar||null, stats: JSON.parse(JSON.stringify(u.stats||{})) };
     });
     lastSnapshotAt = Date.now();
+    require('fs').writeFileSync(SNAPSHOT_FILE(), JSON.stringify({ snapshot: eloSnapshot, takenAt: lastSnapshotAt }));
   } catch(e) {}
 }
+
 function computeCotd() {
   try {
     const data = readDB();
     const gains = [];
     (data.users||[]).filter(u => !u.banned).forEach(u => {
       const snap = eloSnapshot[u.id];
-      if (!snap) return;
+      // New user since snapshot — use 500 as baseline
+      const baseStats = snap ? snap.stats : null;
       let totalGain = 0;
       ['1v1','2v2','3v3','5v5'].forEach(m => {
         const cur = u.stats?.[m]?.elo || 500;
-        const prev = snap.stats?.[m]?.elo || 500;
+        const prev = baseStats?.[m]?.elo || 500;
         totalGain += Math.max(0, cur - prev);
       });
       if (totalGain > 0) gains.push({ pseudo: u.pseudo, avatar: u.avatar||null, gain: totalGain });
@@ -142,9 +159,27 @@ function computeCotd() {
     cotdData = gains.sort((a,b) => b.gain - a.gain).slice(0, 10);
   } catch(e) {}
 }
-takeEloSnapshot();
-setInterval(() => { computeCotd(); }, 60000); // recompute every minute
-setInterval(() => { takeEloSnapshot(); cotdData = []; }, 24 * 60 * 60 * 1000); // reset every 24h
+
+// Load persisted snapshot on startup (don't overwrite it)
+loadSnapshot();
+
+// Recompute rankings every 30s
+setInterval(() => { computeCotd(); }, 30000);
+
+// Reset snapshot every 24h at the same time
+function scheduleNextReset() {
+  const now = Date.now();
+  const nextMidnight = new Date();
+  nextMidnight.setHours(0, 0, 0, 0);
+  nextMidnight.setDate(nextMidnight.getDate() + 1);
+  const msUntilMidnight = nextMidnight.getTime() - now;
+  setTimeout(() => {
+    takeEloSnapshot();
+    cotdData = [];
+    scheduleNextReset();
+  }, msUntilMidnight);
+}
+scheduleNextReset();
 
 app.get('/api/cotd', (req, res) => {
   computeCotd();
@@ -668,6 +703,7 @@ io.on('connection', (socket) => {
 
     winTeam.forEach(p => db.updateUserElo(p.id, +20, true, room.mode));
     loseTeam.forEach(p => db.updateUserElo(p.id, -20, false, room.mode));
+    computeCotd();
 
     io.to('room_' + socket.roomId).emit('game_result', {
       winner,
@@ -851,6 +887,7 @@ io.on('connection', (socket) => {
       const loseTeam = winner === 1 ? room.teams[1] : room.teams[0];
       winTeam.filter(p => !p.isBot).forEach(p => db.updateUserElo(p.id, +20, true, room.mode));
       loseTeam.filter(p => !p.isBot).forEach(p => db.updateUserElo(p.id, -20, false, room.mode));
+      computeCotd();
       io.to('room_' + roomId).emit('chat_msg', { author: 'Système', team: 'system', text: `⚖️ Décision admin : Équipe ${winner} gagne !` });
       io.to('room_' + roomId).emit('game_result', { winner, winTeam: winTeam.map(p => p.pseudo), loseTeam: loseTeam.map(p => p.pseudo), mode: room.mode });
     }
