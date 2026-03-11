@@ -26,7 +26,7 @@ app.get('/api/leaderboard/:mode', (req, res) => res.json(db.getLeaderboard(req.p
 app.get('/api/profile/:pseudo', (req, res) => {
   const user = db.getUserByPseudo(req.params.pseudo);
   if (!user) return res.status(404).json({ error: 'Introuvable' });
-  res.json({ pseudo: user.pseudo, stats: user.stats, avatar: user.avatar || null, banned: !!user.banned, muted: !!user.muted, createdAt: user.createdAt });
+  res.json({ id: user.id, pseudo: user.pseudo, stats: user.stats, avatar: user.avatar || null, banned: !!user.banned, muted: !!user.muted, createdAt: user.createdAt });
 });
 
 // Admin actions

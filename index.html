@@ -1980,10 +1980,11 @@ async function openGlobalChatProfile(pseudo, event) {
 async function sendFriendReqFromChat(pseudo, btn) {
   if (!state.userId) return;
   try {
-    // Get target userId
-    const r = await fetch('/api/profile/' + encodeURIComponent(pseudo));
-    const p = await r.json();
-    const res = await fetch('/api/friends/request', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ fromId: state.userId, toId: p.id }) });
+    const res = await fetch('/api/friends/request', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: state.userId, targetPseudo: pseudo })
+    });
     const d = await res.json();
     if (d.ok) {
       btn.textContent = '⏳ Demande envoyée';
@@ -1991,6 +1992,9 @@ async function sendFriendReqFromChat(pseudo, btn) {
       btn.style.background = 'rgba(255,255,255,0.05)';
       btn.style.color = 'var(--muted)';
       btn.style.border = '1px solid var(--border)';
+    } else {
+      btn.textContent = d.error || 'Erreur';
+      setTimeout(() => { btn.textContent = '👥 Ajouter en ami'; }, 2000);
     }
   } catch(e) {}
 }
