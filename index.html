@@ -13,8 +13,8 @@
   --muted2:#3a3a52; --green:#3affa0; --gold:#ffd166; --blue:#4da6ff;
 }
 *{margin:0;padding:0;box-sizing:border-box;}
-body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;}
-.screen{display:none;min-height:100vh;}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;height:100vh;overflow:hidden;}
+.screen{display:none;height:100vh;overflow:hidden;}
 .screen.active{display:flex;}
 
 /* AUTH */
@@ -70,7 +70,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
 .btn-mini:hover{border-color:var(--accent);color:var(--accent);}
 
 /* MAIN */
-#screen-main{flex-direction:column;overflow-y:auto;height:100vh;}
+#screen-main{flex-direction:column;overflow-y:auto;height:100vh;padding-bottom:40px;}
 .main-body{flex:1;padding:28px;max-width:1200px;margin:0 auto;width:100%;}
 .room-tab-content{display:none;}
 .room-tab-content.active{display:block;}
@@ -614,32 +614,32 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
             <div style="display:flex;flex-direction:column;align-items:center;gap:12px;min-width:180px;">
               <!-- Pricing options -->
               <div id="boutique-plan-options" style="display:flex;flex-direction:column;gap:8px;width:100%;">
-                <div onclick="selectPlan(1,5)" id="plan-1" class="boutique-plan selected-plan">
+                <div onclick="selectPlan(1,7.99)" id="plan-1" class="boutique-plan selected-plan">
                   <div style="display:flex;justify-content:space-between;align-items:center;">
                     <span style="font-weight:700;font-size:13px;">1 mois</span>
-                    <span style="font-weight:800;font-size:16px;color:var(--gold);">5€</span>
+                    <span style="font-weight:800;font-size:16px;color:var(--gold);">7.99€</span>
                   </div>
                 </div>
-                <div onclick="selectPlan(3,12)" id="plan-3" class="boutique-plan">
+                <div onclick="selectPlan(3,14.99)" id="plan-3" class="boutique-plan">
                   <div style="display:flex;justify-content:space-between;align-items:center;">
                     <span style="font-weight:700;font-size:13px;">3 mois</span>
                     <div style="text-align:right;">
-                      <span style="font-weight:800;font-size:16px;color:var(--gold);">12€</span>
+                      <span style="font-weight:800;font-size:16px;color:var(--gold);">14.99€</span>
                       <div style="font-size:10px;color:#2ecc71;font-weight:600;">-20%</div>
                     </div>
                   </div>
                 </div>
-                <div onclick="selectPlan(6,20)" id="plan-6" class="boutique-plan">
+                <div onclick="selectPlan(6,24.99)" id="plan-6" class="boutique-plan">
                   <div style="display:flex;justify-content:space-between;align-items:center;">
                     <span style="font-weight:700;font-size:13px;">6 mois</span>
                     <div style="text-align:right;">
-                      <span style="font-weight:800;font-size:16px;color:var(--gold);">20€</span>
+                      <span style="font-weight:800;font-size:16px;color:var(--gold);">24.99€</span>
                       <div style="font-size:10px;color:#2ecc71;font-weight:600;">-33%</div>
                     </div>
                   </div>
                 </div>
               </div>
-              <button id="boutique-buy-btn" onclick="buyPremium()" style="width:100%;background:linear-gradient(135deg,#f7c948,#ff9500);border:none;border-radius:12px;padding:13px;color:#000;font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:14px;cursor:pointer;letter-spacing:0.02em;">👑 Acheter — 5€</button>
+              <button id="boutique-buy-btn" onclick="buyPremium()" style="width:100%;background:linear-gradient(135deg,#f7c948,#ff9500);border:none;border-radius:12px;padding:13px;color:#000;font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:14px;cursor:pointer;letter-spacing:0.02em;">👑 Acheter — 7.99€</button>
               <div id="boutique-already-premium" style="display:none;text-align:center;padding:12px;background:rgba(247,201,72,0.1);border:1px solid rgba(247,201,72,0.3);border-radius:12px;width:100%;box-sizing:border-box;">
                 <div style="font-size:18px;margin-bottom:4px;">👑</div>
                 <div style="font-size:12px;font-weight:700;color:var(--gold);">Tu es déjà Premium !</div>
@@ -950,7 +950,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
         </div>
       </div>
       <div style="text-align:center;margin-bottom:20px;">
-        <div style="font-family:'Space Grotesk',sans-serif;font-weight:900;font-size:32px;color:var(--gold);">5€ <span style="font-size:16px;color:var(--muted);font-weight:400;">/ mois</span></div>
+        <div style="font-family:'Space Grotesk',sans-serif;font-weight:900;font-size:32px;color:var(--gold);">7.99€ <span style="font-size:16px;color:var(--muted);font-weight:400;">/ mois</span></div>
         <div style="font-size:12px;color:var(--muted);margin-top:4px;">Contactez un admin sur Discord pour activer</div>
       </div>
       <div style="display:flex;gap:10px;">
@@ -1171,6 +1171,7 @@ function switchTab(tab) {
 const ADMIN_KEY = 'revenge_admin_secret';
 
 function showMainTab(tab) {
+  requestAnimationFrame(() => { const ms = document.getElementById('screen-main'); if (ms) ms.scrollTop = 0; });
   ['room','lb','admin','tournois','tickets','clans','boutique'].forEach(t => {
     const btn = document.getElementById('ntab-' + t);
     const content = document.getElementById('tab-content-' + t);
@@ -2527,11 +2528,15 @@ async function loadAdminStats() {
         <span style="font-family:'Space Grotesk',sans-serif;font-weight:800;color:${s.openTickets>0?'var(--accent)':'var(--green)'};">${s.openTickets}</span>
       </div>`;
   } catch(e) {}
+  scrollAdminTop();
+}
+
+function scrollAdminTop() {
+  const ms = document.getElementById('screen-main');
+  if (ms) { ms.scrollTop = 0; requestAnimationFrame(() => { ms.scrollTop = 0; }); }
 }
 
 function showAdminSection(sec) {
-  const mainScreen = document.getElementById('screen-main');
-  if (mainScreen) mainScreen.scrollTop = 0;
   ['rooms','tickets','banned','stats','premium'].forEach(s => {
     const el = document.getElementById('admin-section-' + s);
     const btn = document.getElementById('admin-sec-' + s);
@@ -2543,6 +2548,11 @@ function showAdminSection(sec) {
   if (sec === 'rooms') refreshAdminLogs();
   if (sec === 'stats') loadAdminStats();
   if (sec === 'premium') loadPremiumAdmin();
+  // Scroll to top after content switch
+  requestAnimationFrame(() => {
+    const ms = document.getElementById('screen-main');
+    if (ms) ms.scrollTop = 0;
+  });
 }
 
 // ── COTD ──
@@ -3180,7 +3190,7 @@ function voteResult(myTeamWon) {
 
 // ── BOUTIQUE ──
 let selectedPlanMonths = 1;
-let selectedPlanPrice = 5;
+let selectedPlanPrice = 7.99;
 
 function selectPlan(months, price) {
   selectedPlanMonths = months;
@@ -3257,6 +3267,7 @@ async function loadPremiumAdmin() {
       </div>`;
     }).join('');
   } catch(e) { list.innerHTML = '<div style="color:var(--accent);">Erreur chargement</div>'; }
+  scrollAdminTop();
 }
 
 async function grantPremium() {
