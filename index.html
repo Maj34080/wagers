@@ -3070,8 +3070,8 @@ function toggleGroupChat() {
   if (!body) return;
   _groupChatOpen = !_groupChatOpen;
   body.style.display = _groupChatOpen ? 'flex' : 'none';
-  icon.textContent = _groupChatOpen ? '▲' : '▼';
-  if (_groupChatOpen) { _groupChatUnread = 0; updateGroupChatBadge(); }
+  icon.textContent = _groupChatOpen ? '▼' : '▲';
+  if (_groupChatOpen) { _groupChatUnread = 0; updateGroupChatBadge(); const box = document.getElementById('group-chat-messages'); if (box) box.scrollTop = box.scrollHeight; }
 }
 function updateGroupChatBadge() {
   const badge = document.getElementById('group-chat-badge');
@@ -4243,7 +4243,7 @@ async function loadProfileHistory(userId) {
       <span style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:13px;">Chat Groupe</span>
       <span id="group-chat-badge" style="display:none;background:var(--accent);color:#fff;border-radius:50%;width:16px;height:16px;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;"></span>
     </div>
-    <span id="group-chat-toggle-icon" style="color:var(--muted);font-size:12px;">▲</span>
+    <span id="group-chat-toggle-icon" style="color:var(--muted);font-size:12px;">▼</span>
   </div>
   <div id="group-chat-body" style="display:flex;flex-direction:column;height:320px;">
     <div id="group-chat-messages" style="flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:6px;"></div>
