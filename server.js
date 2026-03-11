@@ -37,6 +37,15 @@ app.get('/api/profile/:pseudo', (req, res) => {
 const ADMIN_KEY = process.env.ADMIN_KEY || 'revenge_admin_secret';
 function isAdminReq(req) { return req.headers['x-admin-key'] === ADMIN_KEY; }
 // ── ADMIN: PREMIUM ──
+app.get('/api/admin/find-user', (req, res) => {
+  if (!isAdminReq(req)) return res.status(403).json({ error: 'Interdit' });
+  const pseudo = req.query.pseudo;
+  if (!pseudo) return res.status(400).json({ error: 'Pseudo requis' });
+  const user = db.getUserByPseudo(pseudo);
+  if (!user) return res.status(404).json({ error: 'Introuvable' });
+  res.json({ id: user.id, pseudo: user.pseudo, isPremium: !!user.isPremium, premiumUntil: user.premiumUntil || null });
+});
+
 app.post('/api/admin/premium', (req, res) => {
   if (!isAdminReq(req)) return res.status(403).json({ error: 'Interdit' });
   const { userId, months } = req.body;
