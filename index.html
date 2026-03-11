@@ -2788,7 +2788,8 @@ function makePlayerCard(p, teamClass) {
     ? `<img src="${p.avatar}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">`
     : p.pseudo[0].toUpperCase();
   const playerMaxElo = getMaxElo(p.stats);
-  return `<div class="player-card"><div class="pav ${teamClass}">${avContent}</div><div><div class="pname">${p.pseudo}</div><div class="pelo">${p.elo} ELO</div><div style="margin-top:2px;">${getRankBadge(playerMaxElo)}</div></div></div>`;
+  const displayElo = (p.stats && state.mode && p.stats[state.mode]) ? p.stats[state.mode].elo : p.elo;
+  return `<div class="player-card"><div class="pav ${teamClass}">${avContent}</div><div><div class="pname">${p.pseudo}</div><div class="pelo">${displayElo} ELO</div><div style="margin-top:2px;">${getRankBadge(playerMaxElo)}</div></div></div>`;
 }
 
 function renderMapGrids() {
