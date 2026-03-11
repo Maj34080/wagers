@@ -1661,6 +1661,8 @@ function initSocket() {
     }
     state.roomId = roomId;
     sendBrowserNotif('⚔️ Match trouvé !', 'Ta room ' + mode + ' est prête — clique pour rejoindre !');
+    // Play room found sound — 3 ascending beeps
+    playRoomFoundSound();
     document.getElementById('searching-box').classList.remove('show');
     document.getElementById('btn-find-room').disabled = false;
     document.getElementById('btn-find-room').style.display = '';
@@ -1889,6 +1891,8 @@ function initSocket() {
   });
 
   socket.on('game_result', ({ winner, winTeam, loseTeam, mode, draw, eloChanges }) => {
+    // Store match data for share card
+    _lastMatchData = { winner, winTeam, loseTeam, mode, draw, eloChanges };
     if (draw || winner === 0) {
       document.getElementById('result-title').textContent = 'ÉGALITÉ';
       document.getElementById('result-title').className = 'result-title';
@@ -1905,12 +1909,19 @@ function initSocket() {
       document.getElementById('result-title').className = 'result-title ' + (iWon ? 'win' : 'lose');
       const eloChangeDisplay = myEloChange > 0 ? '+' + myEloChange : String(myEloChange);
       document.getElementById('result-elo').textContent = eloChangeDisplay + ' ELO → ' + state.elo;
-      document.getElementById('result-map').textContent = 'Mode ' + mode + ' — Gagnants : ' + winTeam.join(' & ');
+      document.getElementById('result-map').textContent = 'Mode ' + mode + ' — Gagnants : ' + winTeam.join(', ');
       document.getElementById('nav-elo').textContent = state.elo;
       updateNavRank();
     }
     const voteSection = document.getElementById('captain-vote-section');
     if (voteSection) voteSection.style.display = 'none';
+    // Reset rematch button fresh for this game
+    const rb = document.getElementById('rematch-btn');
+    if (rb) { rb.disabled = false; rb.textContent = '⚔️ Revanche'; }
+    const rs = document.getElementById('rematch-status');
+    if (rs) rs.style.display = 'none';
+    const sc = document.getElementById('share-canvas');
+    if (sc) sc.style.display = 'none';
     document.getElementById('result-overlay').classList.add('show');
     setTimeout(() => {
       if (document.getElementById('result-overlay').classList.contains('show')) backToLobby();
@@ -2712,88 +2723,135 @@ socket.on('rematch_update', ({ count, total }) => {
 });
 
 // ── SHARE RESULT (Canvas card) ──
+// ── ROOM FOUND SOUND ──
+function playRoomFoundSound() {
+  try {
+    const ctx = getAudioCtx();
+    [[0, 520], [0.18, 660], [0.36, 880]].forEach(([delay, freq]) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, ctx.currentTime + delay);
+      gain.gain.setValueAtTime(0, ctx.currentTime + delay);
+      gain.gain.linearRampToValueAtTime(0.22, ctx.currentTime + delay + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.18);
+      osc.start(ctx.currentTime + delay);
+      osc.stop(ctx.currentTime + delay + 0.2);
+    });
+  } catch(e) {}
+}
+
+// ── SHARE RESULT (Canvas card) ──
 function shareResult() {
   const canvas = document.getElementById('share-canvas');
   if (!canvas) return;
+
+  const md = _lastMatchData;
   const title = document.getElementById('result-title').textContent;
   const elo = document.getElementById('result-elo').textContent;
-  const map = document.getElementById('result-map').textContent;
   const isWin = title === 'VICTOIRE';
   const isDraw = title === 'ÉGALITÉ';
+  const mode = md ? md.mode : '';
+  const winTeam = md ? (md.winTeam || []) : [];
+  const loseTeam = md ? (md.loseTeam || []) : [];
 
-  canvas.width = 600;
-  canvas.height = 280;
+  canvas.width = 640;
+  canvas.height = 320;
   const ctx = canvas.getContext('2d');
 
-  // Background
+  // Dark background
   ctx.fillStyle = '#0a0a0f';
-  ctx.fillRect(0, 0, 600, 280);
+  ctx.fillRect(0, 0, 640, 320);
 
-  // Colored side stripe
+  // Left stripe
   const stripeColor = isWin ? '#3affa0' : isDraw ? '#ffd166' : '#ff4655';
   ctx.fillStyle = stripeColor;
-  ctx.fillRect(0, 0, 6, 280);
+  ctx.fillRect(0, 0, 5, 320);
 
-  // Subtle glow background
-  const grd = ctx.createRadialGradient(300, 0, 0, 300, 0, 300);
-  grd.addColorStop(0, isWin ? 'rgba(58,255,160,0.08)' : isDraw ? 'rgba(255,209,102,0.08)' : 'rgba(255,70,85,0.08)');
+  // Glow
+  const grd = ctx.createRadialGradient(320, 0, 0, 320, 0, 350);
+  grd.addColorStop(0, isWin ? 'rgba(58,255,160,0.07)' : isDraw ? 'rgba(255,209,102,0.07)' : 'rgba(255,70,85,0.07)');
   grd.addColorStop(1, 'transparent');
   ctx.fillStyle = grd;
-  ctx.fillRect(0, 0, 600, 280);
+  ctx.fillRect(0, 0, 640, 320);
 
   // REVENGE logo
-  ctx.font = '800 15px "Space Grotesk", sans-serif';
+  ctx.font = 'bold 13px sans-serif';
   ctx.fillStyle = '#ff4655';
-  ctx.fillText('REVENGE', 30, 36);
+  ctx.fillText('REVENGE', 24, 28);
 
-  // Title
-  ctx.font = '800 64px "Syne", sans-serif';
+  // Mode
+  if (mode) {
+    ctx.font = '11px sans-serif';
+    ctx.fillStyle = '#3a3a52';
+    ctx.fillText('MODE ' + mode.toUpperCase(), 24, 46);
+  }
+
+  // Big result title
+  ctx.font = 'bold 68px sans-serif';
   ctx.fillStyle = stripeColor;
-  ctx.fillText(title, 30, 110);
+  ctx.fillText(title, 24, 126);
 
   // ELO
-  ctx.font = '700 22px "Syne", sans-serif';
+  ctx.font = 'bold 20px sans-serif';
   ctx.fillStyle = '#ffd166';
-  ctx.fillText(elo, 30, 150);
+  ctx.fillText(elo, 24, 158);
 
-  // Map/mode info
-  ctx.font = '400 14px "Inter", sans-serif';
-  ctx.fillStyle = '#5a5a72';
-  ctx.fillText(map, 30, 180);
+  // Divider
+  ctx.strokeStyle = 'rgba(255,255,255,0.07)';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(24, 176); ctx.lineTo(616, 176); ctx.stroke();
 
-  // Player pseudo
-  ctx.font = '700 16px "Space Grotesk", sans-serif';
-  ctx.fillStyle = '#f0f0f8';
-  ctx.fillText(state.pseudo, 30, 220);
+  // Teams
+  if (winTeam.length && loseTeam.length) {
+    // Winners
+    ctx.font = 'bold 10px sans-serif';
+    ctx.fillStyle = '#3affa0';
+    ctx.fillText('🏆 GAGNANTS', 24, 198);
+    winTeam.slice(0, 5).forEach((p, i) => {
+      ctx.font = (p === state.pseudo ? 'bold 13px sans-serif' : '13px sans-serif');
+      ctx.fillStyle = p === state.pseudo ? '#3affa0' : '#f0f0f8';
+      ctx.fillText('▸ ' + p, 24, 215 + i * 20);
+    });
 
-  // Site URL
-  ctx.font = '500 13px "Inter", sans-serif';
-  ctx.fillStyle = '#3a3a52';
+    // Losers
+    ctx.font = 'bold 10px sans-serif';
+    ctx.fillStyle = '#ff4655';
+    ctx.fillText('💀 PERDANTS', 340, 198);
+    loseTeam.slice(0, 5).forEach((p, i) => {
+      ctx.font = (p === state.pseudo ? 'bold 13px sans-serif' : '13px sans-serif');
+      ctx.fillStyle = p === state.pseudo ? '#ff4655' : '#5a5a72';
+      ctx.fillText('▸ ' + p, 340, 215 + i * 20);
+    });
+  } else {
+    ctx.font = 'bold 15px sans-serif';
+    ctx.fillStyle = '#f0f0f8';
+    ctx.fillText(state.pseudo, 24, 218);
+  }
+
+  // URL
+  ctx.font = '11px sans-serif';
+  ctx.fillStyle = '#2a2a3a';
   ctx.textAlign = 'right';
-  ctx.fillText('wagers.onrender.com', 570, 258);
+  ctx.fillText('wagers.onrender.com', 618, 310);
   ctx.textAlign = 'left';
 
   // Border
-  ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+  ctx.strokeStyle = 'rgba(255,255,255,0.05)';
   ctx.lineWidth = 1;
-  ctx.strokeRect(0.5, 0.5, 599, 279);
+  ctx.strokeRect(0.5, 0.5, 639, 319);
 
   canvas.style.display = 'block';
 
-  // Try native share, fallback to download
   canvas.toBlob(blob => {
-    if (navigator.share && navigator.canShare && navigator.canShare({ files: [new File([blob], 'revenge-result.png', { type: 'image/png' })] })) {
-      navigator.share({
-        title: `${title} sur REVENGE`,
-        text: `${elo} — ${map}`,
-        files: [new File([blob], 'revenge-result.png', { type: 'image/png' })]
-      }).catch(() => {});
+    const file = new File([blob], 'revenge-result.png', { type: 'image/png' });
+    if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+      navigator.share({ title: `${title} sur REVENGE`, text: `${elo} — Mode ${mode}`, files: [file] }).catch(() => {});
     } else {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = url;
-      a.download = 'revenge-result.png';
-      a.click();
+      a.href = url; a.download = 'revenge-result.png'; a.click();
       setTimeout(() => URL.revokeObjectURL(url), 3000);
     }
   }, 'image/png');
@@ -3802,6 +3860,14 @@ async function backToLobby() {
   // Reset admin bot button
   const adminBtn = document.getElementById('admin-bot-btn');
   if (adminBtn) { adminBtn.textContent = '🤖 Admin — Lancer avec des Bots'; adminBtn.disabled = false; }
+  // Reset rematch button and status
+  const rematchBtn = document.getElementById('rematch-btn');
+  if (rematchBtn) { rematchBtn.disabled = false; rematchBtn.textContent = '⚔️ Revanche'; }
+  const rematchStatus = document.getElementById('rematch-status');
+  if (rematchStatus) rematchStatus.style.display = 'none';
+  // Hide share canvas
+  const shareCanvas = document.getElementById('share-canvas');
+  if (shareCanvas) shareCanvas.style.display = 'none';
   showScreen('main');
 }
 function switchProfileTab(tab) {
