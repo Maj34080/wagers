@@ -268,6 +268,10 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min
     <div id="form-login">
       <div class="field"><label>Pseudo</label><input type="text" id="login-pseudo" placeholder="TonPseudo"/></div>
       <div class="field"><label>Mot de passe</label><input type="password" id="login-pass" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"/></div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+        <input type="checkbox" id="remember-me" style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer;"/>
+        <label for="remember-me" style="font-size:13px;color:var(--muted);cursor:pointer;user-select:none;">Souvenir de moi</label>
+      </div>
       <button class="btn-primary" onclick="doLogin()">Se connecter</button>
       <div class="auth-error" id="login-error"></div>
     </div>
@@ -1288,6 +1292,19 @@ function initSocket() {
     // Always use ELO from server stats for the current mode
     state.elo = state.stats[state.mode]?.elo ?? (typeof elo === 'number' ? elo : 500);
     try { localStorage.setItem('rv_mode', state.mode); } catch(e) {}
+    // Save credentials if "remember me" checked
+    try {
+      const rememberMe = document.getElementById('remember-me');
+      if (rememberMe && rememberMe.checked) {
+        localStorage.setItem('rv_remember', '1');
+        localStorage.setItem('rv_pseudo', state.pseudo);
+        localStorage.setItem('rv_pass', document.getElementById('login-pass').value);
+      } else if (rememberMe && !rememberMe.checked) {
+        localStorage.removeItem('rv_remember');
+        localStorage.removeItem('rv_pseudo');
+        localStorage.removeItem('rv_pass');
+      }
+    } catch(e) {}
     document.getElementById('login-error').textContent = '';
     document.getElementById('reg-error').textContent = '';
     enterMain();
@@ -1331,6 +1348,7 @@ function initSocket() {
       return;
     }
     state.roomId = roomId;
+    sendBrowserNotif('⚔️ Match trouvé !', 'Ta room ' + mode + ' est prête — clique pour rejoindre !');
     document.getElementById('searching-box').classList.remove('show');
     document.getElementById('btn-find-room').disabled = false;
     document.getElementById('btn-find-room').style.display = '';
@@ -1573,7 +1591,7 @@ function initSocket() {
     }).join('');
     document.getElementById('profile-modal').classList.add('show');
     switchProfileTab('stats');
-    loadProfileHistory(state.userId);
+    loadProfileHistory(data.id);
   });
 
   socket.on('ban_error', (msg) => notify('❌ ' + msg));
@@ -1666,6 +1684,25 @@ function doLogin() {
   socket.emit('login', { pseudo, password });
 }
 
+function autoLogin() {
+  try {
+    const remember = localStorage.getItem('rv_remember');
+    const pseudo = localStorage.getItem('rv_pseudo');
+    const password = localStorage.getItem('rv_pass');
+    if (remember === '1' && pseudo && password) {
+      initSocket();
+      // Pre-fill and check the checkbox
+      document.getElementById('login-pseudo').value = pseudo;
+      document.getElementById('login-pass').value = password;
+      document.getElementById('remember-me').checked = true;
+      socket.emit('login', { pseudo, password });
+    }
+  } catch(e) {}
+}
+
+// Auto-login on page load
+window.addEventListener('load', () => { setTimeout(autoLogin, 500); });
+
 function doRegister() {
   const pseudo = document.getElementById('reg-pseudo').value.trim();
   const password = document.getElementById('reg-pass').value;
@@ -1678,7 +1715,27 @@ function doRegister() {
 }
 
 // ── MAIN ──
+function requestNotifPermission() {
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+}
+
+function sendBrowserNotif(title, body) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  const notif = new Notification(title, {
+    body,
+    icon: 'https://wagers.onrender.com/favicon.ico',
+    badge: 'https://wagers.onrender.com/favicon.ico',
+    tag: 'revenge-room',
+    renotify: true
+  });
+  notif.onclick = () => { window.focus(); notif.close(); };
+  setTimeout(() => notif.close(), 8000);
+}
+
 function enterMain() {
+  requestNotifPermission();
   document.getElementById('nav-pseudo').textContent = state.pseudo;
   // Update clan tag display in nav
   if (state.clanId) {
@@ -2955,8 +3012,8 @@ async function loadProfileHistory(userId) {
             '<span style="font-family:Space Grotesk,sans-serif;font-weight:800;font-size:12px;color:' + color + ';">' + label + '</span>' +
             '<span style="background:rgba(255,255,255,0.07);border-radius:5px;padding:1px 7px;font-size:11px;font-weight:700;font-family:Space Grotesk,sans-serif;">' + m.mode + '</span>' +
           '</div>' +
-          (opponents ? '<div style="font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + opponents + '</div>' : '') +
-          (teammates ? '<div style="font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + teammates + '</div>' : '') +
+          (opponents ? '<div style="font-size:11px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + opponents + '</div>' : '') +
+          (teammates ? '<div style="font-size:11px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + teammates + '</div>' : '') +
         '</div>' +
         '<div style="text-align:right;flex-shrink:0;">' +
           '<div style="font-family:Space Grotesk,sans-serif;font-weight:800;font-size:14px;color:' + color + ';">' + eloStr + ' ELO</div>' +
