@@ -1078,9 +1078,8 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
       <!-- Captain vote section -->
       <div id="captain-vote-section" style="display:none;margin-top:12px;background:rgba(255,209,102,0.07);border:1px solid rgba(255,209,102,0.2);border-radius:14px;padding:14px 18px;text-align:center;">
         <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:13px;color:var(--gold);margin-bottom:10px;">⚖️ Vote du capitaine — Qui a gagné ?</div>
-        <!-- Countdown shown above buttons during lock -->
-        <div id="vote-lock-banner" style="display:none;margin-bottom:8px;">
-          <div style="font-size:11px;color:var(--muted);">🔒 Anti win-trade — vote disponible dans <span id="vote-lock-countdown" style="font-family:'Space Grotesk',sans-serif;font-weight:800;color:var(--accent);">5:00</span></div>
+        <div id="vote-lock-banner" style="display:none;background:rgba(255,70,85,0.08);border:1px solid rgba(255,70,85,0.2);border-radius:8px;padding:8px 12px;margin-bottom:10px;">
+          <div style="font-size:12px;color:var(--muted);">🔒 Vote disponible dans <span id="vote-lock-countdown" style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:16px;color:var(--accent);">5:00</span></div>
         </div>
         <div id="vote-buttons" style="display:flex;gap:10px;justify-content:center;">
           <button id="vote-btn-win" onclick="voteResult(true)" style="background:rgba(46,204,113,0.15);border:1px solid #2ecc71;color:#2ecc71;border-radius:10px;padding:9px 18px;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:13px;cursor:pointer;transition:all 0.3s;">✅ Mon équipe a gagné</button>
@@ -4264,37 +4263,60 @@ function setVoteButtonsLocked(locked) {
 
 function startVoteLockTimer(startedAt) {
   _roomStartedAt = startedAt || Date.now();
-  const LOCK_MS = 5 * 60 * 1000;
   clearInterval(_voteLockTimer);
+  _voteLockTimer = null;
 
-  // Show buttons immediately, locked
-  const voteBtns = document.getElementById('vote-buttons');
-  if (voteBtns) voteBtns.style.display = 'flex';
-  setVoteButtonsLocked(true);
+  const LOCK_MS = 5 * 60 * 1000;
 
   function tick() {
     const remaining = LOCK_MS - (Date.now() - _roomStartedAt);
-    const countdown = document.getElementById('vote-lock-countdown');
-    const declareCountdown = document.getElementById('declare-lock-countdown');
+    const banner = document.getElementById('vote-lock-banner');
+    const span = document.getElementById('vote-lock-countdown');
 
     if (remaining <= 0) {
+      // DÉVERROUILLAGE
       clearInterval(_voteLockTimer);
       _voteLockTimer = null;
-      if (countdown) countdown.textContent = '0:00';
-      if (declareCountdown) declareCountdown.textContent = '0:00';
-      setVoteButtonsLocked(false);
+      if (banner) banner.style.display = 'none';
+      // Dégrise les boutons
+      ['vote-btn-win', 'vote-btn-lose', 'declare-btn-win', 'declare-btn-lose'].forEach(id => {
+        const b = document.getElementById(id);
+        if (!b) return;
+        b.disabled = false;
+        b.style.opacity = '1';
+        b.style.cursor = 'pointer';
+        b.style.filter = 'none';
+        b.style.pointerEvents = 'auto';
+      });
+      const lb = document.getElementById('declare-lock-banner');
+      if (lb) lb.style.display = 'none';
       return;
     }
 
+    // VERROUILLAGE — met à jour le timer et grise les boutons
     const m = Math.floor(remaining / 60000);
     const s = Math.floor((remaining % 60000) / 1000);
-    const txt = `${m}:${s.toString().padStart(2, '0')}`;
-    if (countdown) countdown.textContent = txt;
-    if (declareCountdown) declareCountdown.textContent = txt;
+    const txt = m + ':' + String(s).padStart(2, '0');
+    if (span) span.textContent = txt;
+    const dc = document.getElementById('declare-lock-countdown');
+    if (dc) dc.textContent = txt;
+    if (banner) banner.style.display = '';
+
+    ['vote-btn-win', 'vote-btn-lose', 'declare-btn-win', 'declare-btn-lose'].forEach(id => {
+      const b = document.getElementById(id);
+      if (!b) return;
+      b.disabled = true;
+      b.style.opacity = '0.35';
+      b.style.cursor = 'not-allowed';
+      b.style.filter = 'grayscale(0.5)';
+      b.style.pointerEvents = 'none';
+    });
+    const lb = document.getElementById('declare-lock-banner');
+    if (lb) lb.style.display = '';
   }
 
   tick();
-  _voteLockTimer = setInterval(tick, 500); // 500ms pour être réactif
+  _voteLockTimer = setInterval(tick, 500);
 }
 
 function voteResult(myTeamWon) {
