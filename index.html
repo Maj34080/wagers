@@ -1963,10 +1963,17 @@ function updateRoomBtn() {
   if (state.groupSize >= currentTeamSize) {
     btn.disabled = false;
     hint.style.display = 'none';
+  } else if (state.groupSize === 1 && currentTeamSize > 1) {
+    // Solo queue allowed in 2v2/3v3/5v5 — matchmakes with other solos
+    btn.disabled = false;
+    hint.style.display = '';
+    hint.textContent = `🎲 File solo — tu seras matchmaké avec d'autres solos`;
+    hint.style.color = 'var(--gold)';
   } else {
     btn.disabled = true;
     hint.style.display = '';
     hint.textContent = `Il faut ${currentTeamSize} joueur(s) dans le groupe`;
+    hint.style.color = '';
   }
 }
 
@@ -2156,13 +2163,18 @@ function initSocket() {
     const alertEl = document.createElement('div');
     alertEl.className = 'admin-alert';
     alertEl.id = 'alert-' + roomId;
+    const typeLabel = type === 'report' ? '🚨 Report' : type === 'conflict' ? '⚖️ Conflit de vote' : '⚖️ Demande de décision';
+    const timeStr = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
     alertEl.innerHTML = `
-      <div style="display:flex;justify-content:space-between;align-items:start;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
         <div class="admin-alert-room">ROOM #${roomId}</div>
-        <button onclick="dismissAlert('${roomId}')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;">✕</button>
+        <span style="font-size:10px;color:var(--muted);">${timeStr}</span>
       </div>
-      <div class="admin-alert-msg">${pseudo} — ${type === 'report' ? '🚨 Report' : '⚖️ Demande de décision'}</div>
-      <button class="btn-admin-join" onclick="adminJoinRoom('${roomId}')">👁️ Rejoindre en spectateur</button>
+      <div class="admin-alert-msg">${pseudo} — ${typeLabel}</div>
+      <div style="display:flex;gap:6px;margin-top:6px;">
+        <button class="btn-admin-join" style="flex:1;" onclick="adminJoinRoom('${roomId}')">👁️ Rejoindre</button>
+        <button onclick="dismissAlert('${roomId}')" style="flex:1;background:rgba(46,204,113,0.15);border:1px solid #2ecc71;color:#2ecc71;border-radius:8px;padding:8px;font-family:'Syne',sans-serif;font-weight:800;font-size:11px;cursor:pointer;">✅ Corrigé</button>
+      </div>
     `;
     alerts.appendChild(alertEl);
     playBeep(660, 0.3);
@@ -5270,7 +5282,8 @@ function createRoom() {
   socket.emit('create_room');
   document.getElementById('btn-find-room').disabled = true;
   document.getElementById('searching-box').classList.add('show');
-  document.getElementById('searching-mode').textContent = 'Mode ' + state.mode.toUpperCase();
+  const isSoloQueue = state.groupSize === 1 && getTeamSize(state.mode) > 1;
+  document.getElementById('searching-mode').textContent = (isSoloQueue ? '🎲 File solo — ' : '') + 'Mode ' + state.mode.toUpperCase();
   // Live ELO window display — updates every 30s
   const myElo = (state.stats && state.mode && state.stats[state.mode]) ? state.stats[state.mode].elo : (state.elo || 500);
   const windowEl = document.getElementById('elo-window-display');

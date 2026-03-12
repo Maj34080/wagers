@@ -18,7 +18,7 @@ const WEAPONS = ['Vandal/Phantom', 'Sheriff', 'Operator', 'Marshall', 'Ghost'];
 const WEAPON_VOTE_TIMEOUT = 10000; // 10s pour voter
 const BAN_TIMEOUT = 15000;
 const START_COUNTDOWN = 5000;
-const ADMIN_PSEUDOS = ['Karim34']; // ← ajoute ton pseudo ici
+const ADMIN_PSEUDOS = ['Karim34', 'Telech']; // ← ajoute ton pseudo ici
 
 // Check premium expiry on boot and every hour
 db.checkPremiumExpiry();
@@ -488,6 +488,8 @@ app.post('/api/global-chat', (req, res) => {
 const groups = {};
 const rooms = {};
 const archivedRooms = {};
+// Solo queue: { mode -> [{ player, groupCode, socketId, elo, joinedAt }] }
+const soloQueue = { '2v2': [], '3v3': [], '5v5': [] };
 
 function resolveWeaponVote(roomId) {
   const room = rooms[roomId];
@@ -520,6 +522,21 @@ function archiveRoom(roomId) {
   delete rooms[roomId];
   // Nettoyage auto après 24h
   setTimeout(() => { delete archivedRooms[roomId]; }, 24 * 60 * 60 * 1000);
+}
+
+
+// Emit game_result to all room members by their stored socketId (guarantees delivery even if socket room membership was lost)
+function emitGameResult(roomId, payload) {
+  const room = rooms[roomId];
+  // Broadcast to socket room (covers normal case)
+  io.to('room_' + roomId).emit('game_result', payload);
+  // Also send directly to each player socket as backup
+  if (room) {
+    [...(room.teams[0] || []), ...(room.teams[1] || [])].filter(p => p.socketId).forEach(p => {
+      const s = io.sockets.sockets.get(p.socketId);
+      if (s) s.emit('game_result', payload);
+    });
+  }
 }
 
 function generateCode(len = 6) {
@@ -883,6 +900,59 @@ io.on('connection', (socket) => {
     if (!entry) return socket.emit('room_error', 'Pas dans un groupe');
     const [code, group] = entry;
     const teamSize = getTeamSize(group.mode);
+
+    // ── SOLO QUEUE (1 player queueing in 2v2/3v3/5v5) ──
+    if (group.players.length === 1 && teamSize > 1 && soloQueue[group.mode] !== undefined) {
+      const player = group.players[0];
+      // Refresh ELO from DB
+      const fresh = db.getUserById(player.id);
+      if (fresh) { player.stats = fresh.stats; player.elo = fresh.stats?.[group.mode]?.elo || 500; }
+      // Remove from queue if already in it (reconnect case)
+      soloQueue[group.mode] = soloQueue[group.mode].filter(e => e.player.id !== player.id);
+      soloQueue[group.mode].push({ player, groupCode: code, elo: player.elo || 500, joinedAt: Date.now() });
+      socket.emit('chat_msg', { author: 'Système', team: 'system', text: `⏳ Tu es en file solo ${group.mode} — en attente de ${teamSize * 2 - 1} autre(s) joueur(s)…` });
+      // Check if we have enough solos to form a full match (2 × teamSize)
+      const needed = teamSize * 2;
+      if (soloQueue[group.mode].length >= needed) {
+        // Sort by ELO and take the needed players (closest ELO match possible)
+        const sorted = [...soloQueue[group.mode]].sort((a, b) => a.elo - b.elo);
+        const chosen = sorted.slice(0, needed);
+        // Remove chosen from queue
+        const chosenIds = new Set(chosen.map(e => e.player.id));
+        soloQueue[group.mode] = soloQueue[group.mode].filter(e => !chosenIds.has(e.player.id));
+        // Split into two teams
+        const team1Players = chosen.slice(0, teamSize).map(e => e.player);
+        const team2Players = chosen.slice(teamSize).map(e => e.player);
+        const roomId = 'R' + generateCode(4);
+        const cap1 = team1Players[0];
+        const cap2 = team2Players[0];
+        const room = {
+          id: roomId, mode: group.mode,
+          teams: [team1Players, team2Players],
+          chat: [], mapBans: [], banTurn: 0, status: 'waiting',
+          chosenMap: null, banTimer: null, createdAt: Date.now(),
+          avgElo: Math.round(chosen.reduce((s, e) => s + e.elo, 0) / chosen.length),
+          captains: [cap1.id, cap2.id], captainPseudos: [cap1.pseudo, cap2.pseudo], votes: {}
+        };
+        rooms[roomId] = room;
+        // Join all players to socket room
+        chosen.forEach(e => {
+          const s = io.sockets.sockets.get(e.player.socketId);
+          if (s) { s.join('room_' + roomId); s.roomId = roomId; }
+        });
+        const payload = {
+          roomId, mode: room.mode,
+          team1: team1Players.map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null, stats: p.stats || null, isPremium: !!p.isPremium })),
+          team2: team2Players.map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null, stats: p.stats || null, isPremium: !!p.isPremium })),
+          captains: [cap1.pseudo, cap2.pseudo], waiting: false
+        };
+        io.to('room_' + roomId).emit('room_ready', payload);
+        io.to('room_' + roomId).emit('chat_msg', { author: 'Système', team: 'system', text: `✅ Match solo trouvé en ${group.mode} ! Début dans 10 secondes…` });
+        startRoomCountdown(roomId);
+      }
+      return;
+    }
+
     if (group.players.length < teamSize) return socket.emit('room_error', `Il faut ${teamSize} joueur(s) dans le groupe`);
     // Refresh stats/elo from DB for all real players before entering room
     group.players.filter(p => !p.isBot).forEach(p => {
@@ -1183,7 +1253,7 @@ function applyEloResult(winTeam, loseTeam, mode) {
         const loseTeam = winner === 1 ? room.teams[1] : room.teams[0];
         const eloChanges = applyEloResult(winTeam, loseTeam, room.mode);
         computeCotd();
-        io.to('room_' + socket.roomId).emit('game_result', {
+        emitGameResult(socket.roomId, {
           winner,
           winTeam: winTeam.map(p => p.pseudo),
           loseTeam: loseTeam.map(p => p.pseudo),
@@ -1235,7 +1305,7 @@ function applyEloResult(winTeam, loseTeam, mode) {
     const eloChanges = applyEloResult(winTeam, loseTeam, room.mode);
     computeCotd();
 
-    io.to('room_' + socket.roomId).emit('game_result', {
+    emitGameResult(socket.roomId, {
       winner,
       winTeam: winTeam.map(p => p.pseudo),
       loseTeam: loseTeam.map(p => p.pseudo),
@@ -1261,6 +1331,10 @@ function applyEloResult(winTeam, loseTeam, mode) {
 
   // ── DISCONNECT ──
   socket.on('disconnect', () => {
+    // Remove from solo queue on disconnect
+    for (const mode of Object.keys(soloQueue)) {
+      soloQueue[mode] = soloQueue[mode].filter(e => e.player.socketId !== socket.id);
+    }
     // Save lastSeen for staff members
     if (socket.pseudo && ADMIN_PSEUDOS.includes(socket.pseudo)) {
       try {
@@ -1333,6 +1407,14 @@ function applyEloResult(winTeam, loseTeam, mode) {
 
   // ── CANCEL QUEUE ──
   socket.on('cancel_queue', () => {
+    // Also remove from solo queue
+    for (const mode of Object.keys(soloQueue)) {
+      const before = soloQueue[mode].length;
+      soloQueue[mode] = soloQueue[mode].filter(e => e.player.id !== socket.userId);
+      if (soloQueue[mode].length < before) {
+        socket.emit('chat_msg', { author: 'Système', team: 'system', text: '❌ Tu as quitté la file solo.' });
+      }
+    }
     for (const [roomId, room] of Object.entries(rooms)) {
       if (room.status === 'waiting') {
         const inTeam0 = room.teams[0].some(p => p.id === socket.userId);
@@ -1497,14 +1579,14 @@ function applyEloResult(winTeam, loseTeam, mode) {
       (room.teams[1] || []).filter(p => !p.isBot).forEach(p => db.updateUserElo(p.id, 0, false, room.mode, room.teams[0], room.teams[1], true));
       computeCotd();
       io.to('room_' + roomId).emit('chat_msg', { author: 'Système', team: 'system', text: '⚖️ Décision admin : Égalité — aucun ELO modifié.' });
-      io.to('room_' + roomId).emit('game_result', { winner: 0, winTeam: [], loseTeam: [], mode: room.mode, draw: true });
+      emitGameResult(roomId, { winner: 0, winTeam: [], loseTeam: [], mode: room.mode, draw: true });
     } else {
       const winTeam = winner === 1 ? room.teams[0] : room.teams[1];
       const loseTeam = winner === 1 ? room.teams[1] : room.teams[0];
       const eloChanges = applyEloResult(winTeam, loseTeam, room.mode);
       computeCotd();
       io.to('room_' + roomId).emit('chat_msg', { author: 'Système', team: 'system', text: `⚖️ Décision admin : Équipe ${winner} gagne !` });
-      io.to('room_' + roomId).emit('game_result', { winner, winTeam: winTeam.map(p => p.pseudo), loseTeam: loseTeam.map(p => p.pseudo), mode: room.mode, eloChanges, tournamentId: room.tournamentId || null });
+      emitGameResult(roomId, { winner, winTeam: winTeam.map(p => p.pseudo), loseTeam: loseTeam.map(p => p.pseudo), mode: room.mode, eloChanges, tournamentId: room.tournamentId || null });
       // ── Advance tournament bracket if this is a tournament room ──
       if (room.tournamentId) {
         const t = tournaments[room.tournamentId];
