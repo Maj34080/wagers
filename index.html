@@ -2257,12 +2257,20 @@ function initSocket() {
   socket.on('game_result', ({ winner, winTeam, loseTeam, mode, draw, eloChanges }) => {
     // Store match data for share card
     _lastMatchData = { winner, winTeam, loseTeam, mode, draw, eloChanges };
+    const isSpectatorAdmin = state.isAdmin && state.isSpectator;
     if (draw || winner === 0) {
       document.getElementById('result-title').textContent = 'ÉGALITÉ';
       document.getElementById('result-title').className = 'result-title';
       document.getElementById('result-title').style.color = 'var(--gold)';
       document.getElementById('result-elo').textContent = '±0 ELO — Aucun changement';
       document.getElementById('result-map').textContent = 'Mode ' + mode + ' — Décision admin : Égalité';
+    } else if (isSpectatorAdmin) {
+      // Admin spectateur : afficher le résultat sans ELO perso
+      document.getElementById('result-title').textContent = '⚖️ DÉCISION RENDUE';
+      document.getElementById('result-title').className = 'result-title';
+      document.getElementById('result-title').style.color = 'var(--gold)';
+      document.getElementById('result-elo').textContent = `Équipe ${winner} gagne — ELO mis à jour`;
+      document.getElementById('result-map').textContent = 'Mode ' + mode + ' — Gagnants : ' + winTeam.join(', ');
     } else {
       const iWon = winTeam.includes(state.pseudo);
       const myEloChange = eloChanges && eloChanges[state.userId] !== undefined ? eloChanges[state.userId] : (iWon ? 20 : -20);
@@ -2280,6 +2288,9 @@ function initSocket() {
     stopRoomEloWindow();
     const voteSection = document.getElementById('captain-vote-section');
     if (voteSection) voteSection.style.display = 'none';
+    // Reset bot button immédiatement à chaque fin de game
+    const adminBotBtn = document.getElementById('admin-bot-btn');
+    if (adminBotBtn) { adminBotBtn.textContent = '🤖 Admin — Lancer avec des Bots'; adminBotBtn.disabled = false; }
     // Reset rematch button fresh for this game
     const rb = document.getElementById('rematch-btn');
     if (rb) { rb.disabled = false; rb.textContent = '⚔️ Revanche'; }
@@ -4619,7 +4630,11 @@ function requestDecision() {
 function adminDecide(winner) {
   if (!socket || !state.roomId) return;
   socket.emit('admin_decide', { roomId: state.roomId, winner });
-  adminLeave();
+  // Ne pas appeler adminLeave() ici — attendre game_result pour afficher l'overlay résultat
+  // On masque juste la barre spectateur
+  document.getElementById('admin-spectator-bar').classList.remove('show');
+  state.isSpectator = false;
+  if (socket) socket.roomId = null;
 }
 
 function adminLeave() {
