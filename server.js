@@ -1419,13 +1419,6 @@ function applyEloResult(winTeam, loseTeam, mode) {
       socket.emit('notify_error', 'Room introuvable, impossible d\'envoyer l\'alerte.');
       return;
     }
-    if (!room.alerts) room.alerts = new Set();
-    // Anti-spam : un même joueur ne peut envoyer qu'une alerte par room
-    if (room.alerts.has(socket.userId)) {
-      socket.emit('notify_error', 'Alerte déjà envoyée. Attends qu\'un admin la traite.');
-      return;
-    }
-    room.alerts.add(socket.userId);
     let adminCount = 0;
     io.sockets.sockets.forEach(s => {
       if (s.isAdmin) { s.emit('admin_alert_received', { roomId, type, pseudo }); adminCount++; }

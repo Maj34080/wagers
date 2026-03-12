@@ -1990,8 +1990,9 @@ function initSocket() {
     const panel = document.getElementById('admin-panel');
     panel.classList.add('show');
     const alerts = document.getElementById('admin-alerts');
-    // Deduplicate - don't add if same roomId already shown
-    if (document.getElementById('alert-' + roomId)) return;
+    // Si alerte déjà affichée pour cette room, on la met à jour au lieu de l'ignorer
+    const existing = document.getElementById('alert-' + roomId);
+    if (existing) existing.remove();
     const alertEl = document.createElement('div');
     alertEl.className = 'admin-alert';
     alertEl.id = 'alert-' + roomId;
