@@ -493,7 +493,7 @@ function resolveWeaponVote(roomId) {
   }
   room.chosenWeapon = chosen;
   room.status = 'playing';
-  room.startedAt = room.startedAt || Date.now();
+  room.startedAt = Date.now(); // toujours réinitialiser au vrai début
   const msg = (v1 && v2 && v1 === v2)
     ? `✅ Accord trouvé ! Arme jouée : **${chosen}**`
     : `🎲 Pas d'accord — arme choisie aléatoirement : **${chosen}**`;

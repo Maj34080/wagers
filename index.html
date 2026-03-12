@@ -2094,6 +2094,7 @@ function initSocket() {
       const v = document.getElementById('captain-vote-section');
       if (v) v.style.display = '';
       startVoteLockTimer(Date.now());
+      setVoteButtonsLocked(true);
     }, 500);
   });
 
@@ -2166,6 +2167,7 @@ function initSocket() {
       const v = document.getElementById('captain-vote-section');
       if (v) v.style.display = '';
       startVoteLockTimer(Date.now());
+      setVoteButtonsLocked(true);
     }, 500);
   });
 
@@ -2173,6 +2175,8 @@ function initSocket() {
     const m = Math.floor(remaining / 60);
     const s = remaining % 60;
     notify(`🔒 Vote bloqué — encore ${m}:${s.toString().padStart(2,'0')} avant de pouvoir voter`, { accent: 'var(--accent)', duration: 4000 });
+    setVoteButtonsLocked(true);
+    if (_roomStartedAt) startVoteLockTimer(_roomStartedAt);
   });
 
   socket.on('game_result', ({ winner, winTeam, loseTeam, mode, draw, eloChanges }) => {
@@ -4287,11 +4291,10 @@ function startVoteLockTimer(startedAt) {
 }
 
 function voteResult(myTeamWon) {
+  // Ne rien afficher — on attend la réponse du serveur
+  // Si vote_too_early → notification d'erreur
+  // Si accepté → le serveur envoie chat_msg de confirmation
   socket.emit('vote_result', { myTeamWon });
-  const status = document.getElementById('captain-vote-status');
-  if (status) status.textContent = myTeamWon ? '✅ Vote enregistré : votre équipe a gagné' : '✅ Vote enregistré : votre équipe a perdu';
-  const btns = document.querySelectorAll('#captain-vote-section button');
-  btns.forEach(b => b.disabled = true);
 }
 
 // ── BOUTIQUE ──
