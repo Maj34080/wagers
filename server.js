@@ -2694,12 +2694,6 @@ function createTournamentRoom(t, match, roundIdx, matchIdx) {
   rooms[roomId] = room;
   match.roomId = roomId;
 
-  // Join real players to socket room
-  [...players1, ...players2].filter(p => p.socketId).forEach(p => {
-    const s = io.sockets.sockets.get(p.socketId);
-    if (s) { s.join('room_' + roomId); s.roomId = roomId; }
-  });
-
   const basePayload = {
     roomId, mode: t.mode,
     team1: players1.map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar, stats: p.stats, isPremium: p.isPremium })),
@@ -2713,8 +2707,19 @@ function createTournamentRoom(t, match, roundIdx, matchIdx) {
     tournamentMatchIdx: matchIdx
   };
 
-  // Use tournament_room_assigned so frontend auto-places players
-  io.to('room_' + roomId).emit('tournament_room_assigned', basePayload);
+  // Send tournament_room_assigned directly to each player's socket (skip admins in spectator)
+  const allPlayers = [...players1, ...players2];
+  allPlayers.filter(p => p.socketId).forEach(p => {
+    const s = io.sockets.sockets.get(p.socketId);
+    if (!s) return;
+    if (!s.isAdmin) {
+      s.join('room_' + roomId);
+      s.roomId = roomId;
+    }
+    s.emit('tournament_room_assigned', basePayload);
+  });
+
+  // Also send chat + countdown to the room (only joined non-admin players are in it)
   io.to('room_' + roomId).emit('chat_msg', { author: 'Système', team: 'system', text: `🏆 Match de tournoi — ${t.name} · ${match.team1} vs ${match.team2}` });
   startRoomCountdown(roomId);
   io.emit('tournament_match_room_created', { tournamentId: t.id, roundIdx, matchIdx, roomId });

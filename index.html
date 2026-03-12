@@ -2545,7 +2545,9 @@ function initSocket() {
 
   socket.on('game_result', ({ winner, winTeam, loseTeam, mode, draw, eloChanges, tournamentId }) => {
     _lastMatchData = { winner, winTeam, loseTeam, mode, draw, eloChanges };
-    const isSpectatorAdmin = state.isAdmin && state.isSpectator;
+    // Admin is spectator if: explicitly spectating, OR is admin and not in any team
+    const inAnyTeam = winTeam.includes(state.pseudo) || loseTeam.includes(state.pseudo);
+    const isSpectatorAdmin = state.isAdmin && (state.isSpectator || !inAnyTeam);
     // isTournamentRoom: use tournamentId from server payload (source of truth)
     const isTournamentRoom = !!tournamentId;
     if (tournamentId) state.tournamentId = tournamentId; // keep in sync
@@ -2599,21 +2601,17 @@ function initSocket() {
     if (sc) sc.style.display = 'none';
 
     // ── Tournament mode: swap buttons, show bracket message ──
-    if (isTournamentRoom && !isSpectatorAdmin) {
+    if (isTournamentRoom) {
       const tId = state.tournamentId || document.getElementById('room-screen')?.dataset?.tournamentId;
-      // Hide non-tournament buttons
       const rb2 = document.getElementById('rematch-btn');
       if (rb2) rb2.style.display = 'none';
       const replayBtn = document.getElementById('replay-btn');
       if (replayBtn) replayBtn.style.display = 'none';
-      // Show tournament-specific bottom bar if we already know next round
       if (state._pendingTournamentRoundLabel) {
         injectTournamentResultUI(tId, state._pendingTournamentRoundLabel);
       } else {
-        // Show generic "retour au bracket" button while we wait for next_round event
         injectTournamentResultUI(tId, null);
       }
-      // Auto-redirect to bracket after 20s if user hasn't clicked
       setTimeout(() => {
         if (document.getElementById('result-overlay').classList.contains('show')) backToTournamentBracket(tId);
       }, 20000);
