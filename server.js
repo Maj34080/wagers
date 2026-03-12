@@ -1539,45 +1539,74 @@ async function sendBackupToDiscord() {
 }
 
 async function restoreDBFromDiscord() {
-  if (!DISCORD_BOT_TOKEN || !DISCORD_CHANNEL_ID) return;
+  if (!DISCORD_BOT_TOKEN || !DISCORD_CHANNEL_ID) {
+    console.log('[BACKUP] Variables manquantes, restore ignorée.');
+    return false;
+  }
   const DBFILE_PATH = process.env.NODE_ENV === 'production' ? '/tmp/db.json' : null;
-  if (!DBFILE_PATH) return; // local dev, skip restore
+  if (!DBFILE_PATH) return false;
 
   const fs = require('fs');
-  // Only restore if DB is missing or has no users
   try {
     if (fs.existsSync(DBFILE_PATH)) {
       const existing = JSON.parse(fs.readFileSync(DBFILE_PATH, 'utf8'));
-      if ((existing.users || []).length > 0) { console.log('[BACKUP] DB déjà présente, pas de restore.'); return; }
+      if ((existing.users || []).length > 0) {
+        console.log(`[BACKUP] DB déjà présente (${existing.users.length} users), pas de restore.`);
+        return true;
+      }
     }
   } catch(e) {}
 
   console.log('[BACKUP] DB vide/absente — tentative de restore depuis Discord…');
   try {
     const https = require('https');
-    // Fetch last messages from channel to find latest backup file
-    const messages = await new Promise((resolve, reject) => {
+
+    const rawMessages = await new Promise((resolve, reject) => {
       const req = https.request({
         hostname: 'discord.com',
-        path: `/api/v10/channels/${DISCORD_CHANNEL_ID}/messages?limit=20`,
-        headers: { 'Authorization': `Bot ${DISCORD_BOT_TOKEN}` }
+        path: `/api/v10/channels/${DISCORD_CHANNEL_ID}/messages?limit=50`,
+        method: 'GET',
+        headers: {
+          'Authorization': `Bot ${DISCORD_BOT_TOKEN}`,
+          'User-Agent': 'RevengeBot/1.0'
+        }
       }, res => {
         let raw = '';
         res.on('data', d => raw += d);
-        res.on('end', () => { try { resolve(JSON.parse(raw)); } catch(e) { reject(e); } });
+        res.on('end', () => {
+          console.log('[BACKUP] Discord API status:', res.statusCode);
+          if (res.statusCode !== 200) {
+            console.log('[BACKUP] Discord API réponse:', raw.slice(0, 200));
+            resolve([]);
+          } else {
+            try { resolve(JSON.parse(raw)); } catch(e) { reject(e); }
+          }
+        });
       });
       req.on('error', reject);
       req.end();
     });
 
-    // Find most recent message with a .json attachment
-    const backupMsg = (messages || []).find(m => m.attachments?.some(a => a.filename?.endsWith('.json')));
-    if (!backupMsg) { console.log('[BACKUP] Aucune backup trouvée dans Discord.'); return; }
+    const messages = Array.isArray(rawMessages) ? rawMessages : [];
+    console.log(`[BACKUP] ${messages.length} messages trouvés dans le canal`);
+
+    const backupMsg = messages.find(m => m.attachments?.some(a => a.filename?.endsWith('.json')));
+    if (!backupMsg) {
+      console.log('[BACKUP] Aucun message avec fichier .json trouvé.');
+      return false;
+    }
 
     const attachment = backupMsg.attachments.find(a => a.filename?.endsWith('.json'));
+    console.log('[BACKUP] Fichier trouvé:', attachment.filename);
+
     const fileUrl = new URL(attachment.url);
     const jsonData = await new Promise((resolve, reject) => {
-      const req = https.request({ hostname: fileUrl.hostname, path: fileUrl.pathname + fileUrl.search }, res => {
+      const req = https.request({
+        hostname: fileUrl.hostname,
+        path: fileUrl.pathname + fileUrl.search,
+        method: 'GET',
+        headers: { 'User-Agent': 'RevengeBot/1.0' }
+      }, res => {
         let raw = '';
         res.on('data', d => raw += d);
         res.on('end', () => resolve(raw));
@@ -1587,18 +1616,25 @@ async function restoreDBFromDiscord() {
     });
 
     const parsed = JSON.parse(jsonData);
-    if (!parsed.users) throw new Error('Format invalide');
+    if (!parsed.users || !Array.isArray(parsed.users)) throw new Error('Format invalide');
     fs.writeFileSync(DBFILE_PATH, JSON.stringify(parsed, null, 2));
     console.log(`[BACKUP] ✅ DB restaurée depuis Discord (${parsed.users.length} users)`);
+    return true;
   } catch(e) {
     console.error('[BACKUP] ❌ Erreur restore:', e.message);
+    return false;
   }
 }
 
 // Send backup every hour
 setInterval(sendBackupToDiscord, 60 * 60 * 1000);
-// Also send on startup (after 10s to let server fully boot)
-setTimeout(sendBackupToDiscord, 10000);
+// On boot: restore first, then send backup only if restore failed (to avoid overwriting with empty)
+setTimeout(async () => {
+  const restored = await restoreDBFromDiscord();
+  if (!restored) {
+    console.log('[BACKUP] Restore échouée au boot, pas de backup envoyée pour éviter d\'écraser.');
+  }
+}, 5000);
 
 // Fake rooms for live display
 const FAKE_NAMES = ['Shadow','Blaze','Nova','Viper','Ghost','Storm','Frost','Ace','Echo','Raven','Void','Flux','Dusk','Neon','Wolf'];
