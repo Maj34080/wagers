@@ -1287,21 +1287,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
   </div>
 </div>
 
-<!-- ADMIN PANEL (visible seulement pour admins) -->
-<div class="admin-panel" id="admin-panel">
-  <div class="admin-panel-title">🔐 Admin — Alertes</div>
-  <div id="admin-alerts"></div>
-</div>
 
-<!-- ADMIN SPECTATOR BAR -->
-<div class="admin-spectator-bar" id="admin-spectator-bar">
-  <div class="admin-spec-label">👁️ MODE ADMIN — <span id="admin-spec-room"></span></div>
-  <button class="btn-admin-win1" onclick="adminDecide(1)">✅ Équipe 1 gagne</button>
-  <button class="btn-admin-win2" onclick="adminDecide(2)">✅ Équipe 2 gagne</button>
-  <button onclick="adminDecide(0)" style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.5);color:#333;border-radius:8px;padding:7px 14px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Space Grotesk',sans-serif;">🤝 Égalité</button>
-  <button onclick="adminLeaveSpectator()" style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);color:#000;border-radius:8px;padding:7px 14px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Space Grotesk',sans-serif;">🚪 Quitter</button>
-  <button class="btn-admin-close" onclick="adminLeave()">✕</button>
-</div>
 
 <div class="notify" id="notify"></div>
 
@@ -4940,6 +4926,22 @@ async function loadProfileHistory(userId) {
   <span style="font-size:16px;">💬</span>
   <span style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:13px;">Chat Groupe</span>
   <span id="group-chat-bubble-badge" style="display:none;background:var(--accent);color:#fff;border-radius:50%;width:18px;height:18px;font-size:10px;font-weight:800;align-items:center;justify-content:center;"></span>
-</div>-e 
+</div>
+
+<!-- ADMIN PANEL -->
+<div class="admin-panel" id="admin-panel">
+  <div class="admin-panel-title">🔐 Admin — Alertes</div>
+  <div id="admin-alerts"></div>
+</div>
+
+<!-- ADMIN SPECTATOR BAR -->
+<div class="admin-spectator-bar" id="admin-spectator-bar">
+  <div class="admin-spec-label">👁️ MODE ADMIN — <span id="admin-spec-room"></span></div>
+  <button class="btn-admin-win1" onclick="adminDecide(1)">✅ Équipe 1 gagne</button>
+  <button class="btn-admin-win2" onclick="adminDecide(2)">✅ Équipe 2 gagne</button>
+  <button onclick="adminDecide(0)" style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.5);color:#333;border-radius:8px;padding:7px 14px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Space Grotesk',sans-serif;">🤝 Égalité</button>
+  <button onclick="adminLeaveSpectator()" style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);color:#000;border-radius:8px;padding:7px 14px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Space Grotesk',sans-serif;">🚪 Quitter</button>
+  <button class="btn-admin-close" onclick="adminLeave()">✕</button>
+</div>
 </body>
 </html>
