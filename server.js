@@ -1921,26 +1921,6 @@ app.get('/api/admin/stats', (req, res) => {
 // ═══════════════════════════════════════════════
 
 // GET clan info
-app.get('/api/clans', (req, res) => {
-  try {
-    const data = readDB();
-    const clans = (data.clans || []).map(c => {
-      const members = (c.members || []).map(mId => {
-        const u = data.users.find(u => u.id === mId);
-        return u ? { id: u.id, pseudo: u.pseudo, avatar: u.avatar || null } : null;
-      }).filter(Boolean);
-      const totalElo = members.reduce((sum, m) => {
-        const u = data.users.find(u => u.id === m.id);
-        if (!u) return sum;
-        const elos = ['1v1','2v2','3v3','5v5'].map(mode => u.stats?.[mode]?.elo || 500);
-        return sum + Math.max(...elos);
-      }, 0);
-      return { id: c.id, name: c.name, tag: c.tag, description: c.description || '', leaderId: c.leaderId, members, memberCount: members.length, totalElo, createdAt: c.createdAt };
-    }).sort((a, b) => b.totalElo - a.totalElo);
-    res.json(clans);
-  } catch(e) { res.status(500).json({ error: e.message }); }
-});
-
 app.get('/api/clans/:id', (req, res) => {
   try {
     const data = readDB();
@@ -2129,6 +2109,273 @@ app.get('/api/clans/user/:userId', (req, res) => {
       const u = data.users.find(u => u.id === rId);
       return u ? { id: u.id, pseudo: u.pseudo, avatar: u.avatar || null } : null;
     }).filter(Boolean);
-    res.json({ ...clan, members, joinRequests: requests });
+    res.json({ ...clan, members, joinRequests: requests, weeklyPoints: clan.weeklyPoints || 0, bo3Wins: clan.bo3Wins || 0, bo3Losses: clan.bo3Losses || 0 });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ══════════════════════════════════════════════════════
+// BO3 CLAN CHALLENGE SYSTEM
+// ══════════════════════════════════════════════════════
+
+const clanChallenges = {}; // challengeId -> { challengerClanId, challengedClanId, status, series, currentGame, maps, winnerId }
+
+// Challenge leaderboard enriched with weeklyPoints
+app.get('/api/clans', (req, res) => {
+  try {
+    const data = readDB();
+    const clans = (data.clans || []).map(c => {
+      const members = (c.members || []).map(mId => {
+        const u = data.users.find(u => u.id === mId);
+        return u ? { id: u.id, pseudo: u.pseudo, avatar: u.avatar || null } : null;
+      }).filter(Boolean);
+      const totalElo = members.reduce((sum, m) => {
+        const u = data.users.find(u => u.id === m.id);
+        if (!u) return sum;
+        return sum + Math.max(...['1v1','2v2','3v3','5v5'].map(mode => u.stats?.[mode]?.elo || 500));
+      }, 0);
+      return {
+        id: c.id, name: c.name, tag: c.tag, description: c.description || '',
+        leaderId: c.leaderId, members, memberCount: members.length, totalElo,
+        weeklyPoints: c.weeklyPoints || 0, bo3Wins: c.bo3Wins || 0, bo3Losses: c.bo3Losses || 0,
+        createdAt: c.createdAt
+      };
+    }).sort((a, b) => (b.weeklyPoints - a.weeklyPoints) || (b.totalElo - a.totalElo));
+    res.json(clans);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Send BO3 challenge
+app.post('/api/clans/challenge', express.json(), (req, res) => {
+  try {
+    const { leaderId, challengerClanId, challengedClanId } = req.body;
+    const data = readDB();
+    const challengerClan = (data.clans||[]).find(c => c.id === challengerClanId);
+    const challengedClan = (data.clans||[]).find(c => c.id === challengedClanId);
+    if (!challengerClan || !challengedClan) return res.status(404).json({ error: 'Clan introuvable' });
+    if (challengerClan.leaderId !== leaderId) return res.status(403).json({ error: 'Seul le chef peut lancer un challenge' });
+    if (challengerClan.members.length < 5) return res.status(400).json({ error: 'Il faut 5 membres minimum pour challenger' });
+    if (challengedClan.members.length < 5) return res.status(400).json({ error: 'Le clan adverse a moins de 5 membres' });
+    // Check no active challenge between these clans
+    const existing = Object.values(clanChallenges).find(ch =>
+      ch.status === 'pending' &&
+      ((ch.challengerClanId === challengerClanId && ch.challengedClanId === challengedClanId) ||
+       (ch.challengerClanId === challengedClanId && ch.challengedClanId === challengerClanId))
+    );
+    if (existing) return res.status(400).json({ error: 'Un challenge est déjà en cours entre ces clans' });
+    const challengeId = 'ch_' + Date.now();
+    clanChallenges[challengeId] = {
+      id: challengeId, challengerClanId, challengedClanId,
+      challengerName: challengerClan.name, challengerTag: challengerClan.tag,
+      challengedName: challengedClan.name, challengedTag: challengedClan.tag,
+      status: 'pending', series: [0, 0], createdAt: Date.now()
+    };
+    // Notify challenged clan leader via socket
+    io.sockets.sockets.forEach(s => {
+      if (s.userId === challengedClan.leaderId) {
+        s.emit('clan_challenge_received', { challengeId, from: challengerClan.name, tag: challengerClan.tag });
+      }
+    });
+    res.json({ ok: true, challengeId });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Accept/decline BO3 challenge
+app.post('/api/clans/challenge/respond', express.json(), (req, res) => {
+  try {
+    const { leaderId, challengeId, accept } = req.body;
+    const ch = clanChallenges[challengeId];
+    if (!ch) return res.status(404).json({ error: 'Challenge introuvable' });
+    if (ch.status !== 'pending') return res.status(400).json({ error: 'Challenge déjà traité' });
+    const data = readDB();
+    const challengedClan = (data.clans||[]).find(c => c.id === ch.challengedClanId);
+    if (!challengedClan || challengedClan.leaderId !== leaderId) return res.status(403).json({ error: 'Non autorisé' });
+    if (!accept) {
+      ch.status = 'declined';
+      io.sockets.sockets.forEach(s => {
+        if (s.userId === (data.clans||[]).find(c=>c.id===ch.challengerClanId)?.leaderId)
+          s.emit('clan_challenge_declined', { challengeId, by: challengedClan.name });
+      });
+      return res.json({ ok: true });
+    }
+    ch.status = 'active';
+    ch.series = [0, 0];
+    // Notify challenger
+    const challengerClan = (data.clans||[]).find(c => c.id === ch.challengerClanId);
+    io.sockets.sockets.forEach(s => {
+      if (s.userId === challengerClan?.leaderId)
+        s.emit('clan_challenge_accepted', { challengeId, by: challengedClan.name });
+    });
+    res.json({ ok: true, challengeId });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// List pending/active challenges for a clan
+app.get('/api/clans/:clanId/challenges', (req, res) => {
+  const { clanId } = req.params;
+  const relevant = Object.values(clanChallenges).filter(ch =>
+    (ch.challengerClanId === clanId || ch.challengedClanId === clanId) &&
+    ['pending', 'active'].includes(ch.status)
+  );
+  res.json(relevant);
+});
+
+// Report BO3 game result (called when a room in the BO3 series ends)
+// The room's game_result triggers this via the challengeId tag on the room
+function resolveClanBo3Game(challengeId, winnerTeamClanId) {
+  const ch = clanChallenges[challengeId];
+  if (!ch || ch.status !== 'active') return;
+  if (winnerTeamClanId === ch.challengerClanId) ch.series[0]++;
+  else if (winnerTeamClanId === ch.challengedClanId) ch.series[1]++;
+  // Best of 3 — check if someone reached 2 wins
+  if (ch.series[0] >= 2 || ch.series[1] >= 2) {
+    const winnerId = ch.series[0] >= 2 ? ch.challengerClanId : ch.challengedClanId;
+    const loserId = winnerId === ch.challengerClanId ? ch.challengedClanId : ch.challengerClanId;
+    ch.status = 'finished';
+    ch.winnerId = winnerId;
+    ch.finishedAt = Date.now();
+    // Award points
+    const data = readDB();
+    const winner = (data.clans||[]).find(c => c.id === winnerId);
+    const loser = (data.clans||[]).find(c => c.id === loserId);
+    if (winner) { winner.weeklyPoints = (winner.weeklyPoints||0) + 3; winner.bo3Wins = (winner.bo3Wins||0) + 1; }
+    if (loser) { loser.bo3Losses = (loser.bo3Losses||0) + 1; }
+    writeDB(data);
+    // Notify all members of both clans
+    const notifyMembers = (clanId, event, payload) => {
+      const clan = (data.clans||[]).find(c => c.id === clanId);
+      if (!clan) return;
+      clan.members.forEach(mId => {
+        io.sockets.sockets.forEach(s => { if (s.userId === mId) s.emit(event, payload); });
+      });
+    };
+    notifyMembers(winnerId, 'clan_bo3_won', { challengeId, series: ch.series, opponentName: loser?.name || '?' });
+    notifyMembers(loserId, 'clan_bo3_lost', { challengeId, series: ch.series, opponentName: winner?.name || '?' });
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// WEEKLY CLAN RESET — every Friday at 20:00
+// ══════════════════════════════════════════════════════
+
+function getNextFriday20h() {
+  const now = new Date();
+  const day = now.getDay(); // 0=Sun,1=Mon,...,5=Fri
+  let daysUntilFriday = (5 - day + 7) % 7;
+  if (daysUntilFriday === 0 && now.getHours() >= 20) daysUntilFriday = 7;
+  const next = new Date(now);
+  next.setDate(now.getDate() + daysUntilFriday);
+  next.setHours(20, 0, 0, 0);
+  return next.getTime() - Date.now();
+}
+
+function doWeeklyReset() {
+  try {
+    const data = readDB();
+    const clans = (data.clans || []);
+    if (!clans.length) return;
+    // Sort by weeklyPoints to find top 3
+    const ranked = [...clans].sort((a, b) => (b.weeklyPoints||0) - (a.weeklyPoints||0));
+    const top3 = ranked.slice(0, 3).filter(c => (c.weeklyPoints||0) > 0);
+    const weekMs = 7 * 24 * 60 * 60 * 1000;
+    top3.forEach((clan, idx) => {
+      const premiumDays = idx === 0 ? 14 : 7; // 1st = 2 weeks, 2nd/3rd = 1 week
+      const premiumMs = premiumDays * 24 * 60 * 60 * 1000;
+      clan.members.forEach(mId => {
+        const u = data.users.find(u => u.id === mId);
+        if (!u) return;
+        u.isPremium = true;
+        u.premiumUntil = Math.max(u.premiumUntil || Date.now(), Date.now()) + premiumMs;
+        // Notify online members
+        io.sockets.sockets.forEach(s => {
+          if (s.userId === mId) {
+            s.emit('premium_granted', { message: `🏆 Top ${idx+1} clan hebdo ! ${premiumDays} jours Premium offerts !` });
+          }
+        });
+      });
+      // Announce in clan chat
+      if (!clanMessages[clan.id]) clanMessages[clan.id] = [];
+      clanMessages[clan.id].push({ pseudo: 'Système', text: `🏆 Votre clan termine #${idx+1} ! Tous les membres reçoivent ${premiumDays} jours Premium !`, time: Date.now(), isSystem: true });
+    });
+    // Reset all clan weekly points
+    clans.forEach(c => { c.weeklyPoints = 0; c.bo3Wins = c.bo3Wins || 0; c.bo3Losses = c.bo3Losses || 0; });
+    writeDB(data);
+    // Clear finished challenges
+    Object.keys(clanChallenges).forEach(k => { if (clanChallenges[k].status === 'finished') delete clanChallenges[k]; });
+    // Broadcast reset to all connected clients
+    io.emit('clan_weekly_reset', { top3: top3.map((c, i) => ({ name: c.name, tag: c.tag, rank: i+1 })) });
+    console.log('[Weekly Reset] Done — top3:', top3.map(c => c.name));
+    // Schedule next reset
+    setTimeout(doWeeklyReset, getNextFriday20h());
+  } catch(e) { console.error('[Weekly Reset] Error:', e.message); }
+}
+// Schedule first reset
+setTimeout(doWeeklyReset, getNextFriday20h());
+console.log(`[Weekly Reset] Next reset in ${Math.round(getNextFriday20h()/1000/3600)}h`);
+
+// ══════════════════════════════════════════════════════
+// TOURNAMENTS (Premium create, all can join)
+// ══════════════════════════════════════════════════════
+
+const tournaments = {}; // id -> tournament obj
+
+app.post('/api/tournaments/create', express.json(), (req, res) => {
+  try {
+    const { userId, name, mode, maxTeams, description } = req.body;
+    const data = readDB();
+    const user = data.users.find(u => u.id === userId);
+    if (!user) return res.status(404).json({ error: 'Utilisateur introuvable' });
+    if (!user.isPremium) return res.status(403).json({ error: 'PREMIUM_REQUIRED' });
+    // 1 active tournament per user at a time
+    const hasActive = Object.values(tournaments).find(t => t.creatorId === userId && t.status !== 'finished');
+    if (hasActive) return res.status(400).json({ error: 'Vous avez déjà un tournoi actif' });
+    const id = 'tourney_' + Date.now();
+    const validMode = ['1v1','2v2','3v3','5v5'].includes(mode) ? mode : '5v5';
+    const maxT = Math.min(16, Math.max(4, parseInt(maxTeams) || 8));
+    tournaments[id] = {
+      id, name: (name||'Tournoi').slice(0,32), mode: validMode,
+      maxTeams: maxT, description: (description||'').slice(0,120),
+      creatorId: userId, creatorPseudo: user.pseudo,
+      status: 'open', teams: [], createdAt: Date.now()
+    };
+    io.emit('tournament_created', { id, name: tournaments[id].name, mode: validMode, creatorPseudo: user.pseudo });
+    res.json({ ok: true, id });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/tournaments', (req, res) => {
+  const list = Object.values(tournaments)
+    .filter(t => t.status === 'open')
+    .map(t => ({ ...t, teamCount: t.teams.length }));
+  res.json(list);
+});
+
+app.post('/api/tournaments/join', express.json(), (req, res) => {
+  try {
+    const { userId, tournamentId, teamName } = req.body;
+    const t = tournaments[tournamentId];
+    if (!t) return res.status(404).json({ error: 'Tournoi introuvable' });
+    if (t.status !== 'open') return res.status(400).json({ error: 'Tournoi fermé' });
+    if (t.teams.length >= t.maxTeams) return res.status(400).json({ error: 'Tournoi complet' });
+    if (t.teams.find(tm => tm.captainId === userId)) return res.status(400).json({ error: 'Déjà inscrit' });
+    const data = readDB();
+    const user = data.users.find(u => u.id === userId);
+    if (!user) return res.status(404).json({ error: 'Utilisateur introuvable' });
+    t.teams.push({ captainId: userId, captainPseudo: user.pseudo, teamName: (teamName||user.pseudo).slice(0,20), joinedAt: Date.now() });
+    if (t.teams.length >= t.maxTeams) t.status = 'full';
+    io.emit('tournament_updated', { id: tournamentId, teamCount: t.teams.length, maxTeams: t.maxTeams, status: t.status });
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/tournaments/start', express.json(), (req, res) => {
+  try {
+    const { userId, tournamentId } = req.body;
+    const t = tournaments[tournamentId];
+    if (!t) return res.status(404).json({ error: 'Tournoi introuvable' });
+    if (t.creatorId !== userId) return res.status(403).json({ error: 'Non autorisé' });
+    if (t.teams.length < 4) return res.status(400).json({ error: 'Minimum 4 équipes pour démarrer' });
+    t.status = 'started';
+    io.emit('tournament_started', { id: tournamentId, name: t.name });
+    res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });

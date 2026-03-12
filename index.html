@@ -546,7 +546,6 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
 
     <!-- CLANS TAB -->
     <div class="room-tab-content" id="tab-content-clans">
-
       <div style="max-width:1100px;margin:0 auto;display:flex;gap:24px;align-items:flex-start;">
 
         <!-- Left: my clan or create/browse -->
@@ -562,7 +561,25 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
                   </div>
                   <div id="my-clan-desc" style="color:var(--muted);font-size:13px;margin-top:4px;"></div>
                 </div>
-                <div style="display:flex;gap:8px;" id="my-clan-leader-actions"></div>
+                <div style="text-align:right;">
+                  <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:22px;color:var(--gold);" id="my-clan-weekly-pts">0</div>
+                  <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;">pts semaine</div>
+                </div>
+              </div>
+              <!-- Weekly stats bar -->
+              <div style="padding:12px 24px;background:rgba(247,201,72,0.05);border-bottom:1px solid var(--border);display:flex;gap:24px;">
+                <div style="text-align:center;">
+                  <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:16px;color:#2ecc71;" id="my-clan-bo3w">0</div>
+                  <div style="font-size:10px;color:var(--muted);">BO3 Victoires</div>
+                </div>
+                <div style="text-align:center;">
+                  <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:16px;color:var(--accent);" id="my-clan-bo3l">0</div>
+                  <div style="font-size:10px;color:var(--muted);">BO3 Défaites</div>
+                </div>
+                <div style="text-align:center;flex:1;">
+                  <div style="font-size:10px;color:var(--muted);margin-bottom:4px;">Reset vendredi 20h00</div>
+                  <div style="background:var(--border);border-radius:4px;height:4px;"><div id="my-clan-weekly-bar" style="height:4px;border-radius:4px;background:linear-gradient(90deg,var(--gold),#ff9500);width:0%;transition:width 0.5s;"></div></div>
+                </div>
               </div>
               <!-- Members -->
               <div style="padding:16px 24px;">
@@ -574,8 +591,20 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
                 <div style="font-weight:700;font-size:13px;margin-bottom:10px;color:var(--gold);text-transform:uppercase;letter-spacing:0.05em;">Demandes d'adhésion <span id="my-clan-req-count"></span></div>
                 <div id="my-clan-requests" style="display:flex;flex-direction:column;gap:8px;"></div>
               </div>
-              <div style="padding:12px 24px;border-top:1px solid var(--border);">
-                <button onclick="leaveClan()" style="background:rgba(255,70,85,0.1);border:1px solid rgba(255,70,85,0.3);color:var(--accent);border-radius:9px;padding:8px 18px;font-size:13px;font-weight:700;cursor:pointer;" id="leave-clan-btn">Quitter le clan</button>
+              <!-- BO3 Challenge section (leader only, 5+ membres) -->
+              <div id="clan-challenge-section" style="display:none;padding:0 24px 16px;border-top:1px solid var(--border);padding-top:16px;">
+                <div style="font-weight:700;font-size:13px;margin-bottom:10px;color:var(--gold);text-transform:uppercase;letter-spacing:0.05em;">⚔️ Challenges BO3</div>
+                <div id="clan-challenges-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px;"></div>
+                <div style="display:flex;gap:8px;align-items:center;">
+                  <select id="clan-challenge-target" style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:8px 12px;color:var(--text);font-size:13px;outline:none;">
+                    <option value="">Choisir un clan à challenger…</option>
+                  </select>
+                  <button onclick="sendClanChallenge()" style="background:linear-gradient(135deg,var(--gold),#ff9500);color:#000;border:none;border-radius:9px;padding:9px 16px;font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:13px;cursor:pointer;white-space:nowrap;">⚔️ Challenger</button>
+                </div>
+              </div>
+              <div style="padding:12px 24px;border-top:1px solid var(--border);display:flex;gap:8px;">
+                <div style="display:flex;gap:8px;" id="my-clan-leader-actions"></div>
+                <button onclick="leaveClan()" style="background:rgba(255,70,85,0.1);border:1px solid rgba(255,70,85,0.3);color:var(--accent);border-radius:9px;padding:8px 18px;font-size:13px;font-weight:700;cursor:pointer;" id="leave-clan-btn">Quitter</button>
               </div>
             </div>
           </div>
@@ -585,7 +614,6 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;">
               <!-- Create clan -->
               <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;position:relative;overflow:hidden;" id="clan-create-box">
-                <!-- Premium lock overlay (shown for non-premium) -->
                 <div id="clan-create-lock" style="display:none;position:absolute;inset:0;background:rgba(10,10,15,0.75);backdrop-filter:blur(3px);border-radius:16px;z-index:5;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;">
                   <div style="font-size:32px;">👑</div>
                   <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:15px;color:var(--gold);text-align:center;">Créer un clan</div>
@@ -620,15 +648,18 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
           </div>
         </div>
 
-        <!-- Right: clan leaderboard + chat -->
+        <!-- Right: leaderboard hebdo + chat -->
         <div style="flex:0 0 340px;display:flex;flex-direction:column;gap:16px;">
-          <!-- Clan leaderboard -->
+          <!-- Weekly clan leaderboard -->
           <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;">
             <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
-              <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:14px;">🏆 Classement clans</div>
-              <button onclick="loadClanLeaderboard()" style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;">↻</button>
+              <div>
+                <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:14px;">🏆 Classement hebdo</div>
+                <div style="font-size:10px;color:var(--muted);margin-top:2px;">Reset vendredi 20h · Top 3 → Premium</div>
+              </div>
+              <button onclick="loadClanLeaderboard()" style="background:none;border:none;color:var(--muted);font-size:14px;cursor:pointer;">↻</button>
             </div>
-            <div id="clan-leaderboard" style="max-height:320px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--border) transparent;">
+            <div id="clan-leaderboard" style="max-height:380px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--border) transparent;">
               <div style="padding:20px;text-align:center;color:var(--muted);font-size:12px;">Chargement…</div>
             </div>
           </div>
@@ -650,17 +681,56 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
 
     <!-- TOURNOIS TAB -->
     <div class="room-tab-content" id="tab-content-tournois">
-      <div style="max-width:700px;margin:0 auto;text-align:center;padding:40px 20px;">
-        <div style="font-size:48px;margin-bottom:16px;">🏆</div>
-        <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:28px;margin-bottom:10px;">Tournois</div>
-        <div style="color:var(--muted);font-size:15px;max-width:400px;margin:0 auto 32px;">Les tournois avec entrée payante arrivent bientôt. Prépare toi à affronter les meilleurs joueurs de la plateforme.</div>
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px;display:inline-block;min-width:320px;">
-          <div style="font-size:32px;margin-bottom:12px;">🚧</div>
-          <div style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:16px;margin-bottom:8px;">En construction</div>
-          <div style="color:var(--muted);font-size:13px;">Brackets • Prize Pool • Entrée payante</div>
-          <div style="margin-top:20px;background:rgba(255,70,85,0.08);border:1px solid rgba(255,70,85,0.2);border-radius:10px;padding:12px;color:var(--accent);font-size:13px;font-weight:600;">
-            🔔 Sois prêt — les tournois arrivent
+      <div style="max-width:900px;margin:0 auto;">
+        <!-- Header -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+          <div>
+            <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:22px;">🏆 Tournois</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:3px;">Créé par Premium · Ouvert à tous</div>
           </div>
+          <button onclick="toggleTournamentCreate()" id="btn-create-tournament" style="display:none;background:linear-gradient(135deg,#f7c948,#ff9500);color:#000;border:none;border-radius:12px;padding:10px 20px;font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:13px;cursor:pointer;">+ Créer un tournoi</button>
+        </div>
+
+        <!-- Create form (Premium only, hidden by default) -->
+        <div id="tournament-create-form" style="display:none;background:var(--surface);border:1px solid var(--gold);border-radius:16px;padding:20px;margin-bottom:20px;">
+          <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:15px;margin-bottom:16px;color:var(--gold);">👑 Créer un tournoi</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+            <div>
+              <label style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:5px;">Nom du tournoi</label>
+              <input id="t-name" placeholder="Ex: Revenge Cup #1" maxlength="32" style="width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:9px 12px;color:var(--text);font-size:13px;outline:none;"/>
+            </div>
+            <div>
+              <label style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:5px;">Mode</label>
+              <select id="t-mode" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:9px 12px;color:var(--text);font-size:13px;outline:none;">
+                <option value="5v5">5v5</option>
+                <option value="3v3">3v3</option>
+                <option value="2v2">2v2</option>
+                <option value="1v1">1v1</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:5px;">Max équipes</label>
+              <select id="t-maxteams" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:9px 12px;color:var(--text);font-size:13px;outline:none;">
+                <option value="4">4 équipes</option>
+                <option value="8" selected>8 équipes</option>
+                <option value="16">16 équipes</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:5px;">Description (optionnel)</label>
+              <input id="t-desc" placeholder="Ex: Tournoi ouvert à tous" maxlength="120" style="width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:9px 12px;color:var(--text);font-size:13px;outline:none;"/>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;">
+            <button onclick="createTournament()" style="background:var(--accent);color:#fff;border:none;border-radius:10px;padding:10px 24px;font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:14px;cursor:pointer;">🚀 Lancer</button>
+            <button onclick="toggleTournamentCreate()" style="background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:10px 16px;font-size:13px;cursor:pointer;">Annuler</button>
+          </div>
+          <div id="t-error" style="color:var(--accent);font-size:12px;margin-top:8px;"></div>
+        </div>
+
+        <!-- Tournaments list -->
+        <div id="tournaments-list" style="display:flex;flex-direction:column;gap:12px;">
+          <div style="text-align:center;color:var(--muted);font-size:13px;padding:40px;">Chargement…</div>
         </div>
       </div>
     </div>
@@ -1463,6 +1533,8 @@ function showMainTab(tab) {
   if (tab === 'admin') { refreshAdminLogs(); refreshAdminTickets(); loadAdminStats(); loadPremiumAdmin(); loadStaffStatus(); showAdminSection('stats'); }
   if (tab === 'tickets') loadMyTickets();
   if (tab === 'boutique') initBoutique();
+  if (tab === 'clans') initClanTab();
+  if (tab === 'tournois') loadTournaments();
 }
 
 // ── ADMIN SECTIONS ──
@@ -2094,6 +2166,57 @@ function initSocket() {
     if (state.clanId === clanId) appendClanChatMsg(msg);
   });
 
+  // ── CLAN CHALLENGE ──
+  socket.on('clan_challenge_received', ({ challengeId, from, tag }) => {
+    playBeep(660, 0.2);
+    notify(`⚔️ Le clan <b>[${tag}] ${from}</b> vous challenge en BO3 !`, {
+      accent: 'var(--gold)', duration: 10000,
+      onClick: () => { showMainTab('clans'); loadClanChallenges(); }
+    });
+    loadClanChallenges();
+  });
+  socket.on('clan_challenge_accepted', ({ challengeId, by }) => {
+    notify(`✅ <b>${by}</b> a accepté votre challenge BO3 !`, { accent: '#2ecc71', duration: 6000 });
+    loadClanChallenges();
+  });
+  socket.on('clan_challenge_declined', ({ challengeId, by }) => {
+    notify(`❌ <b>${by}</b> a refusé votre challenge BO3`, { accent: 'var(--accent)', duration: 5000 });
+    loadClanChallenges();
+  });
+  socket.on('clan_bo3_won', ({ series, opponentName }) => {
+    playRankUpSound();
+    notify(`🏆 Victoire BO3 contre <b>${opponentName}</b> ! (${series[0]}-${series[1]}) +3 pts`, { accent: 'var(--gold)', duration: 8000 });
+    loadMyClan(); loadClanLeaderboard(); loadClanChallenges();
+  });
+  socket.on('clan_bo3_lost', ({ series, opponentName }) => {
+    playEloLossSound();
+    notify(`💀 Défaite BO3 contre <b>${opponentName}</b> (${series[0]}-${series[1]})`, { accent: 'var(--accent)', duration: 6000 });
+    loadMyClan(); loadClanLeaderboard(); loadClanChallenges();
+  });
+
+  // ── WEEKLY RESET ──
+  socket.on('clan_weekly_reset', ({ top3 }) => {
+    const msg = top3.length
+      ? '🏆 Reset hebdo ! Top clans : ' + top3.map(c => `#${c.rank} [${c.tag}] ${c.name}`).join(' · ')
+      : '🔄 Reset hebdo des points de clan !';
+    notify(msg, { accent: 'var(--gold)', duration: 10000 });
+    loadClanLeaderboard(); loadMyClan();
+  });
+
+  // ── TOURNAMENTS ──
+  socket.on('tournament_created', ({ id, name, mode, creatorPseudo }) => {
+    notify(`🎯 Nouveau tournoi : <b>${name}</b> (${mode}) par ${creatorPseudo}`, {
+      accent: 'var(--gold)', duration: 7000,
+      onClick: () => { showMainTab('tournois'); loadTournaments(); }
+    });
+    loadTournaments();
+  });
+  socket.on('tournament_updated', () => loadTournaments());
+  socket.on('tournament_started', ({ name }) => {
+    notify(`🏁 Le tournoi <b>${name}</b> a commencé !`, { accent: 'var(--gold)', duration: 6000 });
+    loadTournaments();
+  });
+
   socket.on('room_logs', (logs) => {
     const container = document.getElementById('admin-room-logs');
     if (!container) return;
@@ -2253,6 +2376,8 @@ function initSocket() {
       document.getElementById('result-map').textContent = 'Mode ' + mode + ' — Gagnants : ' + winTeam.join(', ');
     } else {
       const iWon = winTeam.includes(state.pseudo);
+      const prevElo = state.elo;
+      const prevRank = getRankFromElo(prevElo);
       const myEloChange = eloChanges && eloChanges[state.userId] !== undefined ? eloChanges[state.userId] : (iWon ? 20 : -20);
       state.elo = Math.max(0, state.elo + myEloChange);
       if (!state.stats[mode]) state.stats[mode] = { elo: 500, wins: 0, losses: 0 };
@@ -2264,6 +2389,16 @@ function initSocket() {
       document.getElementById('result-map').textContent = 'Mode ' + mode + ' — Gagnants : ' + winTeam.join(', ');
       document.getElementById('nav-elo').textContent = state.elo;
       updateNavRank();
+      // 🔊 Sons ELO + rank-up
+      const newRank = getRankFromElo(state.elo);
+      if (newRank.name !== prevRank.name && state.elo > prevElo) {
+        setTimeout(() => playRankUpSound(), 600);
+        setTimeout(() => notify('🏆 RANK UP → ' + newRank.icon + ' ' + newRank.name + ' !', { duration: 5000, accent: newRank.color }), 700);
+      } else if (myEloChange > 0) {
+        setTimeout(() => playEloGainSound(), 400);
+      } else if (myEloChange < 0) {
+        setTimeout(() => playEloLossSound(), 400);
+      }
     }
     stopRoomEloWindow();
     const voteSection = document.getElementById('captain-vote-section');
@@ -3966,6 +4101,18 @@ async function loadMyClan() {
   } catch(e) {}
 }
 
+async function fillChallengeTargetSelect(myClanId) {
+  const select = document.getElementById('clan-challenge-target');
+  if (!select) return;
+  try {
+    const r = await fetch('/api/clans');
+    const allClans = await r.json();
+    const others = allClans.filter(c => c.id !== myClanId && c.memberCount >= 5);
+    select.innerHTML = '<option value="">Choisir un clan à challenger…</option>' +
+      others.map(c => `<option value="${c.id}">[${c.tag}] ${c.name} (${c.memberCount}/10)</option>`).join('');
+  } catch(e) {}
+}
+
 function renderMyClanPanel(clan) {
   const myPanel = document.getElementById('my-clan-panel');
   const noPanel = document.getElementById('no-clan-panel');
@@ -4029,6 +4176,30 @@ function renderMyClanPanel(clan) {
       </div>`).join('');
   } else {
     if (reqSection) reqSection.style.display = 'none';
+  }
+
+  // Weekly points + BO3 stats
+  const wPts = document.getElementById('my-clan-weekly-pts');
+  const wBar = document.getElementById('my-clan-weekly-bar');
+  const bo3w = document.getElementById('my-clan-bo3w');
+  const bo3l = document.getElementById('my-clan-bo3l');
+  if (wPts) wPts.textContent = clan.weeklyPoints || 0;
+  if (bo3w) bo3w.textContent = clan.bo3Wins || 0;
+  if (bo3l) bo3l.textContent = clan.bo3Losses || 0;
+  // Bar shows progress toward theoretical max (e.g. 15pts = 5 wins)
+  if (wBar) wBar.style.width = Math.min(100, ((clan.weeklyPoints || 0) / 15) * 100) + '%';
+
+  // BO3 challenge section (leader + 5+ membres)
+  const challengeSection = document.getElementById('clan-challenge-section');
+  if (challengeSection) {
+    if (isLeader && clan.members.length >= 5) {
+      challengeSection.style.display = '';
+      loadClanChallenges();
+      // Fill target selector
+      fillChallengeTargetSelect(clan.id);
+    } else {
+      challengeSection.style.display = 'none';
+    }
   }
 }
 
@@ -4123,7 +4294,7 @@ async function loadClanLeaderboard() {
             <div style="font-size:11px;color:var(--muted);">${c.memberCount}/10 membres</div>
           </div>
           <div style="text-align:right;flex-shrink:0;">
-            <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:12px;color:var(--gold);">${c.totalElo}</div>
+            <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:12px;color:var(--gold);">${c.totalElo} ELO</div>
             ${c.id === state.clanId
               ? '<span style="font-size:10px;background:rgba(255,209,102,0.15);color:var(--gold);border-radius:5px;padding:2px 6px;font-weight:700;">Mon clan</span>'
               : !state.clanId
@@ -4133,26 +4304,22 @@ async function loadClanLeaderboard() {
         </div>`).join('');
     }
     const medals = ['🥇','🥈','🥉'];
+    const premiumRewards = ['2 sem. Premium', '1 sem. Premium', '1 sem. Premium'];
     el.innerHTML = clans.map((c, i) => `
-      <div onclick="showClanModal('' + c.id + '')" style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid rgba(255,255,255,0.04);cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.03)'" onmouseout="this.style.background=''">
-        <div style="font-size:15px;min-width:20px;">${medals[i] || '<span style="font-size:11px;color:var(--muted);">#'+(i+1)+'</span>'}</div>
+      <div onclick="showClanModal('${c.id}')" style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.04);cursor:pointer;transition:background 0.15s;${i < 3 ? 'background:rgba(247,201,72,0.03);' : ''}" onmouseover="this.style.background='rgba(255,255,255,0.03)'" onmouseout="this.style.background='${i < 3 ? 'rgba(247,201,72,0.03)' : ''}'">
+        <div style="font-size:16px;min-width:22px;text-align:center;">${medals[i] || '<span style="font-size:11px;color:var(--muted);">#'+(i+1)+'</span>'}</div>
         <div style="flex:1;min-width:0;">
           <div style="display:flex;align-items:center;gap:6px;">
             <span style="background:var(--accent);color:#fff;font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:10px;padding:2px 7px;border-radius:4px;">${c.tag}</span>
             <span style="font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.name}</span>
+            ${c.id === state.clanId ? '<span style="font-size:9px;background:rgba(255,70,85,0.15);color:var(--accent);border-radius:3px;padding:1px 5px;font-weight:700;flex-shrink:0;">MON CLAN</span>' : ''}
           </div>
-          <div style="font-size:11px;color:var(--muted);margin-top:2px;">${c.memberCount}/10 membres</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px;">${c.memberCount}/10 membres · ${c.bo3Wins||0}W ${c.bo3Losses||0}L BO3${i < 3 ? ' · 🎁 ' + premiumRewards[i] : ''}</div>
         </div>
-        <div style="text-align:right;">
-          <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:13px;color:var(--gold);">${c.totalElo}</div>
-          <div style="font-size:10px;color:var(--muted);">ELO total</div>
+        <div style="text-align:right;flex-shrink:0;">
+          <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:15px;color:var(--gold);">${c.weeklyPoints || 0}<span style="font-size:10px;font-weight:600;color:var(--muted);"> pts</span></div>
+          <div style="font-size:10px;color:var(--muted);">${c.totalElo} ELO</div>
         </div>
-        ${c.id === state.clanId
-          ? `<span style="font-size:10px;background:rgba(255,209,102,0.15);color:var(--gold);border-radius:5px;padding:3px 8px;font-weight:700;flex-shrink:0;">Mon clan</span>`
-          : !state.clanId
-            ? `<button onclick="requestJoinClan('${c.id}',this)" style="background:rgba(255,70,85,0.1);border:1px solid rgba(255,70,85,0.3);color:var(--accent);border-radius:7px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0;">Postuler</button>`
-            : ''
-        }
       </div>`).join('');
   } catch(e) {}
 }
@@ -4199,6 +4366,182 @@ async function sendClanChat() {
     const d = await r.json();
     if (d.error) notify('❌ ' + d.error);
   } catch(e) {}
+}
+
+// ── BO3 CHALLENGES ──
+async function loadClanChallenges() {
+  if (!state.clanId) return;
+  const listEl = document.getElementById('clan-challenges-list');
+  if (!listEl) return;
+  try {
+    const r = await fetch('/api/clans/' + state.clanId + '/challenges');
+    const challenges = await r.json();
+    if (!challenges.length) {
+      listEl.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:6px 0;">Aucun challenge en cours</div>';
+      return;
+    }
+    listEl.innerHTML = challenges.map(ch => {
+      const isChallenger = ch.challengerClanId === state.clanId;
+      const opponent = isChallenger ? ch.challengedName : ch.challengerName;
+      const opponentTag = isChallenger ? ch.challengedTag : ch.challengerTag;
+      const score = isChallenger ? `${ch.series[0]}-${ch.series[1]}` : `${ch.series[1]}-${ch.series[0]}`;
+      if (ch.status === 'pending' && !isChallenger) {
+        return `<div style="background:rgba(247,201,72,0.08);border:1px solid rgba(247,201,72,0.25);border-radius:10px;padding:10px 12px;">
+          <div style="font-size:12px;font-weight:700;margin-bottom:8px;">⚔️ Challenge de <b>[${ch.challengerTag}] ${ch.challengerName}</b></div>
+          <div style="display:flex;gap:8px;">
+            <button onclick="respondClanChallenge('${ch.id}',true)" style="background:rgba(46,204,113,0.15);border:1px solid #2ecc71;color:#2ecc71;border-radius:7px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer;">✓ Accepter</button>
+            <button onclick="respondClanChallenge('${ch.id}',false)" style="background:rgba(255,70,85,0.1);border:1px solid rgba(255,70,85,0.3);color:var(--accent);border-radius:7px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer;">✕ Refuser</button>
+          </div>
+        </div>`;
+      }
+      if (ch.status === 'pending' && isChallenger) {
+        return `<div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px 12px;">
+          <div style="font-size:12px;color:var(--muted);">⏳ Challenge envoyé à <b>[${opponentTag}] ${opponent}</b> — En attente de réponse</div>
+        </div>`;
+      }
+      if (ch.status === 'active') {
+        return `<div style="background:rgba(255,70,85,0.05);border:1px solid rgba(255,70,85,0.2);border-radius:10px;padding:10px 12px;">
+          <div style="font-size:12px;font-weight:700;">🔴 BO3 vs <b>[${opponentTag}] ${opponent}</b></div>
+          <div style="font-size:20px;font-family:'Space Grotesk',sans-serif;font-weight:800;text-align:center;margin:6px 0;color:var(--gold);">${score}</div>
+        </div>`;
+      }
+      return '';
+    }).join('');
+  } catch(e) {}
+}
+
+async function sendClanChallenge() {
+  const select = document.getElementById('clan-challenge-target');
+  const targetId = select ? select.value : '';
+  if (!targetId) { notify('Choisis un clan à challenger'); return; }
+  try {
+    const r = await fetch('/api/clans/challenge', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ leaderId: state.userId, challengerClanId: state.clanId, challengedClanId: targetId })
+    });
+    const d = await r.json();
+    if (d.error) { notify('❌ ' + d.error); return; }
+    notify('⚔️ Challenge envoyé !', { accent: 'var(--gold)' });
+    loadClanChallenges();
+  } catch(e) { notify('❌ Erreur réseau'); }
+}
+
+async function respondClanChallenge(challengeId, accept) {
+  try {
+    const r = await fetch('/api/clans/challenge/respond', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ leaderId: state.userId, challengeId, accept })
+    });
+    const d = await r.json();
+    if (d.error) { notify('❌ ' + d.error); return; }
+    notify(accept ? '✅ Challenge accepté !' : '✕ Challenge refusé', { accent: accept ? '#2ecc71' : 'var(--muted)' });
+    loadClanChallenges();
+  } catch(e) { notify('❌ Erreur réseau'); }
+}
+
+// ── TOURNAMENTS ──
+async function loadTournaments() {
+  const listEl = document.getElementById('tournaments-list');
+  if (!listEl) return;
+  const btnCreate = document.getElementById('btn-create-tournament');
+  if (btnCreate) btnCreate.style.display = state.isPremium ? '' : 'none';
+  try {
+    const r = await fetch('/api/tournaments');
+    const list = await r.json();
+    if (!list.length) {
+      listEl.innerHTML = `<div style="text-align:center;padding:60px 20px;">
+        <div style="font-size:40px;margin-bottom:12px;">🏆</div>
+        <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:18px;margin-bottom:8px;">Aucun tournoi en cours</div>
+        <div style="color:var(--muted);font-size:13px;">${state.isPremium ? 'Crée le premier tournoi !' : 'Un joueur Premium peut créer un tournoi ouvert à tous.'}</div>
+      </div>`;
+      return;
+    }
+    listEl.innerHTML = list.map(t => {
+      const alreadyIn = t.teams.find(tm => tm.captainId === state.userId);
+      const full = t.teamCount >= t.maxTeams;
+      return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:20px;">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px;">
+          <div>
+            <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:16px;">${t.name}</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:2px;">Mode ${t.mode.toUpperCase()} · Créé par ${t.creatorPseudo}${t.description ? ' · ' + t.description : ''}</div>
+          </div>
+          <span style="background:rgba(46,204,113,0.15);color:#2ecc71;border:1px solid rgba(46,204,113,0.3);border-radius:8px;padding:4px 12px;font-size:12px;font-weight:700;white-space:nowrap;">${t.status === 'full' ? '🔒 Complet' : '🟢 Ouvert'}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:16px;margin-bottom:14px;">
+          <div style="flex:1;background:var(--border);border-radius:4px;height:6px;">
+            <div style="height:6px;border-radius:4px;background:linear-gradient(90deg,var(--accent),#ff9500);width:${Math.round((t.teamCount/t.maxTeams)*100)}%;transition:width 0.4s;"></div>
+          </div>
+          <span style="font-size:12px;font-weight:700;">${t.teamCount}/${t.maxTeams} équipes</span>
+        </div>
+        <div style="display:flex;gap:8px;">
+          ${alreadyIn
+            ? `<span style="background:rgba(46,204,113,0.12);color:#2ecc71;border-radius:9px;padding:8px 18px;font-size:13px;font-weight:700;">✓ Inscrit</span>`
+            : full ? `<span style="color:var(--muted);font-size:13px;padding:8px 0;">Complet</span>`
+            : `<button onclick="joinTournament('${t.id}')" style="background:var(--accent);color:#fff;border:none;border-radius:10px;padding:9px 20px;font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:13px;cursor:pointer;">S'inscrire</button>`}
+          ${t.creatorId === state.userId && t.teamCount >= 4
+            ? `<button onclick="startTournament('${t.id}')" style="background:linear-gradient(135deg,var(--gold),#ff9500);color:#000;border:none;border-radius:10px;padding:9px 20px;font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:13px;cursor:pointer;">🚀 Démarrer</button>`
+            : ''}
+        </div>
+        ${t.teams.length ? `<div style="margin-top:12px;border-top:1px solid var(--border);padding-top:10px;"><div style="font-size:11px;color:var(--muted);margin-bottom:6px;">INSCRITS</div><div style="display:flex;flex-wrap:wrap;gap:6px;">${t.teams.map(tm => `<span style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:3px 9px;font-size:11px;font-weight:700;">${tm.teamName}</span>`).join('')}</div></div>` : ''}
+      </div>`;
+    }).join('');
+  } catch(e) {}
+}
+
+function toggleTournamentCreate() {
+  const form = document.getElementById('tournament-create-form');
+  if (!form) return;
+  form.style.display = form.style.display === 'none' ? '' : 'none';
+}
+
+async function createTournament() {
+  const name = document.getElementById('t-name')?.value.trim();
+  const mode = document.getElementById('t-mode')?.value;
+  const maxTeams = document.getElementById('t-maxteams')?.value;
+  const desc = document.getElementById('t-desc')?.value.trim();
+  const errEl = document.getElementById('t-error');
+  if (!name) { if (errEl) errEl.textContent = 'Nom requis'; return; }
+  try {
+    const r = await fetch('/api/tournaments/create', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: state.userId, name, mode, maxTeams, description: desc })
+    });
+    const d = await r.json();
+    if (d.error) {
+      if (errEl) errEl.textContent = d.error === 'PREMIUM_REQUIRED' ? '👑 Premium requis' : d.error;
+      return;
+    }
+    notify('🏆 Tournoi créé !', { accent: 'var(--gold)' });
+    toggleTournamentCreate();
+    loadTournaments();
+  } catch(e) { if (errEl) errEl.textContent = 'Erreur réseau'; }
+}
+
+async function joinTournament(id) {
+  const teamName = state.clanId ? state._myClanData?.tag || state.pseudo : state.pseudo;
+  try {
+    const r = await fetch('/api/tournaments/join', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: state.userId, tournamentId: id, teamName })
+    });
+    const d = await r.json();
+    if (d.error) { notify('❌ ' + d.error); return; }
+    notify('✅ Inscrit au tournoi !', { accent: '#2ecc71' });
+    loadTournaments();
+  } catch(e) { notify('❌ Erreur réseau'); }
+}
+
+async function startTournament(id) {
+  try {
+    const r = await fetch('/api/tournaments/start', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: state.userId, tournamentId: id })
+    });
+    const d = await r.json();
+    if (d.error) { notify('❌ ' + d.error); return; }
+    notify('🚀 Tournoi lancé !', { accent: 'var(--gold)' });
+    loadTournaments();
+  } catch(e) { notify('❌ Erreur réseau'); }
 }
 
 function copyCode() {
@@ -4684,6 +5027,72 @@ function playBeep(freq = 440, duration = 0.1) {
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
     osc.start(ctx.currentTime);
     osc.stop(ctx.currentTime + duration);
+  } catch(e) {}
+}
+
+// 🔊 Son gain ELO — arpège ascendant léger
+function playEloGainSound() {
+  try {
+    const ctx = getAudioCtx();
+    const notes = [523, 659, 784, 1047]; // C5 E5 G5 C6
+    notes.forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type = 'triangle';
+      osc.frequency.value = freq;
+      const t = ctx.currentTime + i * 0.08;
+      gain.gain.setValueAtTime(0, t);
+      gain.gain.linearRampToValueAtTime(0.18, t + 0.03);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+      osc.start(t); osc.stop(t + 0.25);
+    });
+  } catch(e) {}
+}
+
+// 🔊 Son perte ELO — arpège descendant
+function playEloLossSound() {
+  try {
+    const ctx = getAudioCtx();
+    const notes = [392, 330, 262]; // G4 E4 C4
+    notes.forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      const t = ctx.currentTime + i * 0.1;
+      gain.gain.setValueAtTime(0.15, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+      osc.start(t); osc.stop(t + 0.3);
+    });
+  } catch(e) {}
+}
+
+// 🔊 Son rank-up — fanfare épique
+function playRankUpSound() {
+  try {
+    const ctx = getAudioCtx();
+    // Accord final + sweep
+    const sequence = [
+      { freq: 523, t: 0,    dur: 0.15 },
+      { freq: 659, t: 0.1,  dur: 0.15 },
+      { freq: 784, t: 0.2,  dur: 0.15 },
+      { freq: 1047,t: 0.3,  dur: 0.4  },
+      { freq: 1319,t: 0.35, dur: 0.5  },
+    ];
+    sequence.forEach(({ freq, t, dur }) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type = 'triangle';
+      osc.frequency.value = freq;
+      const start = ctx.currentTime + t;
+      gain.gain.setValueAtTime(0, start);
+      gain.gain.linearRampToValueAtTime(0.22, start + 0.04);
+      gain.gain.exponentialRampToValueAtTime(0.001, start + dur);
+      osc.start(start); osc.stop(start + dur);
+    });
   } catch(e) {}
 }
 
