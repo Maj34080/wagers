@@ -624,6 +624,23 @@ app.post('/api/admin/backup', async (req, res) => {
   res.json({ ok: true, message: 'Backup envoyée sur Discord' });
 });
 
+// Route pour restaurer la DB depuis un upload direct (admin only)
+app.post('/api/admin/restore-db', (req, res) => {
+  if (!isAdminReq(req)) return res.status(403).json({ error: 'Interdit' });
+  try {
+    const data = req.body;
+    if (!data || !Array.isArray(data.users)) return res.status(400).json({ error: 'Format invalide' });
+    const fs = require('fs');
+    const DBFILE_PATH = process.env.NODE_ENV === 'production' ? '/tmp/db.json' : './db.json';
+    fs.writeFileSync(DBFILE_PATH, JSON.stringify(data, null, 2));
+    // Reload in memory
+    const fresh = db.loadDB();
+    res.json({ ok: true, users: fresh.users.length });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 io.on('connection', (socket) => {
 
   // ── REGISTER ──
