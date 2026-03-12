@@ -4265,29 +4265,36 @@ function setVoteButtonsLocked(locked) {
 function startVoteLockTimer(startedAt) {
   _roomStartedAt = startedAt || Date.now();
   const LOCK_MS = 5 * 60 * 1000;
-  const countdown = document.getElementById('vote-lock-countdown');
-  const declareCountdown = document.getElementById('declare-lock-countdown');
-  const voteBtns = document.getElementById('vote-buttons');
-  if (voteBtns) voteBtns.style.display = 'flex';
   clearInterval(_voteLockTimer);
 
+  // Show buttons immediately, locked
+  const voteBtns = document.getElementById('vote-buttons');
+  if (voteBtns) voteBtns.style.display = 'flex';
+  setVoteButtonsLocked(true);
+
   function tick() {
-    const elapsed = Date.now() - _roomStartedAt;
-    const remaining = LOCK_MS - elapsed;
+    const remaining = LOCK_MS - (Date.now() - _roomStartedAt);
+    const countdown = document.getElementById('vote-lock-countdown');
+    const declareCountdown = document.getElementById('declare-lock-countdown');
+
     if (remaining <= 0) {
       clearInterval(_voteLockTimer);
+      _voteLockTimer = null;
+      if (countdown) countdown.textContent = '0:00';
+      if (declareCountdown) declareCountdown.textContent = '0:00';
       setVoteButtonsLocked(false);
       return;
     }
+
     const m = Math.floor(remaining / 60000);
     const s = Math.floor((remaining % 60000) / 1000);
-    const txt = `${m}:${s.toString().padStart(2,'0')}`;
+    const txt = `${m}:${s.toString().padStart(2, '0')}`;
     if (countdown) countdown.textContent = txt;
     if (declareCountdown) declareCountdown.textContent = txt;
-    setVoteButtonsLocked(true);
   }
+
   tick();
-  _voteLockTimer = setInterval(tick, 1000);
+  _voteLockTimer = setInterval(tick, 500); // 500ms pour être réactif
 }
 
 function voteResult(myTeamWon) {
