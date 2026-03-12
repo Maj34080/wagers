@@ -2135,6 +2135,7 @@ app.get('/api/clans', (req, res) => {
         id: c.id, name: c.name, tag: c.tag, description: c.description || '',
         leaderId: c.leaderId, members, memberCount: members.length, totalElo,
         weeklyPoints: c.weeklyPoints || 0, bo3Wins: c.bo3Wins || 0, bo3Losses: c.bo3Losses || 0,
+        bo3ReadyCount: (c.bo3ReadyMembers || []).length,
         createdAt: c.createdAt
       };
     }).sort((a, b) => (b.weeklyPoints - a.weeklyPoints) || (b.totalElo - a.totalElo));
@@ -2587,6 +2588,40 @@ app.post('/api/tournaments/resolve', express.json(), (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// Admin kick/disqualify a team from tournament
+app.post('/api/tournaments/kick-team', express.json(), (req, res) => {
+  try {
+    const { adminKey, tournamentId, teamName } = req.body;
+    if (adminKey !== ADMIN_KEY) return res.status(403).json({ error: 'Non autorisé' });
+    const t = tournaments[tournamentId];
+    if (!t) return res.status(404).json({ error: 'Tournoi introuvable' });
+    // Remove from teams
+    const before = t.teams.length;
+    t.teams = t.teams.filter(tm => tm.teamName !== teamName);
+    // If in bracket: mark all their matches as forfeit
+    if (t.bracket) {
+      t.bracket.forEach(round => {
+        round.forEach(match => {
+          if (!match.winner) {
+            if (match.team1 === teamName) { match.winner = match.team2; match.forfeit = teamName; }
+            else if (match.team2 === teamName) { match.winner = match.team1; match.forfeit = teamName; }
+          }
+        });
+      });
+    }
+    io.emit('tournament_updated', { id: tournamentId, teamCount: t.teams.length, maxTeams: t.maxTeams, status: t.status });
+    io.emit('tournament_team_disqualified', { tournamentId, teamName });
+    res.json({ ok: true, removed: before - t.teams.length });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Get full tournament detail (for spectator view)
+app.get('/api/tournaments/:id', (req, res) => {
+  const t = tournaments[req.params.id];
+  if (!t) return res.status(404).json({ error: 'Introuvable' });
+  res.json(t);
+});
+
 // ── BO3 READY SYSTEM ──
 app.post('/api/clans/bo3-ready', express.json(), (req, res) => {
   try {
@@ -2613,3 +2648,34 @@ app.post('/api/clans/bo3-ready', express.json(), (req, res) => {
 });
 
 // Include bo3ReadyMembers in clan user endpoint
+
+// Admin: fill own clan with bots for BO3 testing
+app.post('/api/admin/clan-bots', express.json(), (req, res) => {
+  try {
+    const { adminKey, userId } = req.body;
+    if (adminKey !== ADMIN_KEY) return res.status(403).json({ error: 'Non autorisé' });
+    const data = readDB();
+    const user = data.users.find(u => u.id === userId);
+    if (!user || !user.clanId) return res.status(400).json({ error: 'Tu dois être dans un clan' });
+    const clan = (data.clans||[]).find(c => c.id === user.clanId);
+    if (!clan) return res.status(404).json({ error: 'Clan introuvable' });
+    // Add bot members until 5 total (or existing count if already ≥5)
+    const needed = Math.max(0, 5 - clan.members.length);
+    for (let i = 0; i < needed; i++) {
+      const botId = 'bot_clan_' + Date.now() + '_' + i;
+      const botUser = { id: botId, pseudo: 'BotClan' + (i+1), stats: { '5v5': { elo: 500, wins: 0, losses: 0 } }, isBot: true, clanId: clan.id };
+      data.users.push(botUser);
+      clan.members.push(botId);
+    }
+    // Mark all members ready for BO3
+    clan.bo3ReadyMembers = [...clan.members];
+    writeDB(data);
+    // Notify clan members
+    clan.members.forEach(mId => {
+      io.sockets.sockets.forEach(s => {
+        if (s.userId === mId) s.emit('clan_bo3_ready_update', { clanId: clan.id, readyCount: clan.bo3ReadyMembers.length, readyMembers: clan.bo3ReadyMembers });
+      });
+    });
+    res.json({ ok: true, memberCount: clan.members.length, botsAdded: needed });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});

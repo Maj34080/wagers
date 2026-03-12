@@ -1058,6 +1058,14 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
             <button onclick="adminLookupPlayer()" style="background:#a78bfa;color:#fff;border:none;border-radius:10px;padding:10px 18px;font-weight:800;font-size:13px;cursor:pointer;">Rechercher</button>
           </div>
           <div id="lookup-result"></div>
+
+          <!-- Admin clan bots -->
+          <div style="margin-top:24px;padding-top:18px;border-top:1px solid var(--border);">
+            <div style="font-weight:700;font-size:13px;margin-bottom:12px;color:var(--gold);">🤖 Remplir un clan de bots (test BO3)</div>
+            <div style="font-size:12px;color:var(--muted);margin-bottom:10px;">Ajoute des membres bots dans ton clan pour tester les challenges BO3 (et les marque tous Prêt)</div>
+            <button onclick="adminFillClanWithBots()" style="background:rgba(255,209,102,0.1);border:1px solid var(--gold);color:var(--gold);border-radius:10px;padding:9px 18px;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:13px;cursor:pointer;">🤖 Remplir mon clan de bots</button>
+            <div id="admin-clan-bots-result" style="font-size:12px;color:var(--muted);margin-top:8px;"></div>
+          </div>
         </div>
 
         <!-- LOGS ADMIN -->
@@ -2267,7 +2275,18 @@ function initSocket() {
     notify(`❌ Ton équipe a été désinscrite du tournoi <b>${tournamentName}</b>`, { accent: 'var(--accent)', duration: 6000 });
     loadTournaments();
   });
-  socket.on('tournament_match_result', () => loadTournaments());
+  socket.on('tournament_team_disqualified', ({ teamName }) => {
+    notify(`🚫 Équipe <b>${teamName}</b> disqualifiée du tournoi`, { accent: 'var(--accent)', duration: 5000 });
+    loadTournaments();
+    // Refresh spectator modal if open
+    const modal = document.getElementById('tournament-spectator-modal');
+    if (modal && modal.dataset.tournamentId) openTournamentSpectator(modal.dataset.tournamentId);
+  });
+  socket.on('tournament_match_result', () => {
+    loadTournaments();
+    const modal = document.getElementById('tournament-spectator-modal');
+    if (modal && modal.dataset.tournamentId) openTournamentSpectator(modal.dataset.tournamentId);
+  });
   socket.on('tournament_match_disputed', ({ tournamentId }) => {
     if (state.isAdmin) notify('⚠️ Désaccord sur un match de tournoi — intervention requise', { accent: 'var(--gold)', duration: 8000 });
   });
@@ -3557,6 +3576,24 @@ async function adminBanFromLookup(userId) {
   const r = await fetch('/api/admin/ban', { method:'POST', headers:{'Content-Type':'application/json','x-admin-key':'revenge_admin_secret'}, body: JSON.stringify({ userId, reason }) });
   if (r.ok) notify('🚫 Joueur banni', { accent: 'var(--accent)' });
 }
+
+async function adminFillClanWithBots() {
+  if (!state.isAdmin) return;
+  if (!state.clanId) { notify('❌ Tu dois être dans un clan', { accent: 'var(--accent)' }); return; }
+  const resultEl = document.getElementById('admin-clan-bots-result');
+  if (resultEl) resultEl.textContent = '⏳ Ajout des bots…';
+  try {
+    const r = await fetch('/api/admin/clan-bots', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ adminKey: 'revenge_admin_secret', userId: state.userId })
+    });
+    const d = await r.json();
+    if (d.error) { if (resultEl) resultEl.textContent = '❌ ' + d.error; return; }
+    if (resultEl) resultEl.textContent = `✅ ${d.botsAdded} bot(s) ajouté(s) — clan à ${d.memberCount} membres, tous marqués Prêt BO3`;
+    notify('🤖 Clan rempli de bots et tous marqués prêts !', { accent: 'var(--gold)', duration: 5000 });
+    loadMyClan(); // refresh clan panel
+  } catch(e) { if (resultEl) resultEl.textContent = '❌ Erreur réseau'; }
+}
 async function adminMuteFromLookup(userId) {
   const r = await fetch('/api/admin/mute', { method:'POST', headers:{'Content-Type':'application/json','x-admin-key':'revenge_admin_secret'}, body: JSON.stringify({ userId, duration: 60 }) });
   if (r.ok) notify('🔇 Joueur mute 1h', { accent: 'orange' });
@@ -4160,9 +4197,18 @@ async function fillChallengeTargetSelect(myClanId) {
   try {
     const r = await fetch('/api/clans');
     const allClans = await r.json();
-    const others = allClans.filter(c => c.id !== myClanId && c.memberCount >= 5);
+    const others = allClans.filter(c => c.id !== myClanId);
+    if (!others.length) {
+      select.innerHTML = '<option value="">Aucun autre clan</option>';
+      return;
+    }
     select.innerHTML = '<option value="">Choisir un clan à challenger…</option>' +
-      others.map(c => `<option value="${c.id}">[${c.tag}] ${c.name} (${c.memberCount}/10)</option>`).join('');
+      others.map(c => {
+        const ready = c.bo3ReadyCount || 0;
+        const canBeChallenged = ready >= 5;
+        const label = `[${c.tag}] ${c.name} (${c.memberCount}/10 membres${canBeChallenged ? ' · ✓ Prêt' : ` · ${ready}/5 prêts`})`;
+        return `<option value="${c.id}" ${canBeChallenged ? '' : 'disabled style="color:rgba(255,255,255,0.3);"'}>${label}</option>`;
+      }).join('');
   } catch(e) {}
 }
 
@@ -4269,7 +4315,7 @@ function renderMyClanPanel(clan) {
       }
       if (challengeForm) challengeForm.style.opacity = canChallenge ? '1' : '0.5';
       loadClanChallenges();
-      if (canChallenge) fillChallengeTargetSelect(clan.id);
+      fillChallengeTargetSelect(clan.id);
     } else {
       challengeSection.style.display = 'none';
     }
@@ -4627,6 +4673,9 @@ async function loadTournaments() {
           ${t.creatorId === state.userId && (t.teamCount||0) >= 2 && t.status !== 'started'
             ? `<button onclick="startTournament('${t.id}')" style="background:linear-gradient(135deg,var(--gold),#ff9500);color:#000;border:none;border-radius:10px;padding:9px 20px;font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:13px;cursor:pointer;">🚀 Démarrer</button>`
             : ''}
+          ${(t.creatorId === state.userId || state.isAdmin) && (t.status === 'started' || t.bracket)
+            ? `<button onclick="openTournamentSpectator('${t.id}')" style="background:rgba(167,139,250,0.12);border:1px solid #a78bfa;color:#a78bfa;border-radius:10px;padding:9px 16px;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:13px;cursor:pointer;">👁 Voir le tournoi</button>`
+            : ''}
         </div>
         ${t.teams && t.teams.length ? `<div style="margin-top:12px;border-top:1px solid var(--border);padding-top:10px;"><div style="font-size:11px;color:var(--muted);margin-bottom:6px;">ÉQUIPES INSCRITES</div><div style="display:flex;flex-wrap:wrap;gap:6px;">${t.teams.map(tm => `<span style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:3px 9px;font-size:11px;font-weight:700;">${tm.clanTag ? '['+tm.clanTag+'] ':''} ${tm.teamName}</span>`).join('')}</div></div>` : ''}
         ${bracketHtml}
@@ -4767,6 +4816,152 @@ async function voteTournamentMatch(tournamentId, roundIdx, matchIdx, winner) {
     const d = await r.json();
     if (d.error) { notify('❌ ' + d.error); return; }
     notify(`✅ Vote enregistré — ${winner}`, { accent: '#2ecc71', duration: 3000 });
+    loadTournaments();
+  } catch(e) { notify('❌ Erreur réseau'); }
+}
+
+// ── TOURNAMENT SPECTATOR MODAL ──
+async function openTournamentSpectator(tournamentId) {
+  let modal = document.getElementById('tournament-spectator-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'tournament-spectator-modal';
+    document.body.appendChild(modal);
+  }
+  modal.dataset.tournamentId = tournamentId;
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(10,10,15,0.92);backdrop-filter:blur(8px);z-index:10000;overflow-y:auto;';
+
+  let t;
+  try {
+    const r = await fetch('/api/tournaments/' + tournamentId);
+    t = await r.json();
+  } catch(e) { notify('❌ Erreur chargement tournoi'); return; }
+
+  const isCreator = t.creatorId === state.userId;
+  const isAdmin = state.isAdmin;
+
+  // Build bracket HTML
+  function buildBracket(bracket, teams) {
+    if (!bracket || !bracket.length) return '<div style="color:var(--muted);text-align:center;padding:40px;">Bracket pas encore généré</div>';
+    return `<div style="display:flex;gap:0;overflow-x:auto;padding-bottom:12px;align-items:flex-start;">
+      ${bracket.map((round, ri) => `
+        <div style="min-width:220px;flex-shrink:0;">
+          <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:14px;padding:0 8px;">Round ${ri+1}</div>
+          <div style="display:flex;flex-direction:column;gap:${ri===0?16:32}px;padding:${ri===0?0:16}px 8px;">
+            ${round.map((match, mi) => {
+              const myTeam = teams.find(tm => tm.memberIds && tm.memberIds.includes(state.userId));
+              const inMatch = myTeam && (match.team1 === myTeam.teamName || match.team2 === myTeam.teamName);
+              const isBye = match.team2 === 'BYE';
+              return `<div style="background:var(--surface);border:1px solid ${match.disputed?'rgba(255,70,85,0.6)':match.forfeit?'rgba(255,165,0,0.4)':'var(--border)'};border-radius:12px;overflow:hidden;${match.disputed?'box-shadow:0 0 12px rgba(255,70,85,0.2)':''}">
+                <div style="padding:10px 14px;${match.winner===match.team1?'background:rgba(46,204,113,0.06);':''}border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                  <span style="font-weight:700;font-size:13px;${match.winner===match.team1?'color:#2ecc71;':match.winner&&match.winner!==match.team1?'color:rgba(255,255,255,0.3);':''}">${match.team1||'TBD'}</span>
+                  ${!match.winner && !isBye && inMatch ? `<button onclick="voteTournamentMatch('${tournamentId}',${ri},${mi},'${match.team1}')" style="background:rgba(46,204,113,0.12);border:1px solid rgba(46,204,113,0.4);color:#2ecc71;border-radius:6px;padding:3px 8px;font-size:10px;font-weight:700;cursor:pointer;flex-shrink:0;">▲ Win</button>` : ''}
+                  ${match.winner===match.team1?'<span style="font-size:14px;">✓</span>':''}
+                </div>
+                <div style="padding:10px 14px;${match.winner===match.team2?'background:rgba(46,204,113,0.06);':''}display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                  <span style="font-weight:700;font-size:13px;${isBye?'color:rgba(255,255,255,0.25);':match.winner===match.team2?'color:#2ecc71;':match.winner&&match.winner!==match.team2?'color:rgba(255,255,255,0.3);':''}">${match.team2||'TBD'}</span>
+                  ${!match.winner && !isBye && inMatch ? `<button onclick="voteTournamentMatch('${tournamentId}',${ri},${mi},'${match.team2}')" style="background:rgba(46,204,113,0.12);border:1px solid rgba(46,204,113,0.4);color:#2ecc71;border-radius:6px;padding:3px 8px;font-size:10px;font-weight:700;cursor:pointer;flex-shrink:0;">▲ Win</button>` : ''}
+                  ${match.winner===match.team2?'<span style="font-size:14px;">✓</span>':''}
+                </div>
+                ${match.forfeit ? `<div style="padding:4px 14px;background:rgba(255,165,0,0.08);font-size:10px;color:orange;">🏳️ ${match.forfeit} forfait</div>` : ''}
+                ${match.disputed ? `<div style="padding:6px 14px;background:rgba(255,70,85,0.08);display:flex;align-items:center;justify-content:space-between;">
+                  <span style="font-size:10px;color:var(--accent);font-weight:700;">⚠️ Litige</span>
+                  ${isAdmin ? `<div style="display:flex;gap:4px;">
+                    <button onclick="adminResolveTournamentMatch('${tournamentId}',${ri},${mi},'${match.team1}')" style="background:rgba(255,255,255,0.06);border:1px solid var(--border);color:var(--text);border-radius:5px;padding:2px 7px;font-size:10px;cursor:pointer;">${match.team1.slice(0,8)}</button>
+                    <button onclick="adminResolveTournamentMatch('${tournamentId}',${ri},${mi},'${match.team2}')" style="background:rgba(255,255,255,0.06);border:1px solid var(--border);color:var(--text);border-radius:5px;padding:2px 7px;font-size:10px;cursor:pointer;">${match.team2.slice(0,8)}</button>
+                  </div>` : ''}
+                </div>` : ''}
+              </div>`;
+            }).join('')}
+          </div>
+        </div>
+        ${ri < bracket.length-1 ? `<div style="flex-shrink:0;width:32px;display:flex;align-items:center;justify-content:center;padding-top:30px;"><div style="width:100%;height:2px;background:var(--border);border-radius:1px;"></div></div>` : ''}
+      `).join('')}
+    </div>`;
+  }
+
+  // Build teams list with admin kick button
+  function buildTeamsList(teams) {
+    if (!teams || !teams.length) return '<div style="color:var(--muted);font-size:13px;text-align:center;padding:20px;">Aucune équipe inscrite</div>';
+    return teams.map(tm => `
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 16px;display:flex;align-items:center;gap:12px;">
+        <div style="flex:1;">
+          <div style="font-weight:800;font-size:14px;">${tm.clanTag ? `<span style="color:var(--accent);">[${tm.clanTag}]</span> ` : ''}${tm.teamName}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:3px;">Cap: ${tm.captainPseudo} · ${(tm.memberIds||[]).length} joueur(s)</div>
+        </div>
+        ${isAdmin ? `<button onclick="adminKickTournamentTeam('${tournamentId}','${tm.teamName.replace(/'/g,"\\'")}')" style="background:rgba(255,70,85,0.1);border:1px solid rgba(255,70,85,0.35);color:var(--accent);border-radius:9px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">🚫 Disqualif.</button>` : ''}
+      </div>
+    `).join('');
+  }
+
+  const dateStr = t.scheduledAt ? new Date(t.scheduledAt).toLocaleDateString('fr-FR', { weekday:'long', day:'2-digit', month:'long', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '?';
+  const statusColor = t.status === 'started' ? 'var(--gold)' : t.status === 'finished' ? '#2ecc71' : 'var(--muted)';
+  const statusLabel = { open:'Inscriptions ouvertes', full:'Complet', started:'En cours', finished:'Terminé', cancelled:'Annulé' }[t.status] || t.status;
+
+  modal.innerHTML = `
+    <div style="max-width:1100px;margin:0 auto;padding:24px 16px 60px;">
+      <!-- Header -->
+      <div style="display:flex;align-items:center;gap:16px;margin-bottom:24px;">
+        <button onclick="document.getElementById('tournament-spectator-modal').remove()" style="background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.1);color:var(--text);width:40px;height:40px;border-radius:50%;cursor:pointer;font-size:18px;flex-shrink:0;">←</button>
+        <div style="flex:1;">
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+            <div style="font-family:'Syne',sans-serif;font-weight:900;font-size:24px;">${t.name}</div>
+            <span style="background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:4px 12px;font-size:12px;font-weight:700;color:${statusColor};">${statusLabel}</span>
+            ${isAdmin ? '<span style="background:rgba(255,70,85,0.12);border:1px solid rgba(255,70,85,0.3);color:var(--accent);border-radius:8px;padding:4px 10px;font-size:11px;font-weight:700;">👁 MODE ADMIN</span>' : ''}
+            ${isCreator && !isAdmin ? '<span style="background:rgba(247,201,72,0.1);border:1px solid rgba(247,201,72,0.3);color:var(--gold);border-radius:8px;padding:4px 10px;font-size:11px;font-weight:700;">👑 Créateur</span>' : ''}
+          </div>
+          <div style="font-size:12px;color:var(--muted);margin-top:4px;">${t.mode.toUpperCase()} · ${t.teams.length}/${t.maxTeams} équipes · 📅 ${dateStr}</div>
+        </div>
+        <button onclick="openTournamentSpectator('${tournamentId}')" style="background:rgba(255,255,255,0.06);border:1px solid var(--border);color:var(--muted);border-radius:10px;padding:8px 14px;font-size:12px;cursor:pointer;">🔄 Actualiser</button>
+      </div>
+
+      <!-- Bracket section -->
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:24px;margin-bottom:20px;">
+        <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:16px;margin-bottom:18px;display:flex;align-items:center;gap:10px;">
+          🏆 Bracket
+          ${t.status === 'open' || t.status === 'full' ? '<span style="font-size:12px;color:var(--muted);font-weight:400;">— sera généré au démarrage</span>' : ''}
+        </div>
+        ${buildBracket(t.bracket, t.teams)}
+      </div>
+
+      <!-- Teams -->
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:24px;">
+        <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:16px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;">
+          <span>⚔️ Équipes inscrites (${t.teams.length})</span>
+          ${isAdmin ? '<span style="font-size:11px;color:var(--accent);font-weight:600;">Clique "Disqualif." pour éliminer une équipe</span>' : ''}
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          ${buildTeamsList(t.teams)}
+        </div>
+      </div>
+    </div>`;
+}
+
+async function adminKickTournamentTeam(tournamentId, teamName) {
+  if (!confirm(`Disqualifier l'équipe "${teamName}" du tournoi ? Leurs matchs en cours seront marqués forfait.`)) return;
+  try {
+    const r = await fetch('/api/tournaments/kick-team', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ adminKey: 'revenge_admin_secret', tournamentId, teamName })
+    });
+    const d = await r.json();
+    if (d.error) { notify('❌ ' + d.error); return; }
+    notify(`🚫 Équipe ${teamName} disqualifiée`, { accent: 'var(--accent)', duration: 4000 });
+    openTournamentSpectator(tournamentId); // refresh modal
+    loadTournaments();
+  } catch(e) { notify('❌ Erreur réseau'); }
+}
+
+async function adminResolveTournamentMatch(tournamentId, roundIdx, matchIdx, winner) {
+  try {
+    const r = await fetch('/api/tournaments/resolve', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ adminKey: 'revenge_admin_secret', tournamentId, roundIdx, matchIdx, winner })
+    });
+    const d = await r.json();
+    if (d.error) { notify('❌ ' + d.error); return; }
+    notify(`⚖️ Match résolu — ${winner} gagne`, { accent: 'var(--gold)', duration: 4000 });
+    openTournamentSpectator(tournamentId);
     loadTournaments();
   } catch(e) { notify('❌ Erreur réseau'); }
 }
