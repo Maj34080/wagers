@@ -397,7 +397,6 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
 
       <button onclick="openFriendsPanel()" style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:8px 14px;color:var(--text);font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;" title="Amis">👥 <span id="friends-online-count" style="color:var(--green);font-size:11px;"></span></button>
 
-
       <div class="avatar" id="nav-avatar" onclick="openProfile()">?</div>
       <div style="display:flex;flex-direction:column;align-items:flex-start;gap:1px;">
         <span class="nav-pseudo" id="nav-pseudo" style="font-size:16px;font-weight:700;"></span>
@@ -1227,6 +1226,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
         <button class="btn-mini" style="flex:1;" onclick="document.getElementById('avatar-upload').click()">🖼️ Avatar</button>
         <button class="btn-mini" style="flex:1;" id="banner-upload-btn" onclick="document.getElementById('banner-upload').click()">🎨 Bannière <span style="font-size:10px;color:var(--gold);">Premium</span></button>
       </div>
+    </div><!-- end pseudo/infos padding -->
     <!-- Tabs -->
     <div style="padding:0 24px 24px 24px;">
     <div style="display:flex;gap:4px;margin-bottom:14px;background:rgba(255,255,255,0.04);border-radius:10px;padding:4px;">
@@ -1265,25 +1265,6 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
       </div>
     </div>
     </div><!-- end tabs padding -->
-  </div>
-</div>
-<div class="result-overlay" id="result-overlay">
-  <div class="result-card">
-    <div class="result-title" id="result-title">VICTOIRE</div>
-    <div class="result-elo" id="result-elo">+20 ELO</div>
-    <div class="result-map" id="result-map"></div>
-    <!-- Rematch progress -->
-    <div id="rematch-status" style="display:none;margin-bottom:14px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;font-size:12px;color:var(--muted);">
-      <span id="rematch-status-text">En attente des autres joueurs…</span>
-    </div>
-    <!-- Share card preview (canvas) -->
-    <canvas id="share-canvas" style="display:none;border-radius:12px;margin-bottom:14px;max-width:100%;"></canvas>
-    <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
-      <button class="result-btn" onclick="backToLobby()">Retour au Lobby</button>
-      <button class="result-btn-secondary" id="replay-btn" onclick="replayGame()">🔄 Rejouer</button>
-      <button class="rematch-btn" id="rematch-btn" onclick="requestRematch()">⚔️ Revanche</button>
-      <button class="result-btn-secondary" onclick="shareResult()">📤 Partager</button>
-    </div>
   </div>
 </div>
 
@@ -1380,7 +1361,7 @@ const MAP_IMGS = {
 // ── ADMIN ELEMENTS: forcer direct enfant de body pour éviter stacking context ──
 (function() {
   function ensureAdminPortal() {
-    ['admin-panel', 'admin-spectator-bar'].forEach(id => {
+    ['admin-panel', 'admin-spectator-bar', 'result-overlay'].forEach(id => {
       const el = document.getElementById(id);
       if (el && el.parentElement !== document.body) {
         document.body.appendChild(el);
@@ -1938,7 +1919,6 @@ function initSocket() {
     renderGroupMembers(players);
     updateRoomBtn();
   });
-
 
   socket.on('group_joined', ({ code, players, mode }) => {
     state.groupCode = code;
@@ -4370,7 +4350,6 @@ function banMap(map) {
   MAPS.forEach(m => { const b = document.getElementById('mapbtn-t1-' + m); if(b) b.disabled = true; });
 }
 
-
 function startVoteLockTimer(startedAt) {
   _roomStartedAt = startedAt || Date.now();
   clearInterval(_voteLockTimer);
@@ -4629,12 +4608,12 @@ function requestDecision() {
 
 function adminDecide(winner) {
   if (!socket || !state.roomId) return;
+  // Garder state.isSpectator = true jusqu'à ce que game_result arrive
+  // Sinon game_result ne sait pas que c'est un admin spectateur
+  state._pendingAdminDecision = true;
   socket.emit('admin_decide', { roomId: state.roomId, winner });
-  // Ne pas appeler adminLeave() ici — attendre game_result pour afficher l'overlay résultat
-  // On masque juste la barre spectateur
   document.getElementById('admin-spectator-bar').classList.remove('show');
-  state.isSpectator = false;
-  if (socket) socket.roomId = null;
+  // NE PAS toucher state.isSpectator ni state.roomId ici — game_result les reset
 }
 
 function adminLeave() {
@@ -4714,7 +4693,6 @@ function spawnBots() {
   document.getElementById('admin-bot-btn').textContent = '⏳ Bots en route…';
   document.getElementById('admin-bot-btn').disabled = true;
 }
-
 
 async function uploadAvatar(event) {
   const file = event.target.files[0];
@@ -4958,6 +4936,26 @@ async function loadProfileHistory(userId) {
   <span style="font-size:16px;">💬</span>
   <span style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:13px;">Chat Groupe</span>
   <span id="group-chat-bubble-badge" style="display:none;background:var(--accent);color:#fff;border-radius:50%;width:18px;height:18px;font-size:10px;font-weight:800;align-items:center;justify-content:center;"></span>
+</div>
+
+<div class="result-overlay" id="result-overlay">
+  <div class="result-card">
+    <div class="result-title" id="result-title">VICTOIRE</div>
+    <div class="result-elo" id="result-elo">+20 ELO</div>
+    <div class="result-map" id="result-map"></div>
+    <!-- Rematch progress -->
+    <div id="rematch-status" style="display:none;margin-bottom:14px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;font-size:12px;color:var(--muted);">
+      <span id="rematch-status-text">En attente des autres joueurs…</span>
+    </div>
+    <!-- Share card preview (canvas) -->
+    <canvas id="share-canvas" style="display:none;border-radius:12px;margin-bottom:14px;max-width:100%;"></canvas>
+    <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+      <button class="result-btn" onclick="backToLobby()">Retour au Lobby</button>
+      <button class="result-btn-secondary" id="replay-btn" onclick="replayGame()">🔄 Rejouer</button>
+      <button class="rematch-btn" id="rematch-btn" onclick="requestRematch()">⚔️ Revanche</button>
+      <button class="result-btn-secondary" onclick="shareResult()">📤 Partager</button>
+    </div>
+  </div>
 </div>
 
 <!-- ADMIN PANEL -->
