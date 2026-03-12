@@ -2365,6 +2365,7 @@ function initSocket() {
   });
 
   socket.on('ban_error', (msg) => notify('❌ ' + msg));
+  socket.on('notify_error', (msg) => notify('❌ ' + msg));
 
   socket.on('you_are_banned', ({ reason }) => {
     showBanScreen(reason);
@@ -4597,13 +4598,17 @@ function sendChatImage(event) {
 }
 
 function reportRoom() {
-  if (!socket || !state.roomId) return;
+  console.log('[reportRoom] socket:', !!socket, '| state.roomId:', state.roomId, '| pseudo:', state.pseudo);
+  if (!socket) { notify('❌ Pas connecté'); return; }
+  if (!state.roomId) { notify('❌ RoomId manquant — essaie de rafraîchir'); return; }
   socket.emit('admin_alert', { roomId: state.roomId, type: 'report', pseudo: state.pseudo });
   notify('🚨 Report envoyé à l\'admin !');
 }
 
 function requestDecision() {
-  if (!socket || !state.roomId) return;
+  console.log('[requestDecision] socket:', !!socket, '| state.roomId:', state.roomId, '| pseudo:', state.pseudo);
+  if (!socket) { notify('❌ Pas connecté'); return; }
+  if (!state.roomId) { notify('❌ RoomId manquant — essaie de rafraîchir'); return; }
   socket.emit('admin_alert', { roomId: state.roomId, type: 'decision', pseudo: state.pseudo });
   notify('⚖️ Demande de décision envoyée !');
 }

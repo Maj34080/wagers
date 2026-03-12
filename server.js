@@ -1413,14 +1413,27 @@ function applyEloResult(winTeam, loseTeam, mode) {
 
   // ── ADMIN ALERT ──
   socket.on('admin_alert', ({ roomId, type, pseudo }) => {
-    const room = rooms[roomId];
-    if (!room) return;
+    const room = rooms[roomId] || archivedRooms[roomId];
+    if (!room) {
+      console.log(`[admin_alert] room introuvable: ${roomId} | userId: ${socket.userId} | rooms: ${Object.keys(rooms).join(',')}`);
+      socket.emit('notify_error', 'Room introuvable, impossible d\'envoyer l\'alerte.');
+      return;
+    }
     if (!room.alerts) room.alerts = new Set();
-    if (room.alerts.has(socket.userId)) return;
+    // Anti-spam : un même joueur ne peut envoyer qu'une alerte par room
+    if (room.alerts.has(socket.userId)) {
+      socket.emit('notify_error', 'Alerte déjà envoyée. Attends qu\'un admin la traite.');
+      return;
+    }
     room.alerts.add(socket.userId);
+    let adminCount = 0;
     io.sockets.sockets.forEach(s => {
-      if (s.isAdmin) s.emit('admin_alert_received', { roomId, type, pseudo });
+      if (s.isAdmin) { s.emit('admin_alert_received', { roomId, type, pseudo }); adminCount++; }
     });
+    console.log(`[admin_alert] roomId=${roomId} type=${type} pseudo=${pseudo} admins_notifiés=${adminCount}`);
+    if (adminCount === 0) {
+      socket.emit('notify_error', 'Aucun admin connecté pour le moment.');
+    }
   });
 
   // ── RESET ALERT (admin dismissed, user can send once more) ──
