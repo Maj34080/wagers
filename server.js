@@ -1188,7 +1188,8 @@ function applyEloResult(winTeam, loseTeam, mode) {
           winTeam: winTeam.map(p => p.pseudo),
           loseTeam: loseTeam.map(p => p.pseudo),
           mode: room.mode,
-          eloChanges
+          eloChanges,
+          tournamentId: room.tournamentId || null
         });
         // Advance tournament bracket if tournament room
         if (room.tournamentId) {
@@ -1239,7 +1240,8 @@ function applyEloResult(winTeam, loseTeam, mode) {
       winTeam: winTeam.map(p => p.pseudo),
       loseTeam: loseTeam.map(p => p.pseudo),
       mode: room.mode,
-      eloChanges
+      eloChanges,
+      tournamentId: room.tournamentId || null
     });
 
     // Advance tournament bracket if tournament room
@@ -1502,7 +1504,7 @@ function applyEloResult(winTeam, loseTeam, mode) {
       const eloChanges = applyEloResult(winTeam, loseTeam, room.mode);
       computeCotd();
       io.to('room_' + roomId).emit('chat_msg', { author: 'Système', team: 'system', text: `⚖️ Décision admin : Équipe ${winner} gagne !` });
-      io.to('room_' + roomId).emit('game_result', { winner, winTeam: winTeam.map(p => p.pseudo), loseTeam: loseTeam.map(p => p.pseudo), mode: room.mode, eloChanges });
+      io.to('room_' + roomId).emit('game_result', { winner, winTeam: winTeam.map(p => p.pseudo), loseTeam: loseTeam.map(p => p.pseudo), mode: room.mode, eloChanges, tournamentId: room.tournamentId || null });
       // ── Advance tournament bracket if this is a tournament room ──
       if (room.tournamentId) {
         const t = tournaments[room.tournamentId];
