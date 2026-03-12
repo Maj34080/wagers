@@ -2092,7 +2092,7 @@ function initSocket() {
     if (state.isAdmin && state.isSpectator) setTimeout(() => { document.getElementById('declare-section').style.display = ''; }, 500);
     if (state.isCaptain && !state.isSpectator) setTimeout(() => {
       const v = document.getElementById('captain-vote-section');
-      if (v) { v.style.display = ''; const btns = v.querySelectorAll('button'); btns.forEach(b => b.disabled = false); }
+      if (v) v.style.display = '';
       startVoteLockTimer(Date.now());
     }, 500);
   });
@@ -2164,7 +2164,7 @@ function initSocket() {
     if (state.isAdmin && state.isSpectator) setTimeout(() => { document.getElementById('declare-section').style.display = ''; }, 500);
     if (state.isCaptain && !state.isSpectator) setTimeout(() => {
       const v = document.getElementById('captain-vote-section');
-      if (v) { v.style.display = ''; const btns = v.querySelectorAll('button'); btns.forEach(b => b.disabled = false); }
+      if (v) v.style.display = '';
       startVoteLockTimer(Date.now());
     }, 500);
   });
