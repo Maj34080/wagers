@@ -15,7 +15,7 @@
 }
 *{margin:0;padding:0;box-sizing:border-box;}
 body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;height:100vh;overflow:hidden;}
-.screen{display:none;height:100vh;overflow:hidden;}
+.screen{display:none;height:100vh;overflow:clip;}
 .screen.active{display:flex;}
 
 /* AUTH */
@@ -1377,6 +1377,23 @@ const MAP_IMGS = {
   'Pearl':  'https://media.valorant-api.com/maps/fd267378-4d1d-484f-ff52-77821f9e4c26/splash.png',
   'Split':  'https://media.valorant-api.com/maps/d960549e-485c-e861-8d71-aa9d1aebe674/splash.png',
 };
+// ── ADMIN ELEMENTS: forcer direct enfant de body pour éviter stacking context ──
+(function() {
+  function ensureAdminPortal() {
+    ['admin-panel', 'admin-spectator-bar'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el && el.parentElement !== document.body) {
+        document.body.appendChild(el);
+      }
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', ensureAdminPortal);
+  } else {
+    ensureAdminPortal();
+  }
+})();
+
 let socket = null;
 let state = { pseudo:'', elo:500, stats:{}, isAdmin:false, isSpectator:false, avatar:null, userId:null, groupCode:null, roomId:null, myTeam:null, mode:'2v2', lbMode:'1v1', groupSize:0, clanId:null, isCaptain:false, isPremium:false, premiumUntil:null };
 // ── Variables globales (déclarées ici pour éviter la temporal dead zone) ──
