@@ -1986,11 +1986,12 @@ function initSocket() {
   socket.on('chat_img', ({ author, team, img, time }) => addMsgImg(author, team, img, time));
 
   socket.on('admin_alert_received', ({ roomId, type, pseudo }) => {
-    if (!state.isAdmin) return;
+    console.log('[admin_alert_received] reçu | isAdmin:', state.isAdmin, '| roomId:', roomId);
+    if (!state.isAdmin) { console.log('[admin_alert_received] BLOQUÉ: state.isAdmin est false'); return; }
     const panel = document.getElementById('admin-panel');
+    console.log('[admin_alert_received] panel:', panel, '| panel.classList:', panel?.className);
     panel.classList.add('show');
     const alerts = document.getElementById('admin-alerts');
-    // Si alerte déjà affichée pour cette room, on la met à jour au lieu de l'ignorer
     const existing = document.getElementById('alert-' + roomId);
     if (existing) existing.remove();
     const alertEl = document.createElement('div');
@@ -2005,6 +2006,7 @@ function initSocket() {
       <button class="btn-admin-join" onclick="adminJoinRoom('${roomId}')">👁️ Rejoindre en spectateur</button>
     `;
     alerts.appendChild(alertEl);
+    console.log('[admin_alert_received] alertEl ajouté | panel visible:', panel.style.display, panel.className);
     playBeep(660, 0.3);
     notify('🔔 Alerte admin — ROOM #' + roomId);
   });
