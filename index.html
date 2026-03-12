@@ -1392,6 +1392,14 @@ const MAP_IMGS = {
 };
 let socket = null;
 let state = { pseudo:'', elo:500, stats:{}, isAdmin:false, isSpectator:false, avatar:null, userId:null, groupCode:null, roomId:null, myTeam:null, mode:'2v2', lbMode:'1v1', groupSize:0, clanId:null, isCaptain:false, isPremium:false, premiumUntil:null };
+// ── Variables globales (déclarées ici pour éviter la temporal dead zone) ──
+let _lastMatchData = null;
+let _groupChatOpen = true;
+let _groupChatUnread = 0;
+let _roomStartedAt = null;
+let _voteLockTimer = null;
+let _audioCtx = null;
+let _lbData = [];
 // Restore only mode preference across F5, NOT elo (always comes from server)
 try {
   const savedMode = localStorage.getItem('rv_mode');
@@ -1572,7 +1580,6 @@ async function playerReplyTicket(id) {
 }
 
 // ── LEADERBOARD SEARCH ──
-let _lbData = [];
 function filterLeaderboard() {
   const q = document.getElementById('lb-search')?.value.trim().toLowerCase() || '';
   renderLeaderboard(_lbData.filter(p => p.pseudo.toLowerCase().includes(q)));
@@ -2279,6 +2286,13 @@ function initSocket() {
     setTimeout(() => {
       if (document.getElementById('result-overlay').classList.contains('show')) backToLobby();
     }, 30000);
+  });
+
+  socket.on('rematch_update', ({ count, total }) => {
+    const status = document.getElementById('rematch-status');
+    const statusText = document.getElementById('rematch-status-text');
+    if (status) status.style.display = '';
+    if (statusText) statusText.textContent = `Revanche : ${count}/${total} joueurs acceptés`;
   });
 
   socket.on('profile_data', (data) => {
@@ -3111,19 +3125,11 @@ function showAdminSection(sec) {
 }
 
 // ── REMATCH ──
-let _lastMatchData = null;
 function requestRematch() {
   const btn = document.getElementById('rematch-btn');
   if (btn) { btn.disabled = true; btn.textContent = '⏳ En attente…'; }
   socket.emit('request_rematch');
 }
-
-socket.on('rematch_update', ({ count, total }) => {
-  const status = document.getElementById('rematch-status');
-  const statusText = document.getElementById('rematch-status-text');
-  if (status) status.style.display = '';
-  if (statusText) statusText.textContent = `Revanche : ${count}/${total} joueurs acceptés`;
-});
 
 // ── SHARE RESULT (Canvas card) ──
 // ── ROOM FOUND SOUND ──
@@ -3498,8 +3504,6 @@ function timeSince(dateStr) {
 }
 
 // ── GROUP CHAT ──
-let _groupChatOpen = true;
-let _groupChatUnread = 0;
 
 function showGroupChat() {
   const panel = document.getElementById('group-chat-panel');
@@ -4349,8 +4353,6 @@ function banMap(map) {
   MAPS.forEach(m => { const b = document.getElementById('mapbtn-t1-' + m); if(b) b.disabled = true; });
 }
 
-let _voteLockTimer = null;
-let _roomStartedAt = null;
 
 function startVoteLockTimer(startedAt) {
   _roomStartedAt = startedAt || Date.now();
@@ -4656,7 +4658,6 @@ function addMsgImg(author, team, img, time) {
 }
 
 // Countdown sound (beep using Web Audio API)
-let _audioCtx = null;
 function getAudioCtx() {
   if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   if (_audioCtx.state === 'suspended') _audioCtx.resume();
