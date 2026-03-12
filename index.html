@@ -1006,7 +1006,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
   <div class="room-body">
     <!-- TEAM 1 -->
     <div class="team-panel">
-      <div class="team-label team1">⚔ Équipe 1 — Vous</div>
+      <div class="team-label team1" id="team1-label">⚔ Équipe 1</div>
       <div id="team1-players"></div>
     </div>
 
@@ -1101,7 +1101,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
 
     <!-- TEAM 2 -->
     <div class="team-panel">
-      <div class="team-label team2">⚔ Équipe 2</div>
+      <div class="team-label team2" id="team2-label">⚔ Équipe 2</div>
       <div id="team2-players"></div>
     </div>
   </div>
@@ -4140,6 +4140,12 @@ function setupRoom(roomId, mode, team1, team2, waiting) {
   document.getElementById('room-badge2').textContent = 'ROOM #' + roomId;
   document.getElementById('room-mode-badge').textContent = mode;
   state.myTeam = team1.some(p => p.pseudo === state.pseudo) ? 1 : 2;
+
+  // Update team labels to show "Vous" on the right team
+  const lbl1 = document.getElementById('team1-label');
+  const lbl2 = document.getElementById('team2-label');
+  if (lbl1) lbl1.textContent = state.myTeam === 1 ? '⚔ Équipe 1 — Vous' : '⚔ Équipe 1';
+  if (lbl2) lbl2.textContent = state.myTeam === 2 ? '⚔ Équipe 2 — Vous' : '⚔ Équipe 2';
 
   // Status
   if (waiting) {
