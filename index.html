@@ -206,19 +206,19 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
 .modal-close{position:absolute;top:16px;right:16px;background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;}
 
 /* ── CADRES D'AVATAR PAR RANK ── */
-.avatar-frame { position:relative; display:inline-block; }
+.avatar-frame { position:relative; display:inline-block; flex-shrink:0; }
 .avatar-frame img, .avatar-frame .av-letter {
-  width:80px; height:80px; border-radius:50%; object-fit:cover; display:flex; align-items:center; justify-content:center;
+  width:80px; height:80px; border-radius:50%; object-fit:cover; display:flex; align-items:center; justify-content:center; box-sizing:border-box;
 }
 .av-letter { background:var(--accent); font-family:'Syne',sans-serif; font-weight:800; font-size:28px; }
 /* Or */
-.frame-or .av-img, .frame-or .av-letter { box-shadow: 0 0 0 3px #f7c948; }
+.frame-or img, .frame-or .av-letter { box-shadow: 0 0 0 3px #f7c948; }
 /* Platine */
-.frame-platine .av-img, .frame-platine .av-letter { box-shadow: 0 0 0 3px #4fd1c5, 0 0 12px rgba(79,209,197,0.4); }
+.frame-platine img, .frame-platine .av-letter { box-shadow: 0 0 0 3px #4fd1c5, 0 0 12px rgba(79,209,197,0.4); }
 /* Diamond */
-.frame-diamond .av-img, .frame-diamond .av-letter { box-shadow: 0 0 0 3px #7c6ff7, 0 0 16px rgba(124,111,247,0.5); }
+.frame-diamond img, .frame-diamond .av-letter { box-shadow: 0 0 0 3px #7c6ff7, 0 0 16px rgba(124,111,247,0.5); }
 /* Radiant */
-.frame-radiant .av-img, .frame-radiant .av-letter {
+.frame-radiant img, .frame-radiant .av-letter {
   box-shadow: 0 0 0 3px #ff4655, 0 0 20px rgba(255,70,85,0.6);
   animation: radiantPulse 2s ease-in-out infinite;
 }
@@ -227,7 +227,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
   50%      { box-shadow: 0 0 0 3px #f7c948, 0 0 28px rgba(247,201,72,0.7); }
 }
 /* Premium */
-.frame-premium .av-img, .frame-premium .av-letter {
+.frame-premium img, .frame-premium .av-letter {
   box-shadow: 0 0 0 3px #f7c948, 0 0 0 6px rgba(247,201,72,0.2);
   animation: premiumGlow 2.5s ease-in-out infinite;
 }
@@ -243,14 +243,14 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
 
 /* ── BANNIÈRE DE PROFIL ── */
 .profile-banner {
-  margin: -32px -32px 20px -32px;
+  margin: 0;
   height: 90px;
   border-radius: 20px 20px 0 0;
   position: relative;
   overflow: hidden;
   background: var(--surface2);
+  flex-shrink: 0;
 }
-.profile-banner-img { width:100%; height:100%; object-fit:cover; }
 .profile-banner-overlay { position:absolute; inset:0; }
 /* Bannières par rank */
 .banner-unranked { background: linear-gradient(135deg, #1a1a2e 0%, #2d2d44 100%); }
@@ -1211,15 +1211,15 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
     <div class="profile-banner banner-unranked" id="profile-banner">
       <div class="profile-banner-overlay" id="profile-banner-overlay"></div>
     </div>
-    <div style="padding:0 24px 24px 24px;">
-      <div style="display:flex;align-items:flex-end;gap:14px;margin-top:-32px;margin-bottom:14px;">
-        <div id="profile-avatar"></div>
-        <div style="flex:1;padding-bottom:4px;">
-          <div class="profile-pseudo" id="profile-pseudo">—</div>
-          <div class="profile-winrate" id="profile-winrate">—</div>
-          <div id="profile-rank-badge" style="margin-top:4px;"></div>
-        </div>
-      </div>
+    <!-- Avatar chevauchant la bannière -->
+    <div style="padding:0 24px 0 24px;margin-top:-44px;position:relative;z-index:2;">
+      <div id="profile-avatar" style="display:inline-block;"></div>
+    </div>
+    <!-- Pseudo et infos strictement sous la bannière -->
+    <div style="padding:8px 24px 16px 24px;">
+      <div class="profile-pseudo" id="profile-pseudo">—</div>
+      <div class="profile-winrate" id="profile-winrate">—</div>
+      <div id="profile-rank-badge" style="margin-top:4px;margin-bottom:12px;"></div>
       <input type="file" id="avatar-upload" accept="image/*" style="display:none" onchange="uploadAvatar(event)"/>
       <input type="file" id="banner-upload" accept="image/*" style="display:none" onchange="uploadBanner(event)"/>
       <div style="display:flex;gap:8px;margin-bottom:16px;">
@@ -1227,6 +1227,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
         <button class="btn-mini" style="flex:1;" id="banner-upload-btn" onclick="document.getElementById('banner-upload').click()">🎨 Bannière <span style="font-size:10px;color:var(--gold);">Premium</span></button>
       </div>
     <!-- Tabs -->
+    <div style="padding:0 24px 24px 24px;">
     <div style="display:flex;gap:4px;margin-bottom:14px;background:rgba(255,255,255,0.04);border-radius:10px;padding:4px;">
       <button id="ptab-stats-btn" onclick="switchProfileTab('stats')" style="flex:1;padding:8px;border:none;border-radius:7px;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:13px;cursor:pointer;background:var(--accent);color:#fff;transition:all 0.2s;">📊 Stats</button>
       <button id="ptab-history-btn" onclick="switchProfileTab('history')" style="flex:1;padding:8px;border:none;border-radius:7px;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:13px;cursor:pointer;background:none;color:var(--muted);transition:all 0.2s;">🕹️ Historique</button>
@@ -1262,6 +1263,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
         <div style="color:var(--muted);font-size:12px;text-align:center;padding:14px;">Aucun filleul pour le moment</div>
       </div>
     </div>
+    </div><!-- end tabs padding -->
   </div>
 </div>
 <div class="result-overlay" id="result-overlay">
