@@ -306,7 +306,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
 .btn-admin-join:hover{opacity:0.85;}
 
 /* ADMIN SPECTATOR MODE */
-.admin-spectator-bar{display:none;position:fixed;bottom:0;left:0;right:0;z-index:400;background:rgba(255,209,102,0.95);padding:12px 24px;align-items:center;gap:12px;}
+.admin-spectator-bar{display:none;position:fixed;bottom:0;left:0;right:0;z-index:9500;background:rgba(255,209,102,0.97);padding:12px 24px;align-items:center;gap:12px;flex-wrap:wrap;}
 .admin-spectator-bar.show{display:flex;}
 .admin-spec-label{font-family:'Syne',sans-serif;font-weight:800;font-size:13px;color:var(--bg);flex:1;}
 .btn-admin-win1{background:#1a1a1a;color:var(--green);border:2px solid var(--green);border-radius:8px;padding:8px 16px;font-family:'Syne',sans-serif;font-weight:800;font-size:12px;cursor:pointer;}
@@ -1294,7 +1294,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
 </div>
 
 <!-- ADMIN SPECTATOR BAR -->
-<div class="admin-spectator-bar" id="admin-spectator-bar" style="display:none;">
+<div class="admin-spectator-bar" id="admin-spectator-bar">
   <div class="admin-spec-label">👁️ MODE ADMIN — <span id="admin-spec-room"></span></div>
   <button class="btn-admin-win1" onclick="adminDecide(1)">✅ Équipe 1 gagne</button>
   <button class="btn-admin-win2" onclick="adminDecide(2)">✅ Équipe 2 gagne</button>
@@ -2011,7 +2011,7 @@ function initSocket() {
   socket.on('admin_joined_room', ({ roomId, team1, team2, mode, chatHistory }) => {
     state.isSpectator = true;
     state.roomId = roomId;
-    document.getElementById('admin-spectator-bar').style.display = 'flex';
+    document.getElementById('admin-spectator-bar').classList.add('show');
     document.getElementById('admin-spec-room').textContent = 'ROOM #' + roomId;
     socket.roomId = roomId;
     setupRoom(roomId, mode, team1, team2, false);
@@ -4623,7 +4623,7 @@ function adminLeave() {
   state.isSpectator = false;
   state.roomId = null;
   if (socket) socket.roomId = null;
-  document.getElementById('admin-spectator-bar').style.display = 'none';
+  document.getElementById('admin-spectator-bar').classList.remove('show');
   document.getElementById('declare-section').style.display = 'none';
   showScreen('main');
 }
@@ -4639,7 +4639,7 @@ function dismissAlert(roomId) {
 
 function adminLeaveSpectator() {
   // Quitter la room en spectateur sans donner de décision
-  document.getElementById('admin-spectator-bar').style.display = 'none';
+  document.getElementById('admin-spectator-bar').classList.remove('show');
   document.getElementById('declare-section').style.display = 'none';
   state.isSpectator = false;
   state.roomId = null;
@@ -4792,7 +4792,7 @@ async function backToLobby() {
   document.getElementById('nav-elo').textContent = state.elo;
   state.roomId = null; state.myTeam = null; state.isSpectator = false;
   document.getElementById('declare-section').style.display = 'none';
-  document.getElementById('admin-spectator-bar').style.display = 'none';
+  document.getElementById('admin-spectator-bar').classList.remove('show');
   clearBanTimerBar();
   document.getElementById('weapon-vote-section').style.display = 'none';
   document.getElementById('map-ban-center-section').style.display = 'none';
