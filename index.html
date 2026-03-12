@@ -1148,8 +1148,8 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
         <!-- Admin also has cooldown lock -->
         <div id="declare-lock-banner" style="display:none;font-size:11px;color:var(--muted);margin-bottom:8px;">🔒 Vote disponible dans <span id="declare-lock-countdown" style="font-weight:800;color:var(--accent);">5:00</span></div>
         <div class="declare-btns">
-          <button class="btn-win" id="declare-btn-win" onclick="declareResult('win')">✅ Équipe 1 gagne</button>
-          <button class="btn-lose" id="declare-btn-lose" onclick="declareResult('lose')">✅ Équipe 2 gagne</button>
+          <button class="btn-win" id="declare-btn-win" onclick="declareResult(1)">✅ Équipe 1 gagne</button>
+          <button class="btn-lose" id="declare-btn-lose" onclick="declareResult(2)">✅ Équipe 2 gagne</button>
         </div>
       </div>
     </div>
@@ -4539,9 +4539,9 @@ async function revokePremiumAdmin(userId) {
   } catch(e) {}
 }
 
-function declareResult(result) {
-  // Convert win/lose to winner team number based on myTeam
-  const winner = result === 'win' ? state.myTeam : (state.myTeam === 1 ? 2 : 1);
+function declareResult(winner) {
+  // winner = 1 or 2 directly (team number)
+  if (!winner || !socket) return;
   socket.emit('declare_result', { winner });
   document.getElementById('declare-section').style.display = 'none';
 }

@@ -1147,8 +1147,10 @@ function applyEloResult(winTeam, loseTeam, mode) {
   socket.on('vote_result', ({ myTeamWon }) => {
     if (!socket.roomId) return;
     const room = rooms[socket.roomId];
-    if (!room || room.status !== 'playing') return;
+    if (!room) return;
     if (room.resultDeclared) return;
+    const validStatuses = ['playing', 'ban_phase', 'weapon_vote'];
+    if (!validStatuses.includes(room.status)) return;
     // Block vote if room started less than 5 minutes ago
     const VOTE_DELAY_MS = 5 * 60 * 1000;
     if (room.startedAt && (Date.now() - room.startedAt) < VOTE_DELAY_MS) {
@@ -1206,8 +1208,11 @@ function applyEloResult(winTeam, loseTeam, mode) {
   socket.on('declare_result', ({ winner }) => {
     if (!socket.roomId) return;
     const room = rooms[socket.roomId];
-    if (!room || room.status !== 'playing') return;
+    if (!room) return;
     if (room.resultDeclared) return;
+    const validStatuses = ['playing', 'ban_phase', 'weapon_vote'];
+    if (!validStatuses.includes(room.status)) return;
+    if (!winner || (winner !== 1 && winner !== 2)) return;
     room.resultDeclared = true;
     room.status = 'finished';
     clearTimeout(room.banTimer);
@@ -1449,7 +1454,10 @@ function applyEloResult(winTeam, loseTeam, mode) {
   socket.on('admin_decide', ({ roomId, winner }) => {
     if (!socket.isAdmin) return;
     const room = rooms[roomId];
-    if (!room || room.resultDeclared) return;
+    if (!room) return;
+    if (room.resultDeclared) return;
+    const validStatuses = ['playing', 'ban_phase', 'weapon_vote', 'waiting'];
+    if (!validStatuses.includes(room.status)) return;
     room.resultDeclared = true;
     room.status = 'finished';
     clearTimeout(room.banTimer);
