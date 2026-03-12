@@ -1539,8 +1539,8 @@ async function sendBackupToDiscord() {
 }
 
 async function restoreDBFromDiscord() {
-  if (!DISCORD_BOT_TOKEN || !DISCORD_CHANNEL_ID) {
-    console.log('[BACKUP] Variables manquantes, restore ignorée.');
+  if (!DISCORD_WEBHOOK) {
+    console.log('[BACKUP] Webhook manquant, restore ignorée.');
     return false;
   }
   const DBFILE_PATH = process.env.NODE_ENV === 'production' ? '/tmp/db.json' : null;
@@ -1561,26 +1561,35 @@ async function restoreDBFromDiscord() {
   try {
     const https = require('https');
 
+    // Extract webhook ID and token from webhook URL
+    // Format: https://discord.com/api/webhooks/{id}/{token}
+    const webhookMatch = DISCORD_WEBHOOK.match(/webhooks\/(\d+)\/([^/?]+)/);
+    if (!webhookMatch) throw new Error('URL webhook invalide');
+    const [, webhookId, webhookToken] = webhookMatch;
+
+    // Use channel ID + bot token if available, otherwise fall back to webhook messages endpoint
+    const useBot = DISCORD_BOT_TOKEN && DISCORD_CHANNEL_ID;
+    const path = useBot
+      ? `/api/v10/channels/${DISCORD_CHANNEL_ID}/messages?limit=50`
+      : `/api/v10/webhooks/${webhookId}/${webhookToken}/messages?limit=10`;
+    const authHeader = useBot
+      ? `Bot ${DISCORD_BOT_TOKEN}`
+      : null;
+
     const rawMessages = await new Promise((resolve, reject) => {
+      const headers = { 'User-Agent': 'RevengeBot/1.0' };
+      if (authHeader) headers['Authorization'] = authHeader;
       const req = https.request({
         hostname: 'discord.com',
-        path: `/api/v10/channels/${DISCORD_CHANNEL_ID}/messages?limit=50`,
+        path,
         method: 'GET',
-        headers: {
-          'Authorization': `Bot ${DISCORD_BOT_TOKEN}`,
-          'User-Agent': 'RevengeBot/1.0'
-        }
+        headers
       }, res => {
         let raw = '';
         res.on('data', d => raw += d);
         res.on('end', () => {
-          console.log('[BACKUP] Discord API status:', res.statusCode);
-          if (res.statusCode !== 200) {
-            console.log('[BACKUP] Discord API réponse:', raw.slice(0, 200));
-            resolve([]);
-          } else {
-            try { resolve(JSON.parse(raw)); } catch(e) { reject(e); }
-          }
+          console.log('[BACKUP] Discord API status:', res.statusCode, '| path:', path);
+          try { resolve(JSON.parse(raw)); } catch(e) { resolve([]); }
         });
       });
       req.on('error', reject);
@@ -1588,7 +1597,12 @@ async function restoreDBFromDiscord() {
     });
 
     const messages = Array.isArray(rawMessages) ? rawMessages : [];
-    console.log(`[BACKUP] ${messages.length} messages trouvés dans le canal`);
+    console.log(`[BACKUP] ${messages.length} messages trouvés`);
+
+    // Log attachment info for debugging
+    messages.forEach((m, i) => {
+      if (m.attachments?.length) console.log(`[BACKUP] msg[${i}] attachments:`, m.attachments.map(a => a.filename));
+    });
 
     const backupMsg = messages.find(m => m.attachments?.some(a => a.filename?.endsWith('.json')));
     if (!backupMsg) {
@@ -1597,7 +1611,7 @@ async function restoreDBFromDiscord() {
     }
 
     const attachment = backupMsg.attachments.find(a => a.filename?.endsWith('.json'));
-    console.log('[BACKUP] Fichier trouvé:', attachment.filename);
+    console.log('[BACKUP] Fichier trouvé:', attachment.filename, '| URL:', attachment.url.slice(0, 60));
 
     const fileUrl = new URL(attachment.url);
     const jsonData = await new Promise((resolve, reject) => {
