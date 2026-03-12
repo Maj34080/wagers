@@ -2358,7 +2358,7 @@ app.post('/api/tournaments/create', express.json(), (req, res) => {
 
 app.get('/api/tournaments', (req, res) => {
   const list = Object.values(tournaments)
-    .filter(t => t.status === 'open')
+    .filter(t => t.status !== 'finished' && t.status !== 'cancelled')
     .map(t => ({ ...t, teamCount: t.teams.length }));
   res.json(list);
 });
@@ -2649,7 +2649,82 @@ app.post('/api/clans/bo3-ready', express.json(), (req, res) => {
 
 // Include bo3ReadyMembers in clan user endpoint
 
-// Admin: fill own clan with bots for BO3 testing
+// Admin: simulate a full tournament with bots
+app.post('/api/admin/simulate-tournament', express.json(), (req, res) => {
+  try {
+    const { adminKey, userId, name, mode, teamCount } = req.body;
+    if (adminKey !== ADMIN_KEY) return res.status(403).json({ error: 'Non autorisé' });
+    const data = readDB();
+    const user = data.users.find(u => u.id === userId);
+    if (!user) return res.status(404).json({ error: 'Utilisateur introuvable' });
+
+    const validMode = ['1v1','2v2','3v3','5v5'].includes(mode) ? mode : '5v5';
+    const teamSize = { '1v1':1, '2v2':2, '3v3':3, '5v5':5 }[validMode] || 5;
+    const numTeams = Math.min(16, Math.max(4, parseInt(teamCount) || 8));
+    const id = 'tourney_sim_' + Date.now();
+    const scheduledAt = Date.now() + 60 * 1000; // 1 min from now (bypass 24h for admin)
+
+    // Generate bot teams
+    const botTeams = [];
+    const teamNames = ['Alpha','Bravo','Charlie','Delta','Echo','Foxtrot','Golf','Hotel','India','Juliet','Kilo','Lima','Mike','November','Oscar','Papa'];
+    for (let i = 0; i < numTeams; i++) {
+      const tName = teamNames[i] || ('Team' + (i+1));
+      const memberIds = [];
+      for (let j = 0; j < teamSize; j++) {
+        const botId = 'bot_sim_' + Date.now() + '_t' + i + '_m' + j;
+        const elo = 400 + Math.floor(Math.random() * 600);
+        data.users.push({ id: botId, pseudo: tName + (j===0?'_Cap':'_P'+(j+1)), isBot: true, stats: { [validMode]: { elo, wins: 0, losses: 0 } } });
+        memberIds.push(botId);
+      }
+      botTeams.push({
+        captainId: memberIds[0],
+        captainPseudo: tName + '_Cap',
+        teamName: tName,
+        clanTag: tName.slice(0,3).toUpperCase(),
+        memberIds,
+        joinedAt: Date.now()
+      });
+    }
+
+    // If admin is in a clan, add their team too as first team
+    const adminTeam = {
+      captainId: userId,
+      captainPseudo: user.pseudo,
+      teamName: user.pseudo + "'s Team",
+      clanTag: null,
+      memberIds: [userId],
+      joinedAt: Date.now()
+    };
+
+    const allTeams = [adminTeam, ...botTeams.slice(0, numTeams - 1)]; // replace last bot with admin
+
+    // Build bracket immediately
+    const shuffled = [...allTeams].sort(() => Math.random() - 0.5);
+    const round1 = [];
+    for (let i = 0; i < shuffled.length; i += 2) {
+      if (shuffled[i + 1]) {
+        round1.push({ team1: shuffled[i].teamName, team2: shuffled[i+1].teamName, winner: null, votes: {} });
+      } else {
+        round1.push({ team1: shuffled[i].teamName, team2: 'BYE', winner: shuffled[i].teamName, votes: {} });
+      }
+    }
+
+    tournaments[id] = {
+      id, name: (name || 'Tournoi Simulé').slice(0, 32),
+      mode: validMode, teamSize,
+      maxTeams: numTeams, description: '🤖 Simulation admin',
+      creatorId: userId, creatorPseudo: user.pseudo,
+      status: 'started', teams: allTeams, pendingTeams: {},
+      scheduledAt, createdAt: Date.now(),
+      bracket: [round1], currentRound: 0
+    };
+
+    writeDB(data);
+    io.emit('tournament_created', { id, name: tournaments[id].name, mode: validMode, creatorPseudo: user.pseudo, scheduledAt });
+    io.emit('tournament_started', { id, name: tournaments[id].name, bracket: [round1] });
+    res.json({ ok: true, id, teamCount: allTeams.length });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
 app.post('/api/admin/clan-bots', express.json(), (req, res) => {
   try {
     const { adminKey, userId } = req.body;

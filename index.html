@@ -677,12 +677,54 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
     <div class="room-tab-content" id="tab-content-tournois">
       <div style="max-width:900px;margin:0 auto;">
         <!-- Header -->
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px;flex-wrap:wrap;">
           <div>
             <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:22px;">🏆 Tournois</div>
             <div style="font-size:12px;color:var(--muted);margin-top:3px;">Créé par Premium · Ouvert à tous</div>
           </div>
-          <button onclick="toggleTournamentCreate()" id="btn-create-tournament" style="display:none;background:linear-gradient(135deg,#f7c948,#ff9500);color:#000;border:none;border-radius:12px;padding:10px 20px;font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:13px;cursor:pointer;">+ Créer un tournoi</button>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <button onclick="toggleAdminSimPanel()" id="btn-admin-sim-tournament" style="display:none;background:rgba(255,70,85,0.12);border:1px solid rgba(255,70,85,0.4);color:var(--accent);border-radius:12px;padding:10px 16px;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:13px;cursor:pointer;">🤖 Simuler</button>
+            <button onclick="toggleTournamentCreate()" id="btn-create-tournament" style="display:none;background:linear-gradient(135deg,#f7c948,#ff9500);color:#000;border:none;border-radius:12px;padding:10px 20px;font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:13px;cursor:pointer;">+ Créer un tournoi</button>
+          </div>
+        </div>
+
+        <!-- Admin simulation panel -->
+        <div id="admin-sim-panel" style="display:none;background:rgba(255,70,85,0.05);border:1px solid rgba(255,70,85,0.3);border-radius:16px;padding:20px;margin-bottom:20px;">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+            <span style="font-size:20px;">🤖</span>
+            <div>
+              <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:15px;color:var(--accent);">Simuler un tournoi (admin)</div>
+              <div style="font-size:11px;color:var(--muted);margin-top:2px;">Crée un tournoi peuplé de bots, déjà démarré avec bracket généré. Tu seras inclus comme capitaine.</div>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px;">
+            <div>
+              <label style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:5px;">Nom</label>
+              <input id="sim-name" value="Tournoi Test" maxlength="32" style="width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:9px 12px;color:var(--text);font-size:13px;outline:none;"/>
+            </div>
+            <div>
+              <label style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:5px;">Mode</label>
+              <select id="sim-mode" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:9px 12px;color:var(--text);font-size:13px;outline:none;">
+                <option value="1v1">1v1</option>
+                <option value="2v2">2v2</option>
+                <option value="3v3">3v3</option>
+                <option value="5v5" selected>5v5</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:5px;">Nb équipes</label>
+              <select id="sim-teams" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:9px 12px;color:var(--text);font-size:13px;outline:none;">
+                <option value="4">4 équipes</option>
+                <option value="8" selected>8 équipes</option>
+                <option value="16">16 équipes</option>
+              </select>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <button onclick="adminSimulateTournament()" id="sim-launch-btn" style="background:var(--accent);color:#fff;border:none;border-radius:10px;padding:10px 22px;font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:14px;cursor:pointer;">🚀 Lancer la simulation</button>
+            <button onclick="toggleAdminSimPanel()" style="background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:10px;padding:10px 14px;font-size:13px;cursor:pointer;">Annuler</button>
+            <div id="sim-result" style="font-size:12px;color:var(--muted);flex:1;"></div>
+          </div>
         </div>
 
         <!-- Pending tournament invites -->
@@ -4573,6 +4615,41 @@ async function respondClanChallenge(challengeId, accept) {
 }
 
 // ── TOURNAMENTS ──
+function toggleAdminSimPanel() {
+  const panel = document.getElementById('admin-sim-panel');
+  if (!panel) return;
+  panel.style.display = panel.style.display === 'none' ? '' : 'none';
+}
+
+async function adminSimulateTournament() {
+  if (!state.isAdmin) return;
+  const name = document.getElementById('sim-name')?.value.trim() || 'Tournoi Test';
+  const mode = document.getElementById('sim-mode')?.value || '5v5';
+  const teamCount = document.getElementById('sim-teams')?.value || '8';
+  const resultEl = document.getElementById('sim-result');
+  const btn = document.getElementById('sim-launch-btn');
+  if (resultEl) resultEl.textContent = '⏳ Génération du tournoi…';
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ En cours…'; }
+  try {
+    const r = await fetch('/api/admin/simulate-tournament', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ adminKey: 'revenge_admin_secret', userId: state.userId, name, mode, teamCount })
+    });
+    const d = await r.json();
+    if (d.error) { if (resultEl) resultEl.textContent = '❌ ' + d.error; return; }
+    if (resultEl) resultEl.textContent = `✅ Tournoi créé — ${d.teamCount} équipes, bracket généré !`;
+    notify(`🏆 Tournoi simulé "${name}" créé avec ${d.teamCount} équipes !`, { accent: 'var(--gold)', duration: 5000 });
+    toggleAdminSimPanel();
+    loadTournaments();
+    // Auto-ouvrir le spectateur après un court délai
+    setTimeout(() => openTournamentSpectator(d.id), 600);
+  } catch(e) {
+    if (resultEl) resultEl.textContent = '❌ Erreur réseau';
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🚀 Lancer la simulation'; }
+  }
+}
+
 function renderTournamentInvites() {
   const container = document.getElementById('tournament-invites-box');
   const invites = state._pendingTournamentInvites || [];
@@ -4598,6 +4675,8 @@ async function loadTournaments() {
   if (!listEl) return;
   const btnCreate = document.getElementById('btn-create-tournament');
   if (btnCreate) btnCreate.style.display = state.isPremium ? '' : 'none';
+  const btnSim = document.getElementById('btn-admin-sim-tournament');
+  if (btnSim) btnSim.style.display = state.isAdmin ? '' : 'none';
   renderTournamentInvites();
   try {
     const r = await fetch('/api/tournaments');
