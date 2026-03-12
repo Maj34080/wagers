@@ -1951,7 +1951,6 @@ app.post('/api/clans/create', express.json(), (req, res) => {
     if (!data.clans) data.clans = [];
     const user = data.users.find(u => u.id === userId);
     if (!user) return res.status(404).json({ error: 'Joueur introuvable' });
-    if (!user.isPremium || (user.premiumUntil && user.premiumUntil < Date.now())) return res.status(403).json({ error: 'PREMIUM_REQUIRED' });
     if (user.clanId) return res.status(400).json({ error: 'Vous êtes déjà dans un clan' });
     const tagUp = tag.toUpperCase().replace(/[^A-Z0-9]/g, '');
     if (data.clans.find(c => c.tag === tagUp)) return res.status(400).json({ error: 'Ce tag est déjà pris' });
@@ -1973,7 +1972,6 @@ app.post('/api/clans/request', express.json(), (req, res) => {
     const clan = (data.clans || []).find(c => c.id === clanId);
     if (!user || !clan) return res.status(404).json({ error: 'Introuvable' });
     if (user.clanId) return res.status(400).json({ error: 'Vous êtes déjà dans un clan' });
-    if (!user.isPremium) return res.status(403).json({ error: 'PREMIUM_REQUIRED' });
     if (clan.members.length >= 10) return res.status(400).json({ error: 'Clan complet (10/10)' });
     if (!clan.joinRequests) clan.joinRequests = [];
     if (clan.joinRequests.includes(userId)) return res.status(400).json({ error: 'Demande déjà envoyée' });
@@ -2109,7 +2107,7 @@ app.get('/api/clans/user/:userId', (req, res) => {
       const u = data.users.find(u => u.id === rId);
       return u ? { id: u.id, pseudo: u.pseudo, avatar: u.avatar || null } : null;
     }).filter(Boolean);
-    res.json({ ...clan, members, joinRequests: requests, weeklyPoints: clan.weeklyPoints || 0, bo3Wins: clan.bo3Wins || 0, bo3Losses: clan.bo3Losses || 0 });
+    res.json({ ...clan, members, joinRequests: requests, weeklyPoints: clan.weeklyPoints || 0, bo3Wins: clan.bo3Wins || 0, bo3Losses: clan.bo3Losses || 0, bo3ReadyMembers: clan.bo3ReadyMembers || [] });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -2320,24 +2318,39 @@ const tournaments = {}; // id -> tournament obj
 
 app.post('/api/tournaments/create', express.json(), (req, res) => {
   try {
-    const { userId, name, mode, maxTeams, description } = req.body;
+    const { userId, name, mode, maxTeams, description, scheduledAt } = req.body;
     const data = readDB();
     const user = data.users.find(u => u.id === userId);
     if (!user) return res.status(404).json({ error: 'Utilisateur introuvable' });
     if (!user.isPremium) return res.status(403).json({ error: 'PREMIUM_REQUIRED' });
+    // 5-day cooldown between tournaments
+    const lastCreated = user.lastTournamentAt || 0;
+    const cooldownMs = 5 * 24 * 60 * 60 * 1000;
+    if (Date.now() - lastCreated < cooldownMs) {
+      const remaining = Math.ceil((cooldownMs - (Date.now() - lastCreated)) / (1000 * 3600));
+      return res.status(400).json({ error: `Prochain tournoi disponible dans ${remaining}h` });
+    }
+    // Scheduled date: minimum 24h from now
+    const scheduled = scheduledAt ? new Date(scheduledAt).getTime() : 0;
+    if (!scheduled || scheduled < Date.now() + 24 * 60 * 60 * 1000) {
+      return res.status(400).json({ error: 'La date doit être au minimum 24h dans le futur' });
+    }
     // 1 active tournament per user at a time
-    const hasActive = Object.values(tournaments).find(t => t.creatorId === userId && t.status !== 'finished');
+    const hasActive = Object.values(tournaments).find(t => t.creatorId === userId && t.status !== 'finished' && t.status !== 'cancelled');
     if (hasActive) return res.status(400).json({ error: 'Vous avez déjà un tournoi actif' });
     const id = 'tourney_' + Date.now();
     const validMode = ['1v1','2v2','3v3','5v5'].includes(mode) ? mode : '5v5';
+    const teamSize = { '1v1':1, '2v2':2, '3v3':3, '5v5':5 }[validMode] || 5;
     const maxT = Math.min(16, Math.max(4, parseInt(maxTeams) || 8));
     tournaments[id] = {
-      id, name: (name||'Tournoi').slice(0,32), mode: validMode,
+      id, name: (name||'Tournoi').slice(0,32), mode: validMode, teamSize,
       maxTeams: maxT, description: (description||'').slice(0,120),
       creatorId: userId, creatorPseudo: user.pseudo,
-      status: 'open', teams: [], createdAt: Date.now()
+      status: 'open', teams: [], pendingTeams: {}, scheduledAt: scheduled, createdAt: Date.now()
     };
-    io.emit('tournament_created', { id, name: tournaments[id].name, mode: validMode, creatorPseudo: user.pseudo });
+    user.lastTournamentAt = Date.now();
+    writeDB(data);
+    io.emit('tournament_created', { id, name: tournaments[id].name, mode: validMode, creatorPseudo: user.pseudo, scheduledAt: scheduled });
     res.json({ ok: true, id });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -2349,33 +2362,254 @@ app.get('/api/tournaments', (req, res) => {
   res.json(list);
 });
 
-app.post('/api/tournaments/join', express.json(), (req, res) => {
+// ── TEAM INVITATION SYSTEM ──
+// Captain sends invites to clan members, they accept/decline.
+// Once ALL accepted → team registered officially.
+
+app.post('/api/tournaments/invite', express.json(), (req, res) => {
   try {
-    const { userId, tournamentId, teamName } = req.body;
+    const { captainId, tournamentId, memberIds, teamName } = req.body;
     const t = tournaments[tournamentId];
     if (!t) return res.status(404).json({ error: 'Tournoi introuvable' });
-    if (t.status !== 'open') return res.status(400).json({ error: 'Tournoi fermé' });
+    if (t.status !== 'open' && t.status !== 'full') return res.status(400).json({ error: 'Tournoi fermé' });
     if (t.teams.length >= t.maxTeams) return res.status(400).json({ error: 'Tournoi complet' });
-    if (t.teams.find(tm => tm.captainId === userId)) return res.status(400).json({ error: 'Déjà inscrit' });
+    if (!Array.isArray(memberIds) || memberIds.length !== t.teamSize - 1) {
+      return res.status(400).json({ error: `Il faut exactement ${t.teamSize - 1} coéquipier(s) en plus du capitaine` });
+    }
     const data = readDB();
-    const user = data.users.find(u => u.id === userId);
-    if (!user) return res.status(404).json({ error: 'Utilisateur introuvable' });
-    t.teams.push({ captainId: userId, captainPseudo: user.pseudo, teamName: (teamName||user.pseudo).slice(0,20), joinedAt: Date.now() });
-    if (t.teams.length >= t.maxTeams) t.status = 'full';
+    const captain = data.users.find(u => u.id === captainId);
+    if (!captain) return res.status(404).json({ error: 'Capitaine introuvable' });
+    // Check captain is in a clan with all these members
+    if (!captain.clanId) return res.status(400).json({ error: 'Tu dois être dans un clan pour inscrire une équipe' });
+    const clan = (data.clans||[]).find(c => c.id === captain.clanId);
+    if (!clan) return res.status(400).json({ error: 'Clan introuvable' });
+    const allInClan = memberIds.every(id => clan.members.includes(id));
+    if (!allInClan) return res.status(400).json({ error: 'Tous les membres doivent être dans ton clan' });
+    // Check not already in a pending/confirmed team
+    const alreadyIn = [...t.teams, ...Object.values(t.pendingTeams||{})].find(tm =>
+      tm.captainId === captainId || (tm.memberIds||[]).includes(captainId) ||
+      memberIds.some(id => tm.captainId === id || (tm.memberIds||[]).includes(id))
+    );
+    if (alreadyIn) return res.status(400).json({ error: 'Un ou plusieurs joueurs sont déjà inscrits/invités' });
+    const pendingId = 'pteam_' + Date.now();
+    if (!t.pendingTeams) t.pendingTeams = {};
+    t.pendingTeams[pendingId] = {
+      pendingId, captainId, captainPseudo: captain.pseudo, clanTag: clan.tag,
+      teamName: (teamName || clan.tag || captain.pseudo).slice(0, 20),
+      memberIds, acceptedIds: [captainId], declinedIds: [], createdAt: Date.now()
+    };
+    // Notify each invitee via socket
+    memberIds.forEach(mId => {
+      const member = data.users.find(u => u.id === mId);
+      io.sockets.sockets.forEach(s => {
+        if (s.userId === mId) s.emit('tournament_invite', {
+          pendingId, tournamentId, tournamentName: t.name,
+          captainPseudo: captain.pseudo, teamName: t.pendingTeams[pendingId].teamName,
+          mode: t.mode, scheduledAt: t.scheduledAt
+        });
+      });
+    });
+    res.json({ ok: true, pendingId });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Member responds to tournament invite
+app.post('/api/tournaments/invite/respond', express.json(), (req, res) => {
+  try {
+    const { userId, tournamentId, pendingId, accept } = req.body;
+    const t = tournaments[tournamentId];
+    if (!t || !t.pendingTeams) return res.status(404).json({ error: 'Invitation introuvable' });
+    const pt = t.pendingTeams[pendingId];
+    if (!pt) return res.status(404).json({ error: 'Invitation introuvable' });
+    if (!pt.memberIds.includes(userId)) return res.status(403).json({ error: 'Non autorisé' });
+    if (!accept) {
+      pt.declinedIds.push(userId);
+      // Cancel the pending team — notify captain
+      io.sockets.sockets.forEach(s => {
+        if (s.userId === pt.captainId) s.emit('tournament_invite_declined', {
+          tournamentId, pendingId, by: userId,
+          tournamentName: t.name
+        });
+      });
+      delete t.pendingTeams[pendingId];
+      return res.json({ ok: true });
+    }
+    pt.acceptedIds.push(userId);
+    // If all members accepted → register officially
+    const allAccepted = pt.memberIds.every(id => pt.acceptedIds.includes(id));
+    if (allAccepted) {
+      const team = {
+        captainId: pt.captainId, captainPseudo: pt.captainPseudo,
+        teamName: pt.teamName, clanTag: pt.clanTag,
+        memberIds: [pt.captainId, ...pt.memberIds],
+        joinedAt: Date.now()
+      };
+      t.teams.push(team);
+      if (t.teams.length >= t.maxTeams) t.status = 'full';
+      delete t.pendingTeams[pendingId];
+      // Notify all team members
+      team.memberIds.forEach(mId => {
+        io.sockets.sockets.forEach(s => {
+          if (s.userId === mId) s.emit('tournament_team_confirmed', {
+            tournamentId, tournamentName: t.name, teamName: team.teamName
+          });
+        });
+      });
+      io.emit('tournament_updated', { id: tournamentId, teamCount: t.teams.length, maxTeams: t.maxTeams, status: t.status });
+    } else {
+      // Notify captain of progress
+      io.sockets.sockets.forEach(s => {
+        if (s.userId === pt.captainId) s.emit('tournament_invite_progress', {
+          tournamentId, pendingId, accepted: pt.acceptedIds.length, total: pt.memberIds.length + 1
+        });
+      });
+    }
+    res.json({ ok: true, allAccepted });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Cancel team registration (up to 1h before start)
+app.post('/api/tournaments/cancel-team', express.json(), (req, res) => {
+  try {
+    const { userId, tournamentId } = req.body;
+    const t = tournaments[tournamentId];
+    if (!t) return res.status(404).json({ error: 'Tournoi introuvable' });
+    // Check 1h limit
+    if (t.scheduledAt && Date.now() > t.scheduledAt - 60 * 60 * 1000) {
+      return res.status(400).json({ error: 'Impossible d\'annuler moins d\'1h avant le tournoi' });
+    }
+    const teamIdx = t.teams.findIndex(tm => tm.memberIds && tm.memberIds.includes(userId));
+    if (teamIdx === -1) {
+      // Check pending teams too
+      const pendingKey = Object.keys(t.pendingTeams||{}).find(k => {
+        const pt = t.pendingTeams[k];
+        return pt.captainId === userId || pt.memberIds.includes(userId);
+      });
+      if (pendingKey) { delete t.pendingTeams[pendingKey]; return res.json({ ok: true }); }
+      return res.status(404).json({ error: 'Équipe introuvable' });
+    }
+    const team = t.teams[teamIdx];
+    t.teams.splice(teamIdx, 1);
+    if (t.status === 'full') t.status = 'open';
+    // Notify all team members
+    (team.memberIds||[]).forEach(mId => {
+      io.sockets.sockets.forEach(s => {
+        if (s.userId === mId) s.emit('tournament_team_cancelled', { tournamentId, tournamentName: t.name });
+      });
+    });
     io.emit('tournament_updated', { id: tournamentId, teamCount: t.teams.length, maxTeams: t.maxTeams, status: t.status });
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// Start tournament + generate random bracket
 app.post('/api/tournaments/start', express.json(), (req, res) => {
   try {
     const { userId, tournamentId } = req.body;
     const t = tournaments[tournamentId];
     if (!t) return res.status(404).json({ error: 'Tournoi introuvable' });
     if (t.creatorId !== userId) return res.status(403).json({ error: 'Non autorisé' });
-    if (t.teams.length < 4) return res.status(400).json({ error: 'Minimum 4 équipes pour démarrer' });
+    if (t.teams.length < 2) return res.status(400).json({ error: 'Minimum 2 équipes pour démarrer' });
+    // Shuffle teams for random bracket
+    const shuffled = [...t.teams].sort(() => Math.random() - 0.5);
+    // Build bracket rounds
+    const bracket = [];
+    let round1 = [];
+    for (let i = 0; i < shuffled.length; i += 2) {
+      if (shuffled[i + 1]) {
+        round1.push({ team1: shuffled[i].teamName, team2: shuffled[i+1].teamName, winner: null, votes: {} });
+      } else {
+        // Odd team → bye
+        round1.push({ team1: shuffled[i].teamName, team2: 'BYE', winner: shuffled[i].teamName, votes: {} });
+      }
+    }
+    bracket.push(round1);
     t.status = 'started';
-    io.emit('tournament_started', { id: tournamentId, name: t.name });
+    t.bracket = bracket;
+    t.currentRound = 0;
+    io.emit('tournament_started', { id: tournamentId, name: t.name, bracket });
+    res.json({ ok: true, bracket });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Vote match result
+app.post('/api/tournaments/vote', express.json(), (req, res) => {
+  try {
+    const { userId, tournamentId, roundIdx, matchIdx, winner } = req.body;
+    const t = tournaments[tournamentId];
+    if (!t || !t.bracket) return res.status(404).json({ error: 'Tournoi introuvable' });
+    const match = t.bracket[roundIdx]?.[matchIdx];
+    if (!match) return res.status(404).json({ error: 'Match introuvable' });
+    if (match.winner) return res.status(400).json({ error: 'Match déjà terminé' });
+    // Check voter is in one of the two teams
+    const team1 = t.teams.find(tm => tm.teamName === match.team1);
+    const team2 = t.teams.find(tm => tm.teamName === match.team2);
+    const inTeam1 = team1 && (team1.captainId === userId || (team1.memberIds||[]).includes(userId));
+    const inTeam2 = team2 && (team2.captainId === userId || (team2.memberIds||[]).includes(userId));
+    if (!inTeam1 && !inTeam2) return res.status(403).json({ error: 'Tu n\'es pas dans ce match' });
+    if (!match.votes) match.votes = {};
+    match.votes[userId] = winner;
+    // Check agreement: captain of team1 and captain of team2 voted same
+    const capt1Vote = team1 ? match.votes[team1.captainId] : null;
+    const capt2Vote = team2 ? match.votes[team2.captainId] : null;
+    if (capt1Vote && capt2Vote) {
+      if (capt1Vote === capt2Vote) {
+        match.winner = capt1Vote;
+        io.emit('tournament_match_result', { tournamentId, roundIdx, matchIdx, winner: capt1Vote });
+      } else {
+        // Disagreement — notify admin
+        io.sockets.sockets.forEach(s => {
+          if (ADMIN_PSEUDOS.includes(s.pseudo)) {
+            s.emit('tournament_dispute', { tournamentId, tournamentName: t.name, roundIdx, matchIdx, team1: match.team1, team2: match.team2, capt1Vote, capt2Vote });
+          }
+        });
+        match.disputed = true;
+        io.emit('tournament_match_disputed', { tournamentId, roundIdx, matchIdx });
+      }
+    }
+    res.json({ ok: true, votes: match.votes });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Admin resolve disputed match
+app.post('/api/tournaments/resolve', express.json(), (req, res) => {
+  try {
+    const { adminKey, tournamentId, roundIdx, matchIdx, winner } = req.body;
+    if (adminKey !== ADMIN_KEY) return res.status(403).json({ error: 'Non autorisé' });
+    const t = tournaments[tournamentId];
+    if (!t || !t.bracket) return res.status(404).json({ error: 'Tournoi introuvable' });
+    const match = t.bracket[roundIdx]?.[matchIdx];
+    if (!match) return res.status(404).json({ error: 'Match introuvable' });
+    match.winner = winner;
+    match.disputed = false;
+    io.emit('tournament_match_result', { tournamentId, roundIdx, matchIdx, winner });
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
+
+// ── BO3 READY SYSTEM ──
+app.post('/api/clans/bo3-ready', express.json(), (req, res) => {
+  try {
+    const { userId, clanId, ready } = req.body;
+    const data = readDB();
+    const clan = (data.clans||[]).find(c => c.id === clanId);
+    if (!clan) return res.status(404).json({ error: 'Clan introuvable' });
+    if (!clan.members.includes(userId)) return res.status(403).json({ error: 'Pas membre du clan' });
+    if (!clan.bo3ReadyMembers) clan.bo3ReadyMembers = [];
+    if (ready) {
+      if (!clan.bo3ReadyMembers.includes(userId)) clan.bo3ReadyMembers.push(userId);
+    } else {
+      clan.bo3ReadyMembers = clan.bo3ReadyMembers.filter(id => id !== userId);
+    }
+    writeDB(data);
+    // Notify all clan members
+    clan.members.forEach(mId => {
+      io.sockets.sockets.forEach(s => {
+        if (s.userId === mId) s.emit('clan_bo3_ready_update', { clanId, readyCount: clan.bo3ReadyMembers.length, readyMembers: clan.bo3ReadyMembers });
+      });
+    });
+    res.json({ ok: true, readyCount: clan.bo3ReadyMembers.length });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Include bo3ReadyMembers in clan user endpoint

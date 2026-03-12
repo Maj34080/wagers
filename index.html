@@ -591,15 +591,16 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
                 <div style="font-weight:700;font-size:13px;margin-bottom:10px;color:var(--gold);text-transform:uppercase;letter-spacing:0.05em;">Demandes d'adhésion <span id="my-clan-req-count"></span></div>
                 <div id="my-clan-requests" style="display:flex;flex-direction:column;gap:8px;"></div>
               </div>
-              <!-- BO3 Challenge section (leader only, 5+ membres) -->
-              <div id="clan-challenge-section" style="display:none;padding:0 24px 16px;border-top:1px solid var(--border);padding-top:16px;">
-                <div style="font-weight:700;font-size:13px;margin-bottom:10px;color:var(--gold);text-transform:uppercase;letter-spacing:0.05em;">⚔️ Challenges BO3</div>
+              <!-- BO3 Challenge section (leader always, greyed if <5 ready) -->
+              <div id="clan-challenge-section" style="padding:0 24px 16px;border-top:1px solid var(--border);padding-top:16px;">
+                <div style="font-weight:700;font-size:13px;margin-bottom:4px;color:var(--gold);text-transform:uppercase;letter-spacing:0.05em;">⚔️ Challenges BO3</div>
+                <div id="clan-bo3-ready-status" style="font-size:11px;color:var(--muted);margin-bottom:10px;"></div>
                 <div id="clan-challenges-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px;"></div>
-                <div style="display:flex;gap:8px;align-items:center;">
+                <div id="clan-challenge-form" style="display:flex;gap:8px;align-items:center;">
                   <select id="clan-challenge-target" style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:8px 12px;color:var(--text);font-size:13px;outline:none;">
                     <option value="">Choisir un clan à challenger…</option>
                   </select>
-                  <button onclick="sendClanChallenge()" style="background:linear-gradient(135deg,var(--gold),#ff9500);color:#000;border:none;border-radius:9px;padding:9px 16px;font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:13px;cursor:pointer;white-space:nowrap;">⚔️ Challenger</button>
+                  <button id="clan-challenge-btn" onclick="sendClanChallenge()" style="background:linear-gradient(135deg,var(--gold),#ff9500);color:#000;border:none;border-radius:9px;padding:9px 16px;font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:13px;cursor:pointer;white-space:nowrap;">⚔️ Challenger</button>
                 </div>
               </div>
               <div style="padding:12px 24px;border-top:1px solid var(--border);display:flex;gap:8px;">
@@ -614,12 +615,6 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;">
               <!-- Create clan -->
               <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;position:relative;overflow:hidden;" id="clan-create-box">
-                <div id="clan-create-lock" style="display:none;position:absolute;inset:0;background:rgba(10,10,15,0.75);backdrop-filter:blur(3px);border-radius:16px;z-index:5;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;">
-                  <div style="font-size:32px;">👑</div>
-                  <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:15px;color:var(--gold);text-align:center;">Créer un clan</div>
-                  <div style="font-size:12px;color:var(--muted);text-align:center;max-width:180px;">Réservé aux membres Premium</div>
-                  <button onclick="showMainTab('boutique')" style="background:linear-gradient(135deg,#f7c948,#ff9500);color:#000;border:none;border-radius:10px;padding:9px 20px;font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:13px;cursor:pointer;">Obtenir Premium →</button>
-                </div>
                 <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:16px;margin-bottom:16px;">⚔️ Créer un clan</div>
                 <div style="margin-bottom:10px;">
                   <label style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:5px;">Nom du clan</label>
@@ -634,7 +629,6 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
                   <textarea id="clan-create-desc" placeholder="Décris ton clan…" maxlength="120" rows="2" style="width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:9px 12px;color:var(--text);font-size:13px;outline:none;resize:none;font-family:'Inter',sans-serif;"></textarea>
                 </div>
                 <button onclick="createClan()" id="clan-create-btn" style="width:100%;background:var(--accent);color:#fff;border:none;border-radius:10px;padding:11px;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:14px;cursor:pointer;">Créer le clan</button>
-                <div id="clan-create-premium-note" style="display:none;text-align:center;font-size:12px;color:var(--gold);margin-top:6px;">👑 Réservé aux membres <span style="cursor:pointer;text-decoration:underline;" onclick="showMainTab('boutique')">Premium</span></div>
                 <div id="clan-create-error" style="color:var(--accent);font-size:12px;margin-top:8px;text-align:center;min-height:16px;"></div>
               </div>
               <!-- Clan list to join -->
@@ -691,6 +685,9 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
           <button onclick="toggleTournamentCreate()" id="btn-create-tournament" style="display:none;background:linear-gradient(135deg,#f7c948,#ff9500);color:#000;border:none;border-radius:12px;padding:10px 20px;font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:13px;cursor:pointer;">+ Créer un tournoi</button>
         </div>
 
+        <!-- Pending tournament invites -->
+        <div id="tournament-invites-box" style="display:none;margin-bottom:16px;display:flex;flex-direction:column;gap:8px;"></div>
+
         <!-- Create form (Premium only, hidden by default) -->
         <div id="tournament-create-form" style="display:none;background:var(--surface);border:1px solid var(--gold);border-radius:16px;padding:20px;margin-bottom:20px;">
           <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:15px;margin-bottom:16px;color:var(--gold);">👑 Créer un tournoi</div>
@@ -717,6 +714,10 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
               </select>
             </div>
             <div>
+              <label style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:5px;">Date du tournoi (min +24h)</label>
+              <input id="t-date" type="datetime-local" style="width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:9px 12px;color:var(--text);font-size:13px;outline:none;"/>
+            </div>
+            <div style="grid-column:1/-1;">
               <label style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:5px;">Description (optionnel)</label>
               <input id="t-desc" placeholder="Ex: Tournoi ouvert à tous" maxlength="120" style="width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:9px 12px;color:var(--text);font-size:13px;outline:none;"/>
             </div>
@@ -786,7 +787,8 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
                 <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:rgba(255,255,255,0.8);"><span style="color:var(--gold);">✦</span> Pseudo animé en or</div>
                 <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:rgba(255,255,255,0.8);"><span style="color:var(--gold);">✦</span> Bordure dorée animée sur ta pp</div>
                 <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:rgba(255,255,255,0.8);"><span style="color:var(--gold);">✦</span> File d'attente prioritaire</div>
-                <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:rgba(255,255,255,0.8);"><span style="color:var(--gold);">✦</span> Création de clan (exclusif)</div>
+                <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:rgba(255,255,255,0.8);"><span style="color:var(--gold);">✦</span> Créer des tournois (1x / 5 jours)</div>
+                <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:rgba(255,255,255,0.8);"><span style="color:var(--gold);">✦</span> Banner de profil personnalisé</div>
                 <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:rgba(255,255,255,0.8);"><span style="color:var(--gold);">✦</span> Historique de matchs illimité</div>
               </div>
             </div>
@@ -1973,7 +1975,6 @@ function initSocket() {
     enterMain();
     // Init clan lock based on premium status (after DOM is ready)
     setTimeout(() => {
-      const lockEl = document.getElementById('clan-create-lock');
       if (lockEl) lockEl.style.display = state.isPremium ? 'none' : 'flex';
     }, 100);
   });
@@ -2166,6 +2167,24 @@ function initSocket() {
     if (state.clanId === clanId) appendClanChatMsg(msg);
   });
 
+  socket.on('clan_bo3_ready_update', ({ clanId, readyCount, readyMembers }) => {
+    if (state.clanId !== clanId) return;
+    // Update stored clan data and re-render challenge section
+    if (state._myClanData) {
+      state._myClanData.bo3ReadyMembers = readyMembers;
+      // Update status text and button state
+      const statusEl = document.getElementById('clan-bo3-ready-status');
+      const btn = document.getElementById('clan-challenge-btn');
+      const form = document.getElementById('clan-challenge-form');
+      const canChallenge = readyCount >= 5;
+      if (statusEl) statusEl.textContent = `${readyCount}/5 membres prêts${canChallenge ? ' — vous pouvez challenger !' : ' — il faut 5 membres prêts'}`;
+      if (btn) { btn.disabled = !canChallenge; btn.style.opacity = canChallenge ? '1' : '0.4'; btn.style.cursor = canChallenge ? 'pointer' : 'not-allowed'; }
+      if (form) form.style.opacity = canChallenge ? '1' : '0.5';
+      // Refresh member list to update ready badges
+      loadMyClan();
+    }
+  });
+
   // ── CLAN CHALLENGE ──
   socket.on('clan_challenge_received', ({ challengeId, from, tag }) => {
     playBeep(660, 0.2);
@@ -2212,9 +2231,48 @@ function initSocket() {
     loadTournaments();
   });
   socket.on('tournament_updated', () => loadTournaments());
-  socket.on('tournament_started', ({ name }) => {
+  socket.on('tournament_started', ({ name, bracket }) => {
     notify(`🏁 Le tournoi <b>${name}</b> a commencé !`, { accent: 'var(--gold)', duration: 6000 });
     loadTournaments();
+  });
+
+  // ── TOURNAMENT INVITATIONS ──
+  socket.on('tournament_invite', ({ pendingId, tournamentId, tournamentName, captainPseudo, teamName, mode, scheduledAt }) => {
+    playBeep(660, 0.2);
+    const dateStr = scheduledAt ? new Date(scheduledAt).toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }) : '?';
+    notify(`🏆 <b>${captainPseudo}</b> t'invite dans l'équipe <b>${teamName}</b> pour le tournoi ${tournamentName} (${mode}) — le ${dateStr}`, {
+      accent: 'var(--gold)', duration: 15000,
+      onClick: () => { showMainTab('tournois'); loadTournaments(); }
+    });
+    // Store invite for in-UI response
+    if (!state._pendingTournamentInvites) state._pendingTournamentInvites = [];
+    state._pendingTournamentInvites.push({ pendingId, tournamentId, tournamentName, captainPseudo, teamName, mode, scheduledAt });
+    renderTournamentInvites();
+  });
+  socket.on('tournament_invite_declined', ({ tournamentId, pendingId, tournamentName }) => {
+    notify(`❌ Un membre a refusé l'invitation pour <b>${tournamentName}</b> — équipe annulée`, { accent: 'var(--accent)', duration: 6000 });
+    loadTournaments();
+  });
+  socket.on('tournament_invite_progress', ({ tournamentId, pendingId, accepted, total }) => {
+    notify(`⏳ ${accepted}/${total} membres ont accepté l'invitation`, { accent: 'var(--muted)', duration: 4000 });
+  });
+  socket.on('tournament_team_confirmed', ({ tournamentName, teamName }) => {
+    playBeep(880, 0.15);
+    notify(`✅ Équipe <b>${teamName}</b> inscrite officiellement au tournoi <b>${tournamentName}</b> !`, { accent: '#2ecc71', duration: 7000 });
+    if (state._pendingTournamentInvites) state._pendingTournamentInvites = state._pendingTournamentInvites.filter(i => i.tournamentName !== tournamentName);
+    renderTournamentInvites();
+    loadTournaments();
+  });
+  socket.on('tournament_team_cancelled', ({ tournamentName }) => {
+    notify(`❌ Ton équipe a été désinscrite du tournoi <b>${tournamentName}</b>`, { accent: 'var(--accent)', duration: 6000 });
+    loadTournaments();
+  });
+  socket.on('tournament_match_result', () => loadTournaments());
+  socket.on('tournament_match_disputed', ({ tournamentId }) => {
+    if (state.isAdmin) notify('⚠️ Désaccord sur un match de tournoi — intervention requise', { accent: 'var(--gold)', duration: 8000 });
+  });
+  socket.on('tournament_dispute', ({ tournamentName, team1, team2, capt1Vote, capt2Vote }) => {
+    if (state.isAdmin) notify(`⚖️ Litige tournoi <b>${tournamentName}</b> : ${team1} vs ${team2} — ${capt1Vote} / ${capt2Vote}`, { accent: 'var(--gold)', duration: 0 });
   });
 
   socket.on('room_logs', (logs) => {
@@ -2283,7 +2341,6 @@ function initSocket() {
     const premBtn2 = document.getElementById('nav-premium-btn'); if (premBtn2) premBtn2.style.display = 'none';
     notify(`👑 Premium activé pour ${months} mois ! Bienvenue dans l'élite.`, { accent: 'var(--gold)', duration: 6000 });
     // Unlock clan creation immediately
-    const lockEl = document.getElementById('clan-create-lock');
     if (lockEl) lockEl.style.display = 'none';
   });
 
@@ -2318,7 +2375,6 @@ function initSocket() {
     const premBtn3 = document.getElementById('nav-premium-btn'); if (premBtn3) premBtn3.style.display = '';
     notify('Premium expiré.', { duration: 4000 });
     // Re-lock clan creation
-    const lockEl = document.getElementById('clan-create-lock');
     if (lockEl) lockEl.style.display = 'flex';
   });
 
@@ -4083,9 +4139,6 @@ async function showClanModal(clanId) {
 }
 
 async function loadMyClan() {
-  // Show/hide clan create lock based on premium status
-  const lockEl = document.getElementById('clan-create-lock');
-  if (lockEl) lockEl.style.display = state.isPremium ? 'none' : 'flex';
   if (!state.userId) return;
   try {
     const r = await fetch('/api/clans/user/' + state.userId);
@@ -4144,21 +4197,30 @@ function renderMyClanPanel(clan) {
   const leaveBtn = document.getElementById('leave-clan-btn');
   if (leaveBtn) leaveBtn.textContent = isLeader ? '💥 Dissoudre le clan' : 'Quitter le clan';
 
-  // Members
+  // Members + BO3 ready button
+  const bo3ReadyMembers = clan.bo3ReadyMembers || [];
   const membersEl = document.getElementById('my-clan-members');
-  if (membersEl) membersEl.innerHTML = clan.members.map(m => `
+  if (membersEl) membersEl.innerHTML = clan.members.map(m => {
+    const isReady = bo3ReadyMembers.includes(m.id);
+    const isMe = m.id === state.userId;
+    return `
     <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg);border-radius:10px;">
       ${m.avatar ? `<img src="${m.avatar}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;flex-shrink:0;">` : `<div style="width:32px;height:32px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex-shrink:0;">${m.pseudo[0].toUpperCase()}</div>`}
       <div style="flex:1;">
         <div style="font-weight:700;font-size:13px;display:flex;align-items:center;gap:6px;">
           ${m.pseudo}
           ${m.isLeader ? '<span style="font-size:10px;background:rgba(255,209,102,0.15);color:var(--gold);border-radius:4px;padding:1px 6px;font-weight:700;">CHEF</span>' : ''}
-          ${m.id === state.userId ? '<span style="font-size:10px;background:rgba(255,70,85,0.12);color:var(--accent);border-radius:4px;padding:1px 6px;font-weight:700;">VOUS</span>' : ''}
+          ${isMe ? '<span style="font-size:10px;background:rgba(255,70,85,0.12);color:var(--accent);border-radius:4px;padding:1px 6px;font-weight:700;">VOUS</span>' : ''}
+          ${isReady ? '<span style="font-size:10px;background:rgba(46,204,113,0.15);color:#2ecc71;border-radius:4px;padding:1px 6px;font-weight:700;">✓ PRÊT BO3</span>' : ''}
         </div>
         <div style="font-size:11px;color:var(--muted);">${m.maxElo} ELO max</div>
       </div>
-      ${isLeader && m.id !== state.userId ? `<button onclick="kickClanMember('${m.id}','${m.pseudo}')" style="background:rgba(255,70,85,0.1);border:1px solid rgba(255,70,85,0.3);color:var(--accent);border-radius:7px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;">Kick</button>` : ''}
-    </div>`).join('');
+      <div style="display:flex;gap:6px;align-items:center;">
+        ${isMe ? `<button onclick="toggleBo3Ready(${isReady})" id="my-bo3-ready-btn" style="background:${isReady ? 'rgba(46,204,113,0.15)' : 'rgba(255,255,255,0.06)'};border:1px solid ${isReady ? '#2ecc71' : 'var(--border)'};color:${isReady ? '#2ecc71' : 'var(--muted)'};border-radius:7px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;">${isReady ? '✓ Prêt' : 'Prêt BO3'}</button>` : ''}
+        ${isLeader && m.id !== state.userId ? `<button onclick="kickClanMember('${m.id}','${m.pseudo}')" style="background:rgba(255,70,85,0.1);border:1px solid rgba(255,70,85,0.3);color:var(--accent);border-radius:7px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;">Kick</button>` : ''}
+      </div>
+    </div>`;
+  }).join('');
 
   // Join requests (leader only)
   const reqSection = document.getElementById('my-clan-requests-section');
@@ -4189,14 +4251,25 @@ function renderMyClanPanel(clan) {
   // Bar shows progress toward theoretical max (e.g. 15pts = 5 wins)
   if (wBar) wBar.style.width = Math.min(100, ((clan.weeklyPoints || 0) / 15) * 100) + '%';
 
-  // BO3 challenge section (leader + 5+ membres)
+  // BO3 challenge section — always visible for leader, greyed if <5 ready
   const challengeSection = document.getElementById('clan-challenge-section');
+  const bo3ReadyStatus = document.getElementById('clan-bo3-ready-status');
+  const challengeBtn = document.getElementById('clan-challenge-btn');
+  const challengeForm = document.getElementById('clan-challenge-form');
   if (challengeSection) {
-    if (isLeader && clan.members.length >= 5) {
+    if (isLeader) {
       challengeSection.style.display = '';
+      const readyCount = bo3ReadyMembers.length;
+      const canChallenge = readyCount >= 5;
+      if (bo3ReadyStatus) bo3ReadyStatus.textContent = `${readyCount}/5 membres prêts${canChallenge ? ' — vous pouvez challenger !' : ' — il faut 5 membres prêts'}`;
+      if (challengeBtn) {
+        challengeBtn.disabled = !canChallenge;
+        challengeBtn.style.opacity = canChallenge ? '1' : '0.4';
+        challengeBtn.style.cursor = canChallenge ? 'pointer' : 'not-allowed';
+      }
+      if (challengeForm) challengeForm.style.opacity = canChallenge ? '1' : '0.5';
       loadClanChallenges();
-      // Fill target selector
-      fillChallengeTargetSelect(clan.id);
+      if (canChallenge) fillChallengeTargetSelect(clan.id);
     } else {
       challengeSection.style.display = 'none';
     }
@@ -4368,6 +4441,20 @@ async function sendClanChat() {
   } catch(e) {}
 }
 
+async function toggleBo3Ready(currentlyReady) {
+  if (!state.clanId || !state.userId) return;
+  const newReady = !currentlyReady;
+  try {
+    const r = await fetch('/api/clans/bo3-ready', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: state.userId, clanId: state.clanId, ready: newReady })
+    });
+    const d = await r.json();
+    if (d.error) { notify('❌ ' + d.error); return; }
+    // UI update happens via socket clan_bo3_ready_update
+  } catch(e) { notify('❌ Erreur réseau'); }
+}
+
 // ── BO3 CHALLENGES ──
 async function loadClanChallenges() {
   if (!state.clanId) return;
@@ -4440,11 +4527,32 @@ async function respondClanChallenge(challengeId, accept) {
 }
 
 // ── TOURNAMENTS ──
+function renderTournamentInvites() {
+  const container = document.getElementById('tournament-invites-box');
+  const invites = state._pendingTournamentInvites || [];
+  if (!container) return;
+  if (!invites.length) { container.style.display = 'none'; return; }
+  container.style.display = '';
+  container.innerHTML = invites.map(inv => {
+    const dateStr = inv.scheduledAt ? new Date(inv.scheduledAt).toLocaleDateString('fr-FR', { weekday:'short', day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }) : '?';
+    return `<div style="background:rgba(247,201,72,0.08);border:1px solid rgba(247,201,72,0.3);border-radius:12px;padding:14px 16px;display:flex;align-items:center;gap:12px;">
+      <div style="flex:1;">
+        <div style="font-weight:700;font-size:13px;">🏆 Invitation tournoi — <b>${inv.teamName}</b></div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px;">${inv.tournamentName} · ${inv.mode.toUpperCase()} · ${dateStr}</div>
+        <div style="font-size:11px;color:var(--muted);">Invité par ${inv.captainPseudo}</div>
+      </div>
+      <button onclick="respondTournamentInvite('${inv.pendingId}','${inv.tournamentId}',true)" style="background:rgba(46,204,113,0.15);border:1px solid #2ecc71;color:#2ecc71;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;margin-right:4px;">✓ Accepter</button>
+      <button onclick="respondTournamentInvite('${inv.pendingId}','${inv.tournamentId}',false)" style="background:rgba(255,70,85,0.1);border:1px solid rgba(255,70,85,0.3);color:var(--accent);border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;">✕ Refuser</button>
+    </div>`;
+  }).join('');
+}
+
 async function loadTournaments() {
   const listEl = document.getElementById('tournaments-list');
   if (!listEl) return;
   const btnCreate = document.getElementById('btn-create-tournament');
   if (btnCreate) btnCreate.style.display = state.isPremium ? '' : 'none';
+  renderTournamentInvites();
   try {
     const r = await fetch('/api/tournaments');
     const list = await r.json();
@@ -4457,32 +4565,71 @@ async function loadTournaments() {
       return;
     }
     listEl.innerHTML = list.map(t => {
-      const alreadyIn = t.teams.find(tm => tm.captainId === state.userId);
+      const myTeam = (t.teams||[]).find(tm => tm.memberIds && tm.memberIds.includes(state.userId));
+      const myPending = Object.values(t.pendingTeams||{}).find(pt => pt.captainId === state.userId || (pt.memberIds||[]).includes(state.userId));
       const full = t.teamCount >= t.maxTeams;
+      const dateStr = t.scheduledAt ? new Date(t.scheduledAt).toLocaleDateString('fr-FR', { weekday:'long', day:'2-digit', month:'long', hour:'2-digit', minute:'2-digit' }) : '?';
+      const canCancel = myTeam && t.scheduledAt && Date.now() < t.scheduledAt - 60*60*1000;
+      // Bracket display
+      let bracketHtml = '';
+      if (t.bracket && t.bracket.length) {
+        bracketHtml = `<div style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px;">
+          <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">🏆 Bracket</div>
+          <div style="display:flex;gap:12px;overflow-x:auto;padding-bottom:6px;">
+            ${t.bracket.map((round, ri) => `
+              <div style="min-width:160px;">
+                <div style="font-size:10px;color:var(--muted);margin-bottom:6px;font-weight:700;">Round ${ri+1}</div>
+                ${round.map((match, mi) => `
+                  <div style="background:var(--bg);border:1px solid ${match.disputed ? 'rgba(255,70,85,0.5)' : 'var(--border)'};border-radius:8px;padding:6px 10px;margin-bottom:6px;font-size:12px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+                      <span style="${match.winner===match.team1?'color:var(--gold);font-weight:700;':''}">${match.team1}</span>
+                      ${!match.winner && match.team2 !== 'BYE' && (myTeam && (match.team1===myTeam.teamName||match.team2===myTeam.teamName))
+                        ? `<div style="display:flex;gap:4px;">
+                            <button onclick="voteTournamentMatch('${t.id}',${ri},${mi},'${match.team1}')" style="background:rgba(255,255,255,0.06);border:1px solid var(--border);color:var(--text);border-radius:5px;padding:2px 6px;font-size:10px;cursor:pointer;">${match.team1.slice(0,4)}</button>
+                            <button onclick="voteTournamentMatch('${t.id}',${ri},${mi},'${match.team2}')" style="background:rgba(255,255,255,0.06);border:1px solid var(--border);color:var(--text);border-radius:5px;padding:2px 6px;font-size:10px;cursor:pointer;">${match.team2.slice(0,4)}</button>
+                          </div>`
+                        : match.winner ? `<span style="font-size:10px;color:#2ecc71;font-weight:700;">✓</span>` : ''}
+                      <span style="${match.winner===match.team2?'color:var(--gold);font-weight:700;':''}">${match.team2}</span>
+                    </div>
+                    ${match.disputed ? '<div style="font-size:10px;color:var(--accent);margin-top:3px;">⚠️ Litige — admin requis</div>' : ''}
+                  </div>`).join('')}
+              </div>`).join('')}
+          </div>
+        </div>`;
+      }
       return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:20px;">
-        <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px;">
-          <div>
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:8px;">
+          <div style="flex:1;min-width:0;">
             <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:16px;">${t.name}</div>
-            <div style="font-size:12px;color:var(--muted);margin-top:2px;">Mode ${t.mode.toUpperCase()} · Créé par ${t.creatorPseudo}${t.description ? ' · ' + t.description : ''}</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:2px;">Mode ${t.mode.toUpperCase()} · Par ${t.creatorPseudo}${t.description ? ' · ' + t.description : ''}</div>
+            <div style="font-size:12px;color:var(--gold);margin-top:3px;">📅 ${dateStr}</div>
           </div>
-          <span style="background:rgba(46,204,113,0.15);color:#2ecc71;border:1px solid rgba(46,204,113,0.3);border-radius:8px;padding:4px 12px;font-size:12px;font-weight:700;white-space:nowrap;">${t.status === 'full' ? '🔒 Complet' : '🟢 Ouvert'}</span>
+          <span style="background:${t.status==='started'?'rgba(255,209,72,0.15)':t.status==='full'?'rgba(255,70,85,0.12)':'rgba(46,204,113,0.12)'};color:${t.status==='started'?'var(--gold)':t.status==='full'?'var(--accent)':'#2ecc71'};border:1px solid currentColor;border-radius:8px;padding:4px 12px;font-size:12px;font-weight:700;white-space:nowrap;flex-shrink:0;">${t.status==='started'?'🔴 En cours':t.status==='full'?'🔒 Complet':'🟢 Ouvert'}</span>
         </div>
-        <div style="display:flex;align-items:center;gap:16px;margin-bottom:14px;">
-          <div style="flex:1;background:var(--border);border-radius:4px;height:6px;">
-            <div style="height:6px;border-radius:4px;background:linear-gradient(90deg,var(--accent),#ff9500);width:${Math.round((t.teamCount/t.maxTeams)*100)}%;transition:width 0.4s;"></div>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+          <div style="flex:1;background:var(--border);border-radius:4px;height:5px;">
+            <div style="height:5px;border-radius:4px;background:linear-gradient(90deg,var(--accent),#ff9500);width:${Math.round(((t.teamCount||0)/t.maxTeams)*100)}%;transition:width 0.4s;"></div>
           </div>
-          <span style="font-size:12px;font-weight:700;">${t.teamCount}/${t.maxTeams} équipes</span>
+          <span style="font-size:12px;font-weight:700;white-space:nowrap;">${t.teamCount||0}/${t.maxTeams} équipes</span>
         </div>
-        <div style="display:flex;gap:8px;">
-          ${alreadyIn
-            ? `<span style="background:rgba(46,204,113,0.12);color:#2ecc71;border-radius:9px;padding:8px 18px;font-size:13px;font-weight:700;">✓ Inscrit</span>`
-            : full ? `<span style="color:var(--muted);font-size:13px;padding:8px 0;">Complet</span>`
-            : `<button onclick="joinTournament('${t.id}')" style="background:var(--accent);color:#fff;border:none;border-radius:10px;padding:9px 20px;font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:13px;cursor:pointer;">S'inscrire</button>`}
-          ${t.creatorId === state.userId && t.teamCount >= 4
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+          ${myTeam
+            ? `<span style="background:rgba(46,204,113,0.12);color:#2ecc71;border-radius:9px;padding:7px 14px;font-size:13px;font-weight:700;">✓ Inscrit (${myTeam.teamName})</span>
+               ${canCancel ? `<button onclick="cancelTournamentTeam('${t.id}')" style="background:rgba(255,70,85,0.1);border:1px solid rgba(255,70,85,0.3);color:var(--accent);border-radius:9px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;">Annuler</button>` : ''}`
+            : myPending
+              ? `<span style="color:var(--muted);font-size:13px;padding:7px 0;">⏳ En attente de confirmation d'équipe…</span>
+                 <button onclick="cancelTournamentTeam('${t.id}')" style="background:rgba(255,70,85,0.08);border:1px solid rgba(255,70,85,0.2);color:var(--accent);border-radius:9px;padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer;">Annuler</button>`
+              : full || t.status === 'started'
+                ? `<span style="color:var(--muted);font-size:13px;">${t.status==='started'?'En cours':'Complet'}</span>`
+                : state.clanId
+                  ? `<button onclick="openTournamentInviteForm('${t.id}','${t.mode}',${t.teamSize})" style="background:var(--accent);color:#fff;border:none;border-radius:10px;padding:9px 20px;font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:13px;cursor:pointer;">S'inscrire avec un clan</button>`
+                  : `<span style="color:var(--muted);font-size:12px;">Tu dois être dans un clan pour participer</span>`}
+          ${t.creatorId === state.userId && (t.teamCount||0) >= 2 && t.status !== 'started'
             ? `<button onclick="startTournament('${t.id}')" style="background:linear-gradient(135deg,var(--gold),#ff9500);color:#000;border:none;border-radius:10px;padding:9px 20px;font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:13px;cursor:pointer;">🚀 Démarrer</button>`
             : ''}
         </div>
-        ${t.teams.length ? `<div style="margin-top:12px;border-top:1px solid var(--border);padding-top:10px;"><div style="font-size:11px;color:var(--muted);margin-bottom:6px;">INSCRITS</div><div style="display:flex;flex-wrap:wrap;gap:6px;">${t.teams.map(tm => `<span style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:3px 9px;font-size:11px;font-weight:700;">${tm.teamName}</span>`).join('')}</div></div>` : ''}
+        ${t.teams && t.teams.length ? `<div style="margin-top:12px;border-top:1px solid var(--border);padding-top:10px;"><div style="font-size:11px;color:var(--muted);margin-bottom:6px;">ÉQUIPES INSCRITES</div><div style="display:flex;flex-wrap:wrap;gap:6px;">${t.teams.map(tm => `<span style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:3px 9px;font-size:11px;font-weight:700;">${tm.clanTag ? '['+tm.clanTag+'] ':''} ${tm.teamName}</span>`).join('')}</div></div>` : ''}
+        ${bracketHtml}
       </div>`;
     }).join('');
   } catch(e) {}
@@ -4499,12 +4646,17 @@ async function createTournament() {
   const mode = document.getElementById('t-mode')?.value;
   const maxTeams = document.getElementById('t-maxteams')?.value;
   const desc = document.getElementById('t-desc')?.value.trim();
+  const dateVal = document.getElementById('t-date')?.value;
   const errEl = document.getElementById('t-error');
+  if (errEl) errEl.textContent = '';
   if (!name) { if (errEl) errEl.textContent = 'Nom requis'; return; }
+  if (!dateVal) { if (errEl) errEl.textContent = 'Date requise (minimum 24h)'; return; }
+  const scheduledAt = new Date(dateVal).getTime();
+  if (scheduledAt < Date.now() + 24*60*60*1000) { if (errEl) errEl.textContent = 'La date doit être au minimum 24h dans le futur'; return; }
   try {
     const r = await fetch('/api/tournaments/create', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: state.userId, name, mode, maxTeams, description: desc })
+      body: JSON.stringify({ userId: state.userId, name, mode, maxTeams, description: desc, scheduledAt })
     });
     const d = await r.json();
     if (d.error) {
@@ -4517,16 +4669,104 @@ async function createTournament() {
   } catch(e) { if (errEl) errEl.textContent = 'Erreur réseau'; }
 }
 
-async function joinTournament(id) {
-  const teamName = state.clanId ? state._myClanData?.tag || state.pseudo : state.pseudo;
+// Open inline invite form for a tournament
+function openTournamentInviteForm(tournamentId, mode, teamSize) {
+  const listEl = document.getElementById('tournaments-list');
+  if (!listEl) return;
+  // Find the card and append form inside it
+  // Use a modal instead for simplicity
+  const clan = state._myClanData;
+  if (!clan) { notify('Tu dois être dans un clan', { accent: 'var(--accent)' }); return; }
+  const others = (clan.members || []).filter(m => m.id !== state.userId);
+  if (others.length < teamSize - 1) { notify(`Il te faut au moins ${teamSize - 1} autres membres dans ton clan`, { accent: 'var(--accent)' }); return; }
+  let modal = document.getElementById('tournament-invite-modal');
+  if (!modal) { modal = document.createElement('div'); modal.id = 'tournament-invite-modal'; document.body.appendChild(modal); }
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(6px);z-index:9999;display:flex;align-items:center;justify-content:center;';
+  modal.onclick = e => { if (e.target === modal) modal.remove(); };
+  modal.innerHTML = `
+    <div style="background:var(--surface);border:1px solid rgba(255,255,255,0.08);border-radius:20px;padding:28px;width:420px;max-width:95vw;position:relative;">
+      <button onclick="document.getElementById('tournament-invite-modal').remove()" style="position:absolute;top:14px;right:14px;background:rgba(255,255,255,0.07);border:none;color:var(--text);width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:15px;">×</button>
+      <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:17px;margin-bottom:6px;">⚔️ Inscrire ton équipe</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:16px;">Choisis ${teamSize - 1} coéquipier(s) de ton clan</div>
+      <div style="margin-bottom:12px;">
+        <label style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:5px;">Nom de l'équipe</label>
+        <input id="tinvite-teamname" value="${clan.tag}" maxlength="20" style="width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:9px 12px;color:var(--text);font-size:13px;outline:none;"/>
+      </div>
+      <div style="margin-bottom:16px;">
+        <label style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:8px;">Membres (choisis ${teamSize - 1})</label>
+        <div style="display:flex;flex-direction:column;gap:6px;max-height:200px;overflow-y:auto;">
+          ${others.map(m => `
+            <label style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg);border-radius:9px;cursor:pointer;">
+              <input type="checkbox" value="${m.id}" class="tinvite-member" style="accent-color:var(--accent);width:16px;height:16px;cursor:pointer;">
+              ${m.avatar ? `<img src="${m.avatar}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;">` : `<div style="width:28px;height:28px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;">${m.pseudo[0].toUpperCase()}</div>`}
+              <span style="font-weight:700;font-size:13px;">${m.pseudo}</span>
+              <span style="font-size:11px;color:var(--muted);margin-left:auto;">${m.maxElo} ELO</span>
+            </label>`).join('')}
+        </div>
+      </div>
+      <div id="tinvite-error" style="color:var(--accent);font-size:12px;margin-bottom:10px;min-height:16px;"></div>
+      <button onclick="submitTournamentInvite('${tournamentId}',${teamSize})" style="width:100%;background:var(--accent);color:#fff;border:none;border-radius:11px;padding:11px;font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:14px;cursor:pointer;">📨 Envoyer les invitations</button>
+    </div>`;
+}
+
+async function submitTournamentInvite(tournamentId, teamSize) {
+  const checked = [...document.querySelectorAll('.tinvite-member:checked')].map(cb => cb.value);
+  const teamName = document.getElementById('tinvite-teamname')?.value.trim();
+  const errEl = document.getElementById('tinvite-error');
+  if (checked.length !== teamSize - 1) { if (errEl) errEl.textContent = `Sélectionne exactement ${teamSize - 1} membre(s)`; return; }
   try {
-    const r = await fetch('/api/tournaments/join', {
+    const r = await fetch('/api/tournaments/invite', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: state.userId, tournamentId: id, teamName })
+      body: JSON.stringify({ captainId: state.userId, tournamentId, memberIds: checked, teamName })
+    });
+    const d = await r.json();
+    if (d.error) { if (errEl) errEl.textContent = d.error; return; }
+    notify('📨 Invitations envoyées ! En attente de confirmation.', { accent: 'var(--gold)' });
+    document.getElementById('tournament-invite-modal')?.remove();
+    loadTournaments();
+  } catch(e) { if (errEl) errEl.textContent = 'Erreur réseau'; }
+}
+
+async function respondTournamentInvite(pendingId, tournamentId, accept) {
+  try {
+    const r = await fetch('/api/tournaments/invite/respond', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: state.userId, tournamentId, pendingId, accept })
     });
     const d = await r.json();
     if (d.error) { notify('❌ ' + d.error); return; }
-    notify('✅ Inscrit au tournoi !', { accent: '#2ecc71' });
+    if (!accept) notify('✕ Invitation refusée', { accent: 'var(--muted)' });
+    // Remove from pending invites
+    if (state._pendingTournamentInvites) {
+      state._pendingTournamentInvites = state._pendingTournamentInvites.filter(i => i.pendingId !== pendingId);
+    }
+    renderTournamentInvites();
+    loadTournaments();
+  } catch(e) { notify('❌ Erreur réseau'); }
+}
+
+async function cancelTournamentTeam(tournamentId) {
+  try {
+    const r = await fetch('/api/tournaments/cancel-team', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: state.userId, tournamentId })
+    });
+    const d = await r.json();
+    if (d.error) { notify('❌ ' + d.error); return; }
+    notify('✕ Équipe désinscrite du tournoi', { accent: 'var(--muted)' });
+    loadTournaments();
+  } catch(e) { notify('❌ Erreur réseau'); }
+}
+
+async function voteTournamentMatch(tournamentId, roundIdx, matchIdx, winner) {
+  try {
+    const r = await fetch('/api/tournaments/vote', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: state.userId, tournamentId, roundIdx, matchIdx, winner })
+    });
+    const d = await r.json();
+    if (d.error) { notify('❌ ' + d.error); return; }
+    notify(`✅ Vote enregistré — ${winner}`, { accent: '#2ecc71', duration: 3000 });
     loadTournaments();
   } catch(e) { notify('❌ Erreur réseau'); }
 }
