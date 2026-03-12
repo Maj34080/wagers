@@ -87,6 +87,13 @@ function updateAvatar(id, avatarBase64) {
   return user;
 }
 
+function updateBanner(id, bannerBase64) {
+  const db = loadDB();
+  const user = db.users.find(u => u.id === id);
+  if (user) { user.banner = bannerBase64; saveDB(db); }
+  return user;
+}
+
 function getIpAccounts(ip) {
   if (!ip) return [];
   return loadDB().users.filter(u => u.ip === ip);
@@ -405,4 +412,4 @@ function getSeasonArchives() {
   return loadDB().seasonArchives || [];
 }
 
-module.exports = { getUserByPseudo, getUserById, createUser, checkReferralReward, updateUserElo, computeEloChange, getLeaderboard, updateAvatar, getIpAccounts, defaultStats, banUser, unbanUser, muteUser, unmuteUser, checkMuteExpiry, createTicket, getTickets, replyTicket, closeTicket, setPremium, revokePremium, checkPremiumExpiry, loadDB, saveDB, addAdminLog, getAdminLogs, getCurrentSeason, checkSeasonReset, getSeasonArchives };
+module.exports = { getUserByPseudo, getUserById, createUser, checkReferralReward, updateUserElo, computeEloChange, getLeaderboard, updateAvatar, updateBanner, getIpAccounts, defaultStats, banUser, unbanUser, muteUser, unmuteUser, checkMuteExpiry, createTicket, getTickets, replyTicket, closeTicket, setPremium, revokePremium, checkPremiumExpiry, loadDB, saveDB, addAdminLog, getAdminLogs, getCurrentSeason, checkSeasonReset, getSeasonArchives };

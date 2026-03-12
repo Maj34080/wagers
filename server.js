@@ -380,6 +380,16 @@ app.post('/api/avatar', express.json({ limit: '2mb' }), (req, res) => {
   res.json({ ok: true });
 });
 
+app.post('/api/banner', express.json({ limit: '3mb' }), (req, res) => {
+  const { userId, banner } = req.body;
+  if (!userId || !banner) return res.status(400).json({ error: 'Manquant' });
+  const user = db.getUserById(userId);
+  if (!user) return res.status(404).json({ error: 'Utilisateur introuvable' });
+  if (!user.isPremium) return res.status(403).json({ error: 'PREMIUM_REQUIRED' });
+  db.updateBanner(userId, banner);
+  res.json({ ok: true });
+});
+
 // ── CLASSEMENT OF THE DAY ──
 let eloSnapshot = {};
 let cotdData = [];
@@ -710,7 +720,7 @@ io.on('connection', (socket) => {
     const totalLosses = Object.values(stats).reduce((a, s) => a + (s.losses||0), 0);
     const total = totalWins + totalLosses;
     const winrate = total > 0 ? Math.round((totalWins / total) * 100) : 0;
-    socket.emit('profile_data', { id: user.id, pseudo: user.pseudo, stats, winrate, totalWins, totalLosses, avatar: user.avatar || null, isPremium: !!user.isPremium });
+    socket.emit('profile_data', { id: user.id, pseudo: user.pseudo, stats, winrate, totalWins, totalLosses, avatar: user.avatar || null, banner: user.banner || null, isPremium: !!user.isPremium });
   });
 
   // ── ADMIN: SPAWN BOTS ──

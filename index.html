@@ -204,6 +204,61 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
 .modal-overlay.show{display:flex;}
 .modal-card{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:32px;width:380px;animation:scaleIn 0.3s ease;position:relative;}
 .modal-close{position:absolute;top:16px;right:16px;background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;}
+
+/* ── CADRES D'AVATAR PAR RANK ── */
+.avatar-frame { position:relative; display:inline-block; }
+.avatar-frame img, .avatar-frame .av-letter {
+  width:80px; height:80px; border-radius:50%; object-fit:cover; display:flex; align-items:center; justify-content:center;
+}
+.av-letter { background:var(--accent); font-family:'Syne',sans-serif; font-weight:800; font-size:28px; }
+/* Or */
+.frame-or .av-img, .frame-or .av-letter { box-shadow: 0 0 0 3px #f7c948; }
+/* Platine */
+.frame-platine .av-img, .frame-platine .av-letter { box-shadow: 0 0 0 3px #4fd1c5, 0 0 12px rgba(79,209,197,0.4); }
+/* Diamond */
+.frame-diamond .av-img, .frame-diamond .av-letter { box-shadow: 0 0 0 3px #7c6ff7, 0 0 16px rgba(124,111,247,0.5); }
+/* Radiant */
+.frame-radiant .av-img, .frame-radiant .av-letter {
+  box-shadow: 0 0 0 3px #ff4655, 0 0 20px rgba(255,70,85,0.6);
+  animation: radiantPulse 2s ease-in-out infinite;
+}
+@keyframes radiantPulse {
+  0%,100% { box-shadow: 0 0 0 3px #ff4655, 0 0 20px rgba(255,70,85,0.5); }
+  50%      { box-shadow: 0 0 0 3px #f7c948, 0 0 28px rgba(247,201,72,0.7); }
+}
+/* Premium */
+.frame-premium .av-img, .frame-premium .av-letter {
+  box-shadow: 0 0 0 3px #f7c948, 0 0 0 6px rgba(247,201,72,0.2);
+  animation: premiumGlow 2.5s ease-in-out infinite;
+}
+@keyframes premiumGlow {
+  0%,100% { box-shadow: 0 0 0 3px #f7c948, 0 0 12px rgba(247,201,72,0.3); }
+  50%      { box-shadow: 0 0 0 3px #ff9500, 0 0 24px rgba(255,149,0,0.6); }
+}
+.frame-badge {
+  position:absolute; bottom:-4px; right:-4px; width:22px; height:22px;
+  border-radius:50%; display:flex; align-items:center; justify-content:center;
+  font-size:12px; border:2px solid var(--bg);
+}
+
+/* ── BANNIÈRE DE PROFIL ── */
+.profile-banner {
+  margin: -32px -32px 20px -32px;
+  height: 90px;
+  border-radius: 20px 20px 0 0;
+  position: relative;
+  overflow: hidden;
+  background: var(--surface2);
+}
+.profile-banner-img { width:100%; height:100%; object-fit:cover; }
+.profile-banner-overlay { position:absolute; inset:0; }
+/* Bannières par rank */
+.banner-unranked { background: linear-gradient(135deg, #1a1a2e 0%, #2d2d44 100%); }
+.banner-or       { background: linear-gradient(135deg, #2d2200 0%, #7a5800 50%, #f7c948 100%); }
+.banner-platine  { background: linear-gradient(135deg, #002d2d 0%, #0a5c5c 50%, #4fd1c5 100%); }
+.banner-diamond  { background: linear-gradient(135deg, #1a0050 0%, #3d1a8a 50%, #7c6ff7 100%); }
+.banner-radiant  { background: linear-gradient(135deg, #1a0000 0%, #6b0010 50%, #ff4655 100%); }
+.banner-premium  { background: linear-gradient(135deg, #2d1a00 0%, #8a4e00 40%, #f7c948 80%, #ff9500 100%); }
 .profile-pseudo{font-family:'Syne',sans-serif;font-weight:800;font-size:24px;margin-bottom:4px;}
 .profile-winrate{color:var(--green);font-size:13px;font-weight:600;margin-bottom:20px;}
 .profile-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
@@ -1150,18 +1205,27 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
 
 <!-- PROFILE MODAL -->
 <div class="modal-overlay" id="profile-modal">
-  <div class="modal-card">
-    <button class="modal-close" onclick="closeProfile()">✕</button>
-    <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;">
-      <div id="profile-avatar"></div>
-      <div style="flex:1;">
-        <div class="profile-pseudo" id="profile-pseudo">—</div>
-        <div class="profile-winrate" id="profile-winrate">—</div>
-        <div id="profile-rank-badge" style="margin-top:4px;"></div>
-      </div>
+  <div class="modal-card" style="overflow:hidden;padding:0;">
+    <button class="modal-close" onclick="closeProfile()" style="z-index:10;top:12px;right:12px;">✕</button>
+    <!-- Bannière -->
+    <div class="profile-banner banner-unranked" id="profile-banner">
+      <div class="profile-banner-overlay" id="profile-banner-overlay"></div>
     </div>
-    <input type="file" id="avatar-upload" accept="image/*" style="display:none" onchange="uploadAvatar(event)"/>
-    <button class="btn-mini" style="width:100%;margin-bottom:16px;" onclick="document.getElementById('avatar-upload').click()">🖼️ Changer la photo de profil</button>
+    <div style="padding:0 24px 24px 24px;">
+      <div style="display:flex;align-items:flex-end;gap:14px;margin-top:-32px;margin-bottom:14px;">
+        <div id="profile-avatar"></div>
+        <div style="flex:1;padding-bottom:4px;">
+          <div class="profile-pseudo" id="profile-pseudo">—</div>
+          <div class="profile-winrate" id="profile-winrate">—</div>
+          <div id="profile-rank-badge" style="margin-top:4px;"></div>
+        </div>
+      </div>
+      <input type="file" id="avatar-upload" accept="image/*" style="display:none" onchange="uploadAvatar(event)"/>
+      <input type="file" id="banner-upload" accept="image/*" style="display:none" onchange="uploadBanner(event)"/>
+      <div style="display:flex;gap:8px;margin-bottom:16px;">
+        <button class="btn-mini" style="flex:1;" onclick="document.getElementById('avatar-upload').click()">🖼️ Avatar</button>
+        <button class="btn-mini" style="flex:1;" id="banner-upload-btn" onclick="document.getElementById('banner-upload').click()">🎨 Bannière <span style="font-size:10px;color:var(--gold);">Premium</span></button>
+      </div>
     <!-- Tabs -->
     <div style="display:flex;gap:4px;margin-bottom:14px;background:rgba(255,255,255,0.04);border-radius:10px;padding:4px;">
       <button id="ptab-stats-btn" onclick="switchProfileTab('stats')" style="flex:1;padding:8px;border:none;border-radius:7px;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:13px;cursor:pointer;background:var(--accent);color:#fff;transition:all 0.2s;">📊 Stats</button>
@@ -1200,8 +1264,6 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
     </div>
   </div>
 </div>
-
-<!-- RESULT -->
 <div class="result-overlay" id="result-overlay">
   <div class="result-card">
     <div class="result-title" id="result-title">VICTOIRE</div>
@@ -2226,17 +2288,53 @@ function initSocket() {
       profPseudo.textContent = data.pseudo;
     }
     document.getElementById('profile-winrate').textContent = `Winrate : ${data.winrate}% (${data.totalWins}V / ${data.totalLosses}D)`;
-    // Avatar in profile
-    const profAv = document.getElementById('profile-avatar');
-    if (profAv) {
-      const premBorder = data.isPremium ? 'box-shadow:0 0 0 3px #f7c948,0 0 16px rgba(247,201,72,0.5);' : 'border:2px solid var(--accent);';
-      if (data.avatar) {
-        profAv.innerHTML = `<div style="position:relative;display:inline-block;"><img src="${data.avatar}" style="width:80px;height:80px;border-radius:50%;object-fit:cover;${premBorder}">${data.isPremium ? '<span style=\"position:absolute;bottom:-4px;right:-4px;background:linear-gradient(135deg,#f7c948,#ff9500);border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:12px;border:2px solid var(--bg)\">👑</span>' : ''}</div>`;
+
+    // Determine rank for frames/banner
+    const maxEloProfile = getMaxElo(data.stats);
+    const rankName = maxEloProfile.name;
+    const frameClass = data.isPremium ? 'frame-premium' :
+      rankName === 'Radiant' ? 'frame-radiant' :
+      rankName === 'Diamond' ? 'frame-diamond' :
+      rankName === 'Platine' ? 'frame-platine' :
+      rankName === 'Or' ? 'frame-or' : '';
+    const bannerClass = data.isPremium ? 'banner-premium' :
+      rankName === 'Radiant' ? 'banner-radiant' :
+      rankName === 'Diamond' ? 'banner-diamond' :
+      rankName === 'Platine' ? 'banner-platine' :
+      rankName === 'Or' ? 'banner-or' : 'banner-unranked';
+    const badgeIcon = data.isPremium ? '👑' :
+      rankName === 'Radiant' ? '⚡' :
+      rankName === 'Diamond' ? '💎' : null;
+
+    // Update banner
+    const banner = document.getElementById('profile-banner');
+    if (banner) {
+      banner.className = `profile-banner ${bannerClass}`;
+      if (data.banner) {
+        banner.style.backgroundImage = `url(${data.banner})`;
+        banner.style.backgroundSize = 'cover';
+        banner.style.backgroundPosition = 'center';
       } else {
-        profAv.innerHTML = `<div style="width:80px;height:80px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-weight:800;font-size:28px;${premBorder}">${data.pseudo[0].toUpperCase()}</div>`;
+        banner.style.backgroundImage = '';
       }
     }
-    const maxEloProfile = getMaxElo(data.stats);
+
+    // Avatar with rank frame
+    const profAv = document.getElementById('profile-avatar');
+    if (profAv) {
+      const badgeHTML = badgeIcon
+        ? `<span class="frame-badge" style="background:${data.isPremium ? 'linear-gradient(135deg,#f7c948,#ff9500)' : rankName==='Radiant' ? 'linear-gradient(135deg,#ff4655,#f7c948)' : '#7c6ff7'};color:${data.isPremium||rankName==='Diamond'?'#000':'#fff'};">${badgeIcon}</span>`
+        : '';
+      const imgContent = data.avatar
+        ? `<img class="av-img" src="${data.avatar}" style="width:80px;height:80px;border-radius:50%;object-fit:cover;">`
+        : `<div class="av-letter" style="width:80px;height:80px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-weight:800;font-size:28px;">${data.pseudo[0].toUpperCase()}</div>`;
+      profAv.innerHTML = `<div class="avatar-frame ${frameClass}">${imgContent}${badgeHTML}</div>`;
+    }
+
+    // Banner upload button — only for premium
+    const bannerBtn = document.getElementById('banner-upload-btn');
+    if (bannerBtn) bannerBtn.style.opacity = data.isPremium ? '1' : '0.4';
+
     const rankBadgeHTML = getRankBadge(maxEloProfile);
     document.getElementById('profile-rank-badge').innerHTML = rankBadgeHTML;
     document.getElementById('ptab-stats').innerHTML = ['1v1','2v2','5v5'].map(m => {
@@ -4602,16 +4700,64 @@ async function uploadAvatar(event) {
         body: JSON.stringify({ userId: state.userId, avatar: base64 })
       });
       state.avatar = base64;
-      // Update navbar avatar
+      // Refresh navbar avatar
       const av = document.getElementById('nav-avatar');
-      av.innerHTML = `<img src="${base64}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">`;
-      // Update profile modal avatar
+      if (av) av.innerHTML = `<img src="${base64}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">`;
+      // Refresh profile modal avatar with rank frame
       const profAv = document.getElementById('profile-avatar');
-      if (profAv) profAv.innerHTML = `<img src="${base64}" style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:2px solid var(--accent);">`;
+      if (profAv) {
+        const frameClass = getAvatarFrameClass(state.isPremium, getMaxElo(state.stats).name);
+        const badgeHTML = getFrameBadgeHTML(state.isPremium, getMaxElo(state.stats).name);
+        profAv.innerHTML = `<div class="avatar-frame ${frameClass}"><img class="av-img" src="${base64}" style="width:80px;height:80px;border-radius:50%;object-fit:cover;">${badgeHTML}</div>`;
+      }
       notify('✅ Photo de profil mise à jour !');
     } catch(e) { notify('❌ Erreur upload'); }
   };
   reader.readAsDataURL(file);
+}
+
+async function uploadBanner(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  if (!state.isPremium) { notify('👑 Bannière personnalisée réservée aux membres Premium'); return; }
+  if (file.size > 2.5 * 1024 * 1024) { notify('❌ Image trop grande (max 2.5MB)'); return; }
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    const base64 = e.target.result;
+    try {
+      const res = await fetch('/api/banner', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: state.userId, banner: base64 })
+      });
+      if (res.status === 403) { notify('👑 Réservé aux membres Premium'); return; }
+      state.banner = base64;
+      const banner = document.getElementById('profile-banner');
+      if (banner) {
+        banner.style.backgroundImage = `url(${base64})`;
+        banner.style.backgroundSize = 'cover';
+        banner.style.backgroundPosition = 'center';
+      }
+      notify('✅ Bannière mise à jour !');
+    } catch(e) { notify('❌ Erreur upload bannière'); }
+  };
+  reader.readAsDataURL(file);
+}
+
+function getAvatarFrameClass(isPremium, rankName) {
+  if (isPremium) return 'frame-premium';
+  if (rankName === 'Radiant') return 'frame-radiant';
+  if (rankName === 'Diamond') return 'frame-diamond';
+  if (rankName === 'Platine') return 'frame-platine';
+  if (rankName === 'Or') return 'frame-or';
+  return '';
+}
+
+function getFrameBadgeHTML(isPremium, rankName) {
+  if (isPremium) return `<span class="frame-badge" style="background:linear-gradient(135deg,#f7c948,#ff9500);color:#000;">👑</span>`;
+  if (rankName === 'Radiant') return `<span class="frame-badge" style="background:linear-gradient(135deg,#ff4655,#f7c948);color:#fff;">⚡</span>`;
+  if (rankName === 'Diamond') return `<span class="frame-badge" style="background:#7c6ff7;color:#fff;">💎</span>`;
+  return '';
 }
 
 function openProfile() {
