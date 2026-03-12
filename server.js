@@ -1190,6 +1190,17 @@ function applyEloResult(winTeam, loseTeam, mode) {
           mode: room.mode,
           eloChanges
         });
+        // Advance tournament bracket if tournament room
+        if (room.tournamentId) {
+          const t = tournaments[room.tournamentId];
+          if (t) {
+            const match = t.bracket[room.tournamentRoundIdx]?.[room.tournamentMatchIdx];
+            if (match && !match.winner) {
+              const winnerTeamName = winTeam === room.teams[0] ? match.team1 : match.team2;
+              setMatchWinner(t, room.tournamentRoundIdx, room.tournamentMatchIdx, winnerTeamName, socket.roomId);
+            }
+          }
+        }
         setTimeout(() => { archiveRoom(socket.roomId); }, 30000);
       } else {
         // Disagreement — alert admins
@@ -1230,6 +1241,18 @@ function applyEloResult(winTeam, loseTeam, mode) {
       mode: room.mode,
       eloChanges
     });
+
+    // Advance tournament bracket if tournament room
+    if (room.tournamentId) {
+      const t = tournaments[room.tournamentId];
+      if (t) {
+        const match = t.bracket[room.tournamentRoundIdx]?.[room.tournamentMatchIdx];
+        if (match && !match.winner) {
+          const winnerTeamName = winTeam === room.teams[0] ? match.team1 : match.team2;
+          setMatchWinner(t, room.tournamentRoundIdx, room.tournamentMatchIdx, winnerTeamName, socket.roomId);
+        }
+      }
+    }
 
     setTimeout(() => { archiveRoom(socket.roomId); }, 30000);
   });
@@ -1468,9 +1491,6 @@ function applyEloResult(winTeam, loseTeam, mode) {
     room.status = 'finished';
     clearTimeout(room.banTimer);
     if (winner === 0) {
-      // Draw — no ELO change
-      // Record draw in match history for all players
-      const allPlayers = [...(room.teams[0] || []), ...(room.teams[1] || [])];
       (room.teams[0] || []).filter(p => !p.isBot).forEach(p => db.updateUserElo(p.id, 0, false, room.mode, room.teams[1], room.teams[0], true));
       (room.teams[1] || []).filter(p => !p.isBot).forEach(p => db.updateUserElo(p.id, 0, false, room.mode, room.teams[0], room.teams[1], true));
       computeCotd();
@@ -1483,6 +1503,17 @@ function applyEloResult(winTeam, loseTeam, mode) {
       computeCotd();
       io.to('room_' + roomId).emit('chat_msg', { author: 'Système', team: 'system', text: `⚖️ Décision admin : Équipe ${winner} gagne !` });
       io.to('room_' + roomId).emit('game_result', { winner, winTeam: winTeam.map(p => p.pseudo), loseTeam: loseTeam.map(p => p.pseudo), mode: room.mode, eloChanges });
+      // ── Advance tournament bracket if this is a tournament room ──
+      if (room.tournamentId) {
+        const t = tournaments[room.tournamentId];
+        if (t) {
+          const match = t.bracket[room.tournamentRoundIdx]?.[room.tournamentMatchIdx];
+          if (match && !match.winner) {
+            const winnerTeamName = winTeam === room.teams[0] ? match.team1 : match.team2;
+            setMatchWinner(t, room.tournamentRoundIdx, room.tournamentMatchIdx, winnerTeamName, roomId);
+          }
+        }
+      }
     }
     setTimeout(() => { archiveRoom(roomId); }, 30000);
   });
@@ -2637,8 +2668,10 @@ function createTournamentRoom(t, match, roundIdx, matchIdx) {
     return { id: u.id, pseudo: u.pseudo, elo: (u.stats?.[t.mode]?.elo || 500), avatar: u.avatar || null, stats: u.stats || null, isBot: !!u.isBot, socketId: null, isPremium: !!u.isPremium };
   };
 
-  const players1 = (team1Obj.memberIds || [team1Obj.captainId]).map(makePlayer).filter(Boolean);
-  const players2 = (team2Obj.memberIds || [team2Obj.captainId]).map(makePlayer).filter(Boolean);
+  const team1Members = team1Obj.memberIds?.length ? team1Obj.memberIds : [team1Obj.captainId];
+  const team2Members = team2Obj.memberIds?.length ? team2Obj.memberIds : [team2Obj.captainId];
+  const players1 = team1Members.map(makePlayer).filter(Boolean);
+  const players2 = team2Members.map(makePlayer).filter(Boolean);
 
   // Attach live socketIds
   io.sockets.sockets.forEach(s => {
@@ -2651,38 +2684,78 @@ function createTournamentRoom(t, match, roundIdx, matchIdx) {
     id: roomId, mode: t.mode,
     teams: [players1, players2],
     chat: [], mapBans: [], banTurn: 0, status: 'waiting', chosenMap: null, banTimer: null,
-    tournamentId: t.id, tournamentRoundIdx: roundIdx, tournamentMatchIdx: matchIdx,
+    tournamentId: t.id, tournamentName: t.name, tournamentRoundIdx: roundIdx, tournamentMatchIdx: matchIdx,
     captains: [team1Obj.captainId, team2Obj.captainId],
+    captainPseudos: [team1Obj.captainPseudo, team2Obj.captainPseudo],
     votes: {}
   };
   rooms[roomId] = room;
   match.roomId = roomId;
 
-  // Join real players to socket room and notify them
+  // Join real players to socket room
   [...players1, ...players2].filter(p => p.socketId).forEach(p => {
     const s = io.sockets.sockets.get(p.socketId);
-    if (s) {
-      s.join('room_' + roomId);
-      s.roomId = roomId;
-    }
+    if (s) { s.join('room_' + roomId); s.roomId = roomId; }
   });
 
-  const payload = {
+  const basePayload = {
     roomId, mode: t.mode,
     team1: players1.map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar, stats: p.stats, isPremium: p.isPremium })),
     team2: players2.map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar, stats: p.stats, isPremium: p.isPremium })),
     captains: [team1Obj.captainPseudo, team2Obj.captainPseudo],
     waiting: false,
-    isTournamentMatch: true, tournamentName: t.name
+    isTournamentMatch: true,
+    tournamentId: t.id,
+    tournamentName: t.name,
+    tournamentRoundIdx: roundIdx,
+    tournamentMatchIdx: matchIdx
   };
-  io.to('room_' + roomId).emit('room_ready', payload);
+
+  // Use tournament_room_assigned so frontend auto-places players
+  io.to('room_' + roomId).emit('tournament_room_assigned', basePayload);
   io.to('room_' + roomId).emit('chat_msg', { author: 'Système', team: 'system', text: `🏆 Match de tournoi — ${t.name} · ${match.team1} vs ${match.team2}` });
   startRoomCountdown(roomId);
   io.emit('tournament_match_room_created', { tournamentId: t.id, roundIdx, matchIdx, roomId });
 }
 
+// Tell players in a just-finished room which next match/round they're in
+function notifyTournamentNextRound(t, finishedRoundIdx, finishedRoomId) {
+  const nextRoundIdx = finishedRoundIdx + 1;
+  if (!t.bracket[nextRoundIdx]) return; // tournament may be finished
+  const nextRound = t.bracket[nextRoundIdx];
+  // Find which match in next round each player belongs to
+  const room = rooms[finishedRoomId] || archivedRooms[finishedRoomId];
+  if (!room) return;
+  const allPlayerIds = [...(room.teams[0]||[]), ...(room.teams[1]||[])].map(p => p.id);
+  nextRound.forEach((match, mi) => {
+    const team1Obj = t.teams.find(tm => tm.teamName === match.team1);
+    const team2Obj = t.teams.find(tm => tm.teamName === match.team2);
+    const nextPlayerIds = [
+      ...((team1Obj?.memberIds)||[team1Obj?.captainId]).filter(Boolean),
+      ...((team2Obj?.memberIds)||[team2Obj?.captainId]).filter(Boolean)
+    ];
+    const roundLabel = nextRoundIdx === t.bracket.length - 1 ? 'la Finale' :
+      nextRoundIdx === t.bracket.length - 2 ? 'les Demi-finales' :
+      `le Round ${nextRoundIdx + 1}`;
+    nextPlayerIds.filter(id => allPlayerIds.includes(id)).forEach(playerId => {
+      io.sockets.sockets.forEach(s => {
+        if (s.userId === playerId) {
+          s.emit('tournament_next_round', {
+            tournamentId: t.id,
+            tournamentName: t.name,
+            roundIdx: nextRoundIdx,
+            matchIdx: mi,
+            roundLabel,
+            roomId: match.roomId || null
+          });
+        }
+      });
+    });
+  });
+}
+
 // Helper: set match winner and trigger bracket advance + room creation for next matches
-function setMatchWinner(t, roundIdx, matchIdx, winner) {
+function setMatchWinner(t, roundIdx, matchIdx, winner, finishedRoomId) {
   const match = t.bracket[roundIdx][matchIdx];
   match.winner = winner;
   match.disputed = false;
@@ -2698,6 +2771,8 @@ function setMatchWinner(t, roundIdx, matchIdx, winner) {
     nextRound.forEach((m, mi) => {
       if (!m.winner && m.team2 !== 'BYE') createTournamentRoom(t, m, roundIdx + 1, mi);
     });
+    // Tell players which next match they're going to
+    if (finishedRoomId) notifyTournamentNextRound(t, roundIdx, finishedRoomId);
   }
 }
 

@@ -2036,6 +2036,9 @@ function initSocket() {
     document.getElementById('login-error').textContent = '';
     document.getElementById('reg-error').textContent = '';
     enterMain();
+    // Show admin floating join widget
+    const adminFloat = document.getElementById('admin-float-join');
+    if (adminFloat) adminFloat.style.display = state.isAdmin ? '' : 'none';
     // Init clan lock based on premium status (after DOM is ready)
     setTimeout(() => {
       if (lockEl) lockEl.style.display = state.isPremium ? 'none' : 'flex';
@@ -2083,7 +2086,6 @@ function initSocket() {
     }
     state.roomId = roomId;
     sendBrowserNotif('⚔️ Match trouvé !', 'Ta room ' + mode + ' est prête — clique pour rejoindre !');
-    // Play room found sound — 3 ascending beeps
     playRoomFoundSound();
     stopEloWindowTimer();
     document.getElementById('searching-box').classList.remove('show');
@@ -2092,6 +2094,46 @@ function initSocket() {
     setupRoom(roomId, mode, team1, team2, waiting);
     showScreen('room');
     playRoomEntrySound();
+  });
+
+  // ── TOURNAMENT ROOM AUTO-PLACEMENT ──
+  socket.on('tournament_room_assigned', ({ roomId, mode, team1, team2, captains, isTournamentMatch, tournamentId, tournamentName, tournamentRoundIdx, tournamentMatchIdx }) => {
+    // Force the player into this room regardless of current screen
+    state.roomId = roomId;
+    state.tournamentId = tournamentId;
+    state.tournamentRoundIdx = tournamentRoundIdx;
+    state.tournamentMatchIdx = tournamentMatchIdx;
+    const myTeamTmp = team1.some(p => p.pseudo === state.pseudo) ? 1 : 2;
+    state.isCaptain = captains && captains[myTeamTmp - 1] === state.pseudo;
+    sendBrowserNotif('🏆 Match de tournoi !', `${tournamentName} — ton match commence !`);
+    playRoomFoundSound();
+    // Close any open overlay/modal
+    document.getElementById('result-overlay').classList.remove('show');
+    const specModal = document.getElementById('tournament-spectator-modal');
+    if (specModal) specModal.remove();
+    stopEloWindowTimer();
+    document.getElementById('searching-box').classList.remove('show');
+    document.getElementById('btn-find-room').disabled = false;
+    document.getElementById('btn-find-room').style.display = '';
+    setupRoom(roomId, mode, team1, team2, false);
+    // Mark room screen as tournament-locked
+    document.getElementById('room-screen').dataset.tournamentId = tournamentId;
+    showScreen('room');
+    playRoomEntrySound();
+    notify(`🏆 <b>${tournamentName}</b> — ton match commence ! Bonne chance.`, { accent: 'var(--gold)', duration: 6000 });
+  });
+
+  // Told which next round we're going to (after winning, while result overlay is showing)
+  socket.on('tournament_next_round', ({ tournamentId, tournamentName, roundLabel, roomId: nextRoomId }) => {
+    state._pendingTournamentId = tournamentId;
+    state._pendingTournamentName = tournamentName;
+    state._pendingTournamentRoundLabel = roundLabel;
+    state._pendingTournamentNextRoomId = nextRoomId;
+    // Update result overlay if it's showing
+    const overlay = document.getElementById('result-overlay');
+    if (overlay && overlay.classList.contains('show')) {
+      injectTournamentResultUI(tournamentId, roundLabel);
+    }
   });
 
   socket.on('room_error', (msg) => {
@@ -2134,13 +2176,13 @@ function initSocket() {
     document.getElementById('admin-spec-room').textContent = 'ROOM #' + roomId;
     socket.roomId = roomId;
     setupRoom(roomId, mode, team1, team2, false);
-    // Charger l'historique du chat
     if (chatHistory && chatHistory.length > 0) {
       document.getElementById('chat-messages').innerHTML = '';
       addMsg('Système', 'system', `📜 Historique du chat (${chatHistory.length} messages)`, null);
       chatHistory.forEach(msg => addMsg(msg.author, msg.team, msg.text, msg.time));
     }
     document.getElementById('declare-section').style.display = '';
+    showScreen('room'); // navigate to room screen for spectator
   });
 
   socket.on('countdown_start', ({ seconds }) => {
@@ -2502,9 +2544,9 @@ function initSocket() {
   });
 
   socket.on('game_result', ({ winner, winTeam, loseTeam, mode, draw, eloChanges }) => {
-    // Store match data for share card
     _lastMatchData = { winner, winTeam, loseTeam, mode, draw, eloChanges };
     const isSpectatorAdmin = state.isAdmin && state.isSpectator;
+    const isTournamentRoom = !!document.getElementById('room-screen')?.dataset?.tournamentId || !!state.tournamentId;
     if (draw || winner === 0) {
       document.getElementById('result-title').textContent = 'ÉGALITÉ';
       document.getElementById('result-title').className = 'result-title';
@@ -2512,7 +2554,6 @@ function initSocket() {
       document.getElementById('result-elo').textContent = '±0 ELO — Aucun changement';
       document.getElementById('result-map').textContent = 'Mode ' + mode + ' — Décision admin : Égalité';
     } else if (isSpectatorAdmin) {
-      // Admin spectateur : afficher le résultat sans ELO perso
       document.getElementById('result-title').textContent = '⚖️ DÉCISION RENDUE';
       document.getElementById('result-title').className = 'result-title';
       document.getElementById('result-title').style.color = 'var(--gold)';
@@ -2533,7 +2574,6 @@ function initSocket() {
       document.getElementById('result-map').textContent = 'Mode ' + mode + ' — Gagnants : ' + winTeam.join(', ');
       document.getElementById('nav-elo').textContent = state.elo;
       updateNavRank();
-      // 🔊 Sons ELO + rank-up
       const newRank = getRankFromElo(state.elo);
       if (newRank.name !== prevRank.name && state.elo > prevElo) {
         setTimeout(() => playRankUpSound(), 600);
@@ -2547,20 +2587,46 @@ function initSocket() {
     stopRoomEloWindow();
     const voteSection = document.getElementById('captain-vote-section');
     if (voteSection) voteSection.style.display = 'none';
-    // Reset bot button immédiatement à chaque fin de game
     const adminBotBtn = document.getElementById('admin-bot-btn');
     if (adminBotBtn) { adminBotBtn.textContent = '🤖 Admin — Lancer avec des Bots'; adminBotBtn.disabled = false; }
-    // Reset rematch button fresh for this game
     const rb = document.getElementById('rematch-btn');
     if (rb) { rb.disabled = false; rb.textContent = '⚔️ Revanche'; }
     const rs = document.getElementById('rematch-status');
     if (rs) rs.style.display = 'none';
     const sc = document.getElementById('share-canvas');
     if (sc) sc.style.display = 'none';
+
+    // ── Tournament mode: swap buttons, show bracket message ──
+    if (isTournamentRoom && !isSpectatorAdmin) {
+      const tId = state.tournamentId || document.getElementById('room-screen')?.dataset?.tournamentId;
+      // Hide non-tournament buttons
+      const rb2 = document.getElementById('rematch-btn');
+      if (rb2) rb2.style.display = 'none';
+      const replayBtn = document.getElementById('replay-btn');
+      if (replayBtn) replayBtn.style.display = 'none';
+      // Show tournament-specific bottom bar if we already know next round
+      if (state._pendingTournamentRoundLabel) {
+        injectTournamentResultUI(tId, state._pendingTournamentRoundLabel);
+      } else {
+        // Show generic "retour au bracket" button while we wait for next_round event
+        injectTournamentResultUI(tId, null);
+      }
+      // Auto-redirect to bracket after 20s if user hasn't clicked
+      setTimeout(() => {
+        if (document.getElementById('result-overlay').classList.contains('show')) backToTournamentBracket(tId);
+      }, 20000);
+    } else {
+      // Normal: auto-dismiss after 30s
+      const rb2 = document.getElementById('rematch-btn');
+      if (rb2) rb2.style.display = '';
+      const replayBtn = document.getElementById('replay-btn');
+      if (replayBtn) replayBtn.style.display = '';
+      setTimeout(() => {
+        if (document.getElementById('result-overlay').classList.contains('show')) backToLobby();
+      }, 30000);
+    }
+
     document.getElementById('result-overlay').classList.add('show');
-    setTimeout(() => {
-      if (document.getElementById('result-overlay').classList.contains('show')) backToLobby();
-    }, 30000);
   });
 
   socket.on('rematch_update', ({ count, total }) => {
@@ -5639,6 +5705,17 @@ function adminJoinRoom(roomId) {
   dismissAlert(roomId);
 }
 
+function adminJoinRoomDirect() {
+  const input = document.getElementById('admin-join-room-input');
+  if (!input) return;
+  const roomId = input.value.trim();
+  if (!roomId) { notify('❌ Saisis un ID de room'); return; }
+  if (!socket) return;
+  socket.emit('admin_join_room', { roomId });
+  input.value = '';
+  notify(`👁️ Tentative de rejoindre la room #${roomId}…`, { duration: 3000 });
+}
+
 function addMsgImg(author, team, img, time) {
   const box = document.getElementById('chat-messages');
   const t = time ? new Date(time) : new Date();
@@ -5834,12 +5911,13 @@ async function backToLobby() {
   document.getElementById('result-overlay').classList.remove('show');
   const voteSection = document.getElementById('captain-vote-section');
   if (voteSection) { voteSection.style.display = 'none'; }
-  // Re-enable vote buttons for next game
   const btns = document.querySelectorAll('#captain-vote-section button');
   btns.forEach(b => b.disabled = false);
   state.isCaptain = false;
   document.getElementById('nav-elo').textContent = state.elo;
   state.roomId = null; state.myTeam = null; state.isSpectator = false;
+  state.tournamentId = null; state._pendingTournamentId = null;
+  state._pendingTournamentRoundLabel = null; state._pendingTournamentNextRoomId = null;
   document.getElementById('declare-section').style.display = 'none';
   document.getElementById('admin-spectator-bar').classList.remove('show');
   clearBanTimerBar();
@@ -5847,18 +5925,76 @@ async function backToLobby() {
   document.getElementById('map-ban-center-section').style.display = 'none';
   state.groupSize = 1;
   updateRoomBtn();
-  // Reset admin bot button
   const adminBtn = document.getElementById('admin-bot-btn');
   if (adminBtn) { adminBtn.textContent = '🤖 Admin — Lancer avec des Bots'; adminBtn.disabled = false; }
-  // Reset rematch button and status
   const rematchBtn = document.getElementById('rematch-btn');
-  if (rematchBtn) { rematchBtn.disabled = false; rematchBtn.textContent = '⚔️ Revanche'; }
+  if (rematchBtn) { rematchBtn.disabled = false; rematchBtn.textContent = '⚔️ Revanche'; rematchBtn.style.display = ''; }
   const rematchStatus = document.getElementById('rematch-status');
   if (rematchStatus) rematchStatus.style.display = 'none';
-  // Hide share canvas
   const shareCanvas = document.getElementById('share-canvas');
   if (shareCanvas) shareCanvas.style.display = 'none';
+  const replayBtn = document.getElementById('replay-btn');
+  if (replayBtn) replayBtn.style.display = '';
+  const roomScreen = document.getElementById('room-screen');
+  if (roomScreen) delete roomScreen.dataset.tournamentId;
   showScreen('main');
+}
+
+function injectTournamentResultUI(tournamentId, roundLabel) {
+  const overlay = document.getElementById('result-overlay');
+  if (!overlay) return;
+  // Remove previous tournament block if any
+  const old = overlay.querySelector('.tournament-result-block');
+  if (old) old.remove();
+
+  const block = document.createElement('div');
+  block.className = 'tournament-result-block';
+  block.style.cssText = 'margin-top:16px;text-align:center;';
+
+  if (roundLabel) {
+    // Bienvenue dans le prochain round
+    block.innerHTML = `
+      <div style="background:linear-gradient(135deg,rgba(247,201,72,0.12),rgba(255,149,0,0.08));border:1px solid rgba(247,201,72,0.4);border-radius:14px;padding:14px 20px;margin-bottom:14px;">
+        <div style="font-size:11px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;color:rgba(247,201,72,0.7);margin-bottom:4px;">Prochain rendez-vous</div>
+        <div style="font-family:'Syne',sans-serif;font-weight:900;font-size:20px;background:linear-gradient(90deg,#f7c948,#ff9500);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">🏆 Bienvenue en ${roundLabel}</div>
+      </div>
+      <button onclick="backToTournamentBracket('${tournamentId}')" style="width:100%;background:linear-gradient(135deg,var(--accent),#c0392b);border:none;color:#fff;border-radius:12px;padding:13px;font-family:'Syne',sans-serif;font-weight:800;font-size:14px;letter-spacing:0.06em;cursor:pointer;">🏆 Voir l'arbre du tournoi</button>`;
+  } else {
+    block.innerHTML = `
+      <button onclick="backToTournamentBracket('${tournamentId}')" style="width:100%;background:linear-gradient(135deg,var(--accent),#c0392b);border:none;color:#fff;border-radius:12px;padding:13px;font-family:'Syne',sans-serif;font-weight:800;font-size:14px;letter-spacing:0.06em;cursor:pointer;">🏆 Retour à l'arbre du tournoi</button>`;
+  }
+  overlay.querySelector('.result-card').appendChild(block);
+}
+
+function backToTournamentBracket(tournamentId) {
+  const id = tournamentId || state._pendingTournamentId || state.tournamentId;
+  // Reset room state
+  document.getElementById('result-overlay').classList.remove('show');
+  const voteSection = document.getElementById('captain-vote-section');
+  if (voteSection) voteSection.style.display = 'none';
+  state.isCaptain = false;
+  state.roomId = null; state.myTeam = null; state.isSpectator = false;
+  document.getElementById('declare-section').style.display = 'none';
+  document.getElementById('admin-spectator-bar').classList.remove('show');
+  clearBanTimerBar();
+  document.getElementById('weapon-vote-section').style.display = 'none';
+  document.getElementById('map-ban-center-section').style.display = 'none';
+  const adminBtn = document.getElementById('admin-bot-btn');
+  if (adminBtn) { adminBtn.textContent = '🤖 Admin — Lancer avec des Bots'; adminBtn.disabled = false; }
+  const rematchBtn = document.getElementById('rematch-btn');
+  if (rematchBtn) { rematchBtn.style.display = ''; rematchBtn.disabled = false; }
+  const replayBtn = document.getElementById('replay-btn');
+  if (replayBtn) replayBtn.style.display = '';
+  const roomScreen = document.getElementById('room-screen');
+  if (roomScreen) delete roomScreen.dataset.tournamentId;
+  // Go to tournois tab and open spectator bracket
+  showScreen('main');
+  showMainTab('tournois');
+  if (id) setTimeout(() => openTournamentSpectator(id), 300);
+  // Clear pending state
+  state._pendingTournamentId = null;
+  state._pendingTournamentRoundLabel = null;
+  state._pendingTournamentNextRoomId = null;
 }
 function switchProfileTab(tab) {
   ['stats','history','referral'].forEach(t => {
@@ -6025,6 +6161,15 @@ async function loadProfileHistory(userId) {
   <button onclick="adminDecide(0)" style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.5);color:#333;border-radius:8px;padding:7px 14px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Space Grotesk',sans-serif;">🤝 Égalité</button>
   <button onclick="adminLeaveSpectator()" style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);color:#000;border-radius:8px;padding:7px 14px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Space Grotesk',sans-serif;">🚪 Quitter</button>
   <button class="btn-admin-close" onclick="adminLeave()">✕</button>
+</div>
+
+<!-- ADMIN FLOATING JOIN ROOM (visible admins only, collapsible) -->
+<div id="admin-float-join" style="display:none;position:fixed;bottom:20px;left:20px;z-index:9000;background:rgba(15,15,20,0.95);border:1px solid rgba(255,209,102,0.4);border-radius:14px;padding:10px 14px;backdrop-filter:blur(8px);box-shadow:0 4px 24px rgba(0,0,0,0.5);">
+  <div style="font-size:10px;font-weight:800;letter-spacing:0.1em;color:rgba(247,201,72,0.7);text-transform:uppercase;margin-bottom:7px;">👁 Admin — Rejoindre room</div>
+  <div style="display:flex;gap:6px;align-items:center;">
+    <input id="admin-join-room-input" placeholder="ID room (ex: R4B2C)" style="background:rgba(255,255,255,0.06);border:1px solid var(--border);border-radius:8px;padding:6px 10px;color:var(--text);font-size:12px;width:130px;outline:none;font-family:'Inter',sans-serif;" onkeydown="if(event.key==='Enter')adminJoinRoomDirect()"/>
+    <button onclick="adminJoinRoomDirect()" style="background:rgba(247,201,72,0.15);border:1px solid rgba(247,201,72,0.4);color:var(--gold);border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">Rejoindre</button>
+  </div>
 </div>
 </body>
 </html>
