@@ -2529,6 +2529,14 @@ app.post('/api/tournaments/start', express.json(), (req, res) => {
     t.bracket = bracket;
     t.currentRound = 0;
     io.emit('tournament_started', { id: tournamentId, name: t.name, bracket });
+
+    // Create rooms for round 1 matches (with slight delay for sockets to re-settle)
+    setTimeout(() => {
+      round1.forEach((match, mi) => {
+        if (!match.winner && match.team2 !== 'BYE') createTournamentRoom(t, match, 0, mi);
+      });
+    }, 800);
+
     res.json({ ok: true, bracket });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -2542,7 +2550,6 @@ app.post('/api/tournaments/vote', express.json(), (req, res) => {
     const match = t.bracket[roundIdx]?.[matchIdx];
     if (!match) return res.status(404).json({ error: 'Match introuvable' });
     if (match.winner) return res.status(400).json({ error: 'Match déjà terminé' });
-    // Check voter is in one of the two teams
     const team1 = t.teams.find(tm => tm.teamName === match.team1);
     const team2 = t.teams.find(tm => tm.teamName === match.team2);
     const inTeam1 = team1 && (team1.captainId === userId || (team1.memberIds||[]).includes(userId));
@@ -2550,19 +2557,16 @@ app.post('/api/tournaments/vote', express.json(), (req, res) => {
     if (!inTeam1 && !inTeam2) return res.status(403).json({ error: 'Tu n\'es pas dans ce match' });
     if (!match.votes) match.votes = {};
     match.votes[userId] = winner;
-    // Check agreement: captain of team1 and captain of team2 voted same
     const capt1Vote = team1 ? match.votes[team1.captainId] : null;
     const capt2Vote = team2 ? match.votes[team2.captainId] : null;
     if (capt1Vote && capt2Vote) {
       if (capt1Vote === capt2Vote) {
-        match.winner = capt1Vote;
-        io.emit('tournament_match_result', { tournamentId, roundIdx, matchIdx, winner: capt1Vote });
+        setMatchWinner(t, roundIdx, matchIdx, capt1Vote);
       } else {
-        // Disagreement — notify admin
-        io.sockets.sockets.forEach(s => {
-          if (ADMIN_PSEUDOS.includes(s.pseudo)) {
-            s.emit('tournament_dispute', { tournamentId, tournamentName: t.name, roundIdx, matchIdx, team1: match.team1, team2: match.team2, capt1Vote, capt2Vote });
-          }
+        ADMIN_PSEUDOS.forEach(pseudo => {
+          io.sockets.sockets.forEach(s => {
+            if (s.pseudo === pseudo) s.emit('tournament_dispute', { tournamentId, tournamentName: t.name, roundIdx, matchIdx, team1: match.team1, team2: match.team2, capt1Vote, capt2Vote });
+          });
         });
         match.disputed = true;
         io.emit('tournament_match_disputed', { tournamentId, roundIdx, matchIdx });
@@ -2572,7 +2576,132 @@ app.post('/api/tournaments/vote', express.json(), (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// Admin resolve disputed match
+// ── BRACKET ADVANCEMENT HELPER ──
+function advanceBracket(t) {
+  const currentRound = t.bracket[t.bracket.length - 1];
+  const allDone = currentRound.every(m => m.winner);
+  if (!allDone) return;
+
+  // Collect winners (skip BYE matches which are already resolved)
+  const winners = currentRound.map(m => m.winner).filter(w => w && w !== 'BYE');
+
+  // Final: only 1 match left and it has a winner
+  if (currentRound.length === 1 && currentRound[0].winner) {
+    t.status = 'finished';
+    t.champion = currentRound[0].winner;
+    io.emit('tournament_finished', { id: t.id, name: t.name, champion: t.champion });
+    return;
+  }
+
+  // Check if this round had only 1 real match (final) 
+  if (winners.length === 1) {
+    t.status = 'finished';
+    t.champion = winners[0];
+    io.emit('tournament_finished', { id: t.id, name: t.name, champion: t.champion });
+    return;
+  }
+
+  // Build next round
+  const nextRound = [];
+  for (let i = 0; i < winners.length; i += 2) {
+    if (winners[i + 1]) {
+      nextRound.push({ team1: winners[i], team2: winners[i + 1], winner: null, votes: {}, roomId: null });
+    } else {
+      // Odd winner → bye
+      nextRound.push({ team1: winners[i], team2: 'BYE', winner: winners[i], votes: {} });
+    }
+  }
+
+  if (nextRound.length === 0) return;
+  t.bracket.push(nextRound);
+  t.currentRound = t.bracket.length - 1;
+  io.emit('tournament_round_advanced', { id: t.id, newRound: nextRound, roundIdx: t.currentRound });
+
+  // If next round has only 1 real match and it's a BYE → auto-resolve and check again
+  if (nextRound.length === 1 && nextRound[0].winner) {
+    advanceBracket(t);
+  }
+}
+
+// Create a ranked room for a tournament match
+function createTournamentRoom(t, match, roundIdx, matchIdx) {
+  if (match.roomId || match.winner || match.team2 === 'BYE') return;
+  const team1Obj = t.teams.find(tm => tm.teamName === match.team1);
+  const team2Obj = t.teams.find(tm => tm.teamName === match.team2);
+  if (!team1Obj || !team2Obj) return;
+
+  const data = readDB();
+  const makePlayer = (userId) => {
+    const u = data.users.find(u => u.id === userId);
+    if (!u) return null;
+    return { id: u.id, pseudo: u.pseudo, elo: (u.stats?.[t.mode]?.elo || 500), avatar: u.avatar || null, stats: u.stats || null, isBot: !!u.isBot, socketId: null, isPremium: !!u.isPremium };
+  };
+
+  const players1 = (team1Obj.memberIds || [team1Obj.captainId]).map(makePlayer).filter(Boolean);
+  const players2 = (team2Obj.memberIds || [team2Obj.captainId]).map(makePlayer).filter(Boolean);
+
+  // Attach live socketIds
+  io.sockets.sockets.forEach(s => {
+    players1.forEach(p => { if (s.userId === p.id) p.socketId = s.id; });
+    players2.forEach(p => { if (s.userId === p.id) p.socketId = s.id; });
+  });
+
+  const roomId = 'TR' + Date.now();
+  const room = {
+    id: roomId, mode: t.mode,
+    teams: [players1, players2],
+    chat: [], mapBans: [], banTurn: 0, status: 'waiting', chosenMap: null, banTimer: null,
+    tournamentId: t.id, tournamentRoundIdx: roundIdx, tournamentMatchIdx: matchIdx,
+    captains: [team1Obj.captainId, team2Obj.captainId],
+    votes: {}
+  };
+  rooms[roomId] = room;
+  match.roomId = roomId;
+
+  // Join real players to socket room and notify them
+  [...players1, ...players2].filter(p => p.socketId).forEach(p => {
+    const s = io.sockets.sockets.get(p.socketId);
+    if (s) {
+      s.join('room_' + roomId);
+      s.roomId = roomId;
+    }
+  });
+
+  const payload = {
+    roomId, mode: t.mode,
+    team1: players1.map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar, stats: p.stats, isPremium: p.isPremium })),
+    team2: players2.map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar, stats: p.stats, isPremium: p.isPremium })),
+    captains: [team1Obj.captainPseudo, team2Obj.captainPseudo],
+    waiting: false,
+    isTournamentMatch: true, tournamentName: t.name
+  };
+  io.to('room_' + roomId).emit('room_ready', payload);
+  io.to('room_' + roomId).emit('chat_msg', { author: 'Système', team: 'system', text: `🏆 Match de tournoi — ${t.name} · ${match.team1} vs ${match.team2}` });
+  startRoomCountdown(roomId);
+  io.emit('tournament_match_room_created', { tournamentId: t.id, roundIdx, matchIdx, roomId });
+}
+
+// Helper: set match winner and trigger bracket advance + room creation for next matches
+function setMatchWinner(t, roundIdx, matchIdx, winner) {
+  const match = t.bracket[roundIdx][matchIdx];
+  match.winner = winner;
+  match.disputed = false;
+
+  io.emit('tournament_match_result', { tournamentId: t.id, roundIdx, matchIdx, winner });
+
+  // Try to advance bracket (creates next round if all done)
+  advanceBracket(t);
+
+  // Create rooms for newly created next round matches
+  if (t.bracket.length > roundIdx + 1) {
+    const nextRound = t.bracket[roundIdx + 1];
+    nextRound.forEach((m, mi) => {
+      if (!m.winner && m.team2 !== 'BYE') createTournamentRoom(t, m, roundIdx + 1, mi);
+    });
+  }
+}
+
+// Admin resolve disputed match (and set winner)
 app.post('/api/tournaments/resolve', express.json(), (req, res) => {
   try {
     const { adminKey, tournamentId, roundIdx, matchIdx, winner } = req.body;
@@ -2581,9 +2710,22 @@ app.post('/api/tournaments/resolve', express.json(), (req, res) => {
     if (!t || !t.bracket) return res.status(404).json({ error: 'Tournoi introuvable' });
     const match = t.bracket[roundIdx]?.[matchIdx];
     if (!match) return res.status(404).json({ error: 'Match introuvable' });
-    match.winner = winner;
-    match.disputed = false;
-    io.emit('tournament_match_result', { tournamentId, roundIdx, matchIdx, winner });
+    setMatchWinner(t, roundIdx, matchIdx, winner);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Admin declare winner directly (same as resolve but explicit endpoint)
+app.post('/api/tournaments/admin-declare', express.json(), (req, res) => {
+  try {
+    const { adminKey, tournamentId, roundIdx, matchIdx, winner } = req.body;
+    if (adminKey !== ADMIN_KEY) return res.status(403).json({ error: 'Non autorisé' });
+    const t = tournaments[tournamentId];
+    if (!t || !t.bracket) return res.status(404).json({ error: 'Tournoi introuvable' });
+    const match = t.bracket[roundIdx]?.[matchIdx];
+    if (!match) return res.status(404).json({ error: 'Match introuvable' });
+    if (match.winner) return res.status(400).json({ error: 'Match déjà terminé' });
+    setMatchWinner(t, roundIdx, matchIdx, winner);
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -2595,16 +2737,16 @@ app.post('/api/tournaments/kick-team', express.json(), (req, res) => {
     if (adminKey !== ADMIN_KEY) return res.status(403).json({ error: 'Non autorisé' });
     const t = tournaments[tournamentId];
     if (!t) return res.status(404).json({ error: 'Tournoi introuvable' });
-    // Remove from teams
     const before = t.teams.length;
     t.teams = t.teams.filter(tm => tm.teamName !== teamName);
-    // If in bracket: mark all their matches as forfeit
     if (t.bracket) {
-      t.bracket.forEach(round => {
-        round.forEach(match => {
+      t.bracket.forEach((round, ri) => {
+        round.forEach((match, mi) => {
           if (!match.winner) {
-            if (match.team1 === teamName) { match.winner = match.team2; match.forfeit = teamName; }
-            else if (match.team2 === teamName) { match.winner = match.team1; match.forfeit = teamName; }
+            if (match.team1 === teamName || match.team2 === teamName) {
+              const opp = match.team1 === teamName ? match.team2 : match.team1;
+              setMatchWinner(t, ri, mi, opp);
+            }
           }
         });
       });
@@ -2618,6 +2760,7 @@ app.post('/api/tournaments/kick-team', express.json(), (req, res) => {
 // Get full tournament detail (for spectator view)
 app.get('/api/tournaments/:id', (req, res) => {
   const t = tournaments[req.params.id];
+
   if (!t) return res.status(404).json({ error: 'Introuvable' });
   res.json(t);
 });
@@ -2722,6 +2865,15 @@ app.post('/api/admin/simulate-tournament', express.json(), (req, res) => {
     writeDB(data);
     io.emit('tournament_created', { id, name: tournaments[id].name, mode: validMode, creatorPseudo: user.pseudo, scheduledAt });
     io.emit('tournament_started', { id, name: tournaments[id].name, bracket: [round1] });
+
+    // Create rooms for round 1 real matches
+    setTimeout(() => {
+      const t = tournaments[id];
+      if (t) round1.forEach((match, mi) => {
+        if (!match.winner && match.team2 !== 'BYE') createTournamentRoom(t, match, 0, mi);
+      });
+    }, 800);
+
     res.json({ ok: true, id, teamCount: allTeams.length });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
