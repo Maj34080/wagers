@@ -1072,24 +1072,24 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
       <!-- Captain vote section -->
       <div id="captain-vote-section" style="display:none;margin-top:12px;background:rgba(255,209,102,0.07);border:1px solid rgba(255,209,102,0.2);border-radius:14px;padding:14px 18px;text-align:center;">
         <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:13px;color:var(--gold);margin-bottom:10px;">⚖️ Vote du capitaine — Qui a gagné ?</div>
-        <!-- Lock timer shown before 5min -->
-        <div id="vote-lock-banner" style="display:none;background:rgba(255,70,85,0.08);border:1px solid rgba(255,70,85,0.25);border-radius:10px;padding:10px 14px;margin-bottom:10px;">
-          <div style="font-size:12px;color:var(--muted);">🔒 Vote disponible dans</div>
-          <div id="vote-lock-countdown" style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:20px;color:var(--accent);">5:00</div>
-          <div style="font-size:11px;color:var(--muted);margin-top:2px;">Anti win-trade — min. 5 min de jeu requis</div>
+        <!-- Countdown shown above buttons during lock -->
+        <div id="vote-lock-banner" style="display:none;margin-bottom:8px;">
+          <div style="font-size:11px;color:var(--muted);">🔒 Anti win-trade — vote disponible dans <span id="vote-lock-countdown" style="font-family:'Space Grotesk',sans-serif;font-weight:800;color:var(--accent);">5:00</span></div>
         </div>
         <div id="vote-buttons" style="display:flex;gap:10px;justify-content:center;">
-          <button onclick="voteResult(true)" style="background:rgba(46,204,113,0.15);border:1px solid #2ecc71;color:#2ecc71;border-radius:10px;padding:9px 18px;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:13px;cursor:pointer;">✅ Mon équipe a gagné</button>
-          <button onclick="voteResult(false)" style="background:rgba(255,70,85,0.1);border:1px solid rgba(255,70,85,0.4);color:var(--accent);border-radius:10px;padding:9px 18px;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:13px;cursor:pointer;">❌ Mon équipe a perdu</button>
+          <button id="vote-btn-win" onclick="voteResult(true)" style="background:rgba(46,204,113,0.15);border:1px solid #2ecc71;color:#2ecc71;border-radius:10px;padding:9px 18px;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:13px;cursor:pointer;transition:all 0.3s;">✅ Mon équipe a gagné</button>
+          <button id="vote-btn-lose" onclick="voteResult(false)" style="background:rgba(255,70,85,0.1);border:1px solid rgba(255,70,85,0.4);color:var(--accent);border-radius:10px;padding:9px 18px;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:13px;cursor:pointer;transition:all 0.3s;">❌ Mon équipe a perdu</button>
         </div>
         <div id="captain-vote-status" style="font-size:12px;color:var(--muted);margin-top:8px;min-height:16px;"></div>
       </div>
       <!-- Admin declare section -->
       <div class="declare-section" id="declare-section" style="display:none;">
         <div class="declare-title">⚖️ Décision Admin</div>
+        <!-- Admin also has cooldown lock -->
+        <div id="declare-lock-banner" style="display:none;font-size:11px;color:var(--muted);margin-bottom:8px;">🔒 Vote disponible dans <span id="declare-lock-countdown" style="font-weight:800;color:var(--accent);">5:00</span></div>
         <div class="declare-btns">
-          <button class="btn-win" onclick="declareResult('win')">✅ Équipe 1 gagne</button>
-          <button class="btn-lose" onclick="declareResult('lose')">✅ Équipe 2 gagne</button>
+          <button class="btn-win" id="declare-btn-win" onclick="declareResult('win')">✅ Équipe 1 gagne</button>
+          <button class="btn-lose" id="declare-btn-lose" onclick="declareResult('lose')">✅ Équipe 2 gagne</button>
         </div>
       </div>
     </div>
@@ -1895,6 +1895,7 @@ function initSocket() {
     document.getElementById('btn-find-room').style.display = '';
     setupRoom(roomId, mode, team1, team2, waiting);
     showScreen('room');
+    playRoomEntrySound();
   });
 
   socket.on('room_error', (msg) => {
@@ -3031,6 +3032,26 @@ function playRoomFoundSound() {
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.18);
       osc.start(ctx.currentTime + delay);
       osc.stop(ctx.currentTime + delay + 0.2);
+    });
+  } catch(e) {}
+}
+
+function playRoomEntrySound() {
+  try {
+    const ctx = getAudioCtx();
+    // Son solennel : deux notes graves qui montent, puis une note longue
+    const notes = [[0, 220, 0.15], [0.22, 330, 0.15], [0.44, 440, 0.35]];
+    notes.forEach(([delay, freq, vol]) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq, ctx.currentTime + delay);
+      gain.gain.setValueAtTime(0, ctx.currentTime + delay);
+      gain.gain.linearRampToValueAtTime(vol, ctx.currentTime + delay + 0.04);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.55);
+      osc.start(ctx.currentTime + delay);
+      osc.stop(ctx.currentTime + delay + 0.6);
     });
   } catch(e) {}
 }
@@ -4191,13 +4212,28 @@ function banMap(map) {
 let _voteLockTimer = null;
 let _roomStartedAt = null;
 
+function setVoteButtonsLocked(locked) {
+  ['vote-btn-win','vote-btn-lose','declare-btn-win','declare-btn-lose'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    btn.disabled = locked;
+    btn.style.opacity = locked ? '0.35' : '1';
+    btn.style.cursor = locked ? 'not-allowed' : 'pointer';
+    btn.style.filter = locked ? 'grayscale(0.6)' : 'none';
+  });
+  const lockBanner = document.getElementById('vote-lock-banner');
+  const declareBanner = document.getElementById('declare-lock-banner');
+  if (lockBanner) lockBanner.style.display = locked ? '' : 'none';
+  if (declareBanner) declareBanner.style.display = locked ? '' : 'none';
+}
+
 function startVoteLockTimer(startedAt) {
   _roomStartedAt = startedAt || Date.now();
   const LOCK_MS = 5 * 60 * 1000;
-  const lockBanner = document.getElementById('vote-lock-banner');
-  const voteBtns = document.getElementById('vote-buttons');
   const countdown = document.getElementById('vote-lock-countdown');
-  if (!lockBanner || !voteBtns) return;
+  const declareCountdown = document.getElementById('declare-lock-countdown');
+  const voteBtns = document.getElementById('vote-buttons');
+  if (voteBtns) voteBtns.style.display = 'flex';
   clearInterval(_voteLockTimer);
 
   function tick() {
@@ -4205,15 +4241,15 @@ function startVoteLockTimer(startedAt) {
     const remaining = LOCK_MS - elapsed;
     if (remaining <= 0) {
       clearInterval(_voteLockTimer);
-      lockBanner.style.display = 'none';
-      voteBtns.style.display = 'flex';
+      setVoteButtonsLocked(false);
       return;
     }
     const m = Math.floor(remaining / 60000);
     const s = Math.floor((remaining % 60000) / 1000);
-    if (countdown) countdown.textContent = `${m}:${s.toString().padStart(2,'0')}`;
-    lockBanner.style.display = '';
-    voteBtns.style.display = 'none';
+    const txt = `${m}:${s.toString().padStart(2,'0')}`;
+    if (countdown) countdown.textContent = txt;
+    if (declareCountdown) declareCountdown.textContent = txt;
+    setVoteButtonsLocked(true);
   }
   tick();
   _voteLockTimer = setInterval(tick, 1000);
