@@ -2143,10 +2143,11 @@ function initSocket() {
   if (socket) return;
   socket = io({ transports: ['polling', 'websocket'] });
 
-  socket.on('auth_ok', ({ pseudo, elo, stats, isAdmin, avatar, userId, isPremium, premiumUntil, referralCode }) => {
+  socket.on('auth_ok', ({ pseudo, elo, stats, isAdmin, isContent, avatar, userId, isPremium, premiumUntil, referralCode }) => {
     state.pseudo = pseudo;
     state.stats = stats || {};
     state.isAdmin = isAdmin || false;
+    state.isContent = isContent || false;
     state.avatar = avatar || null;
     state.userId = userId || null;
     state.isPremium = !!isPremium;
@@ -2279,7 +2280,7 @@ function initSocket() {
     document.getElementById('btn-find-room').disabled = false;
   });
 
-  socket.on('chat_msg', (msg) => addMsg(msg.author, msg.team || 'system', msg.text, msg.time, msg.isPremium));
+  socket.on('chat_msg', (msg) => addMsg(msg.author, msg.team || 'system', msg.text, msg.time, msg.isPremium, msg.role || null));
 
   socket.on('chat_img', ({ author, team, img, time }) => addMsgImg(author, team, img, time));
 
@@ -2905,6 +2906,19 @@ function initSocket() {
     });
   });
 
+  socket.on('group_invite_received', ({ fromId, fromPseudo, fromAvatar, groupCode, mode }) => {
+    playBeep(660, 0.15);
+    notify(`👥 <b>${fromPseudo}</b> t'invite dans son groupe <b>${mode}</b> ! Clique pour rejoindre.`, {
+      accent: 'var(--green)', duration: 12000,
+      onClick: () => {
+        if (socket) {
+          socket.emit('join_group', { code: groupCode });
+          notify(`✅ Tu as rejoint le groupe de ${fromPseudo} !`, { accent: 'var(--green)', duration: 3000 });
+        }
+      }
+    });
+  });
+
   socket.on('friend_request_accepted', ({ pseudo }) => {
     playSound('friend_request');
     loadFriends();
@@ -3419,11 +3433,23 @@ async function loadFriends() {
           <div style="font-size:11px;color:${f.online?'#2ecc71':'var(--muted)'};">${f.online?'🟢 En ligne':'⚫ Hors ligne'}</div>
         </div>
         <div style="display:flex;gap:6px;">
+          ${f.online ? `<button onclick="inviteFriendToGroup('${f.id}','${f.pseudo}')" title="Inviter dans le groupe" style="background:rgba(58,255,160,0.08);border:1px solid rgba(58,255,160,0.25);color:var(--green);border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;">➕</button>` : ''}
           <button onclick="openChat('${f.id}','${f.pseudo}','${f.avatar||''}','${f.online}')" title="Message" style="background:rgba(79,142,247,0.1);border:1px solid rgba(79,142,247,0.25);color:#4f8ef7;border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;">💬</button>
           <button onclick="askRemoveFriend('${f.id}','${f.pseudo}')" title="Supprimer" style="background:rgba(255,70,85,0.08);border:1px solid rgba(255,70,85,0.2);color:var(--accent);border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;">✕</button>
         </div>
       </div>`).join('');
   } catch(e) {}
+}
+
+function inviteFriendToGroup(friendId, friendPseudo) {
+  if (!socket) return;
+  const entry = document.getElementById('nav-group-code')?.textContent;
+  if (!entry || entry === '——') {
+    notify('❌ Tu dois être dans un groupe pour inviter un ami', { accent: 'var(--accent)' });
+    return;
+  }
+  socket.emit('invite_friend_to_group', { friendId });
+  notify(`📨 Invitation envoyée à <b>${friendPseudo}</b> !`, { accent: 'var(--green)', duration: 3000 });
 }
 
 async function loadFriendRequests() {
@@ -4312,9 +4338,14 @@ function appendGlobalChatMsg(msg, scroll = true) {
     ? `<img src="${msg.avatar}" style="width:20px;height:20px;border-radius:50%;object-fit:cover;flex-shrink:0;${gcPremBorder}">`
     : `<div style="width:20px;height:20px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;flex-shrink:0;${gcPremBorder}">${msg.pseudo[0].toUpperCase()}</div>`;
 
+  const gcRoleBadge = msg.role === 'admin'
+    ? `<span style="background:rgba(255,70,85,0.2);color:var(--accent);font-size:9px;font-weight:800;border-radius:4px;padding:1px 5px;">ADMIN</span>`
+    : msg.role === 'content'
+    ? `<span style="background:rgba(145,71,255,0.2);color:#9147ff;font-size:9px;font-weight:800;border-radius:4px;padding:1px 5px;">CONTENT</span>`
+    : '';
   const pseudoHtml = isMe
     ? `<span style="font-size:11px;font-weight:700;color:var(--accent);">Toi ${state.isPremium ? '👑' : ''}</span>`
-    : `<span onclick="openGlobalChatProfile('${msg.pseudo.replace(/'/g,"\'")}',event)" style="font-size:11px;font-weight:700;color:${msg.isPremium ? '#f7c948' : 'var(--muted)'};cursor:pointer;">${msg.isPremium ? '👑 ' : ''}${msg.pseudo}</span>`;
+    : `<span onclick="openGlobalChatProfile('${msg.pseudo.replace(/'/g,"\'")}',event)" style="font-size:11px;font-weight:700;color:${msg.isPremium ? '#f7c948' : 'var(--muted)'};cursor:pointer;">${msg.isPremium ? '👑 ' : ''}${msg.pseudo}</span>${gcRoleBadge}`;
 
   div.innerHTML = `
     <div style="display:flex;align-items:center;gap:5px;${isMe?'flex-direction:row-reverse;':''}">
@@ -5875,16 +5906,21 @@ function declareResult(winner) {
   document.getElementById('declare-section').style.display = 'none';
 }
 
-function addMsg(author, team, text, time, isPremium = false) {
+function addMsg(author, team, text, time, isPremium = false, role = null) {
   const box = document.getElementById('chat-messages');
   const isSystem = team === 'system' || author === 'Système';
   const t = time ? new Date(time) : new Date();
   const ts = t.getHours().toString().padStart(2,'0') + ':' + t.getMinutes().toString().padStart(2,'0');
   const div = document.createElement('div');
   div.className = 'msg' + (isSystem ? ' system-msg' : '');
+  const roleBadge = role === 'admin'
+    ? `<span style="background:rgba(255,70,85,0.2);color:var(--accent);font-size:9px;font-weight:800;border-radius:4px;padding:1px 5px;letter-spacing:0.05em;flex-shrink:0;">ADMIN</span>`
+    : role === 'content'
+    ? `<span style="background:rgba(145,71,255,0.2);color:#9147ff;font-size:9px;font-weight:800;border-radius:4px;padding:1px 5px;letter-spacing:0.05em;flex-shrink:0;">CONTENT</span>`
+    : '';
   const authorHtml = isPremium
-    ? `<span class="msg-author ${team}" style="background:linear-gradient(90deg,#f7c948,#ff9500);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-weight:800;">👑 ${author}</span>`
-    : `<span class="msg-author ${team}">${author}</span>`;
+    ? `<span class="msg-author ${team}" style="background:linear-gradient(90deg,#f7c948,#ff9500);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-weight:800;">👑 ${author}</span>${roleBadge}`
+    : `<span class="msg-author ${team}">${author}</span>${roleBadge}`;
   div.innerHTML = isSystem
     ? `<div class="msg-text">${text}</div>`
     : `<div class="msg-header">${authorHtml}<span class="msg-time">${ts}</span></div><div class="msg-text">${text}</div>`;

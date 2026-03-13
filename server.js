@@ -19,6 +19,7 @@ const WEAPON_VOTE_TIMEOUT = 10000; // 10s pour voter
 const BAN_TIMEOUT = 15000;
 const START_COUNTDOWN = 5000;
 const ADMIN_PSEUDOS = ['Karim34', 'Telech', 'Biscuit']; // ← ajoute ton pseudo ici
+const CONTENT_PSEUDOS = []; // ← pseudos avec le rôle Content (créateurs de tournois illimités)
 
 // Check premium expiry on boot and every hour
 db.checkPremiumExpiry();
@@ -211,11 +212,9 @@ app.get('/api/admin/smurfs', (req, res) => {
     const suspects = [];
     Object.entries(byIp).forEach(([ip, accounts]) => {
       if (accounts.length < 2) return;
-      const elos = accounts.map(a => a.maxElo);
-      const eloDiff = Math.max(...elos) - Math.min(...elos);
-      if (eloDiff >= 150) suspects.push({ ip, accounts, eloDiff });
+      suspects.push({ ip, accounts, count: accounts.length });
     });
-    suspects.sort((a, b) => b.eloDiff - a.eloDiff);
+    suspects.sort((a, b) => b.count - a.count);
     res.json({ suspects });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -478,7 +477,10 @@ app.post('/api/global-chat', (req, res) => {
   const user = db.getUserById(userId);
   if (!user || user.banned) return res.status(403).json({ error: 'Interdit' });
   if (user.muted) return res.status(403).json({ error: 'Mute' });
-  const msg = { pseudo, text: text.trim(), time: Date.now(), avatar: user.avatar||null, isPremium: !!user.isPremium };
+  const isAdminUser = ADMIN_PSEUDOS.includes(pseudo);
+  const isContentUser = CONTENT_PSEUDOS.includes(pseudo);
+  const role = isAdminUser ? 'admin' : (isContentUser ? 'content' : null);
+  const msg = { pseudo, text: text.trim(), time: Date.now(), avatar: user.avatar||null, isPremium: !!user.isPremium, role };
   globalChat.push(msg);
   if (globalChat.length > GLOBAL_CHAT_MAX) globalChat.shift();
   io.emit('global_chat_msg', msg);
@@ -710,6 +712,7 @@ io.on('connection', (socket) => {
       socket.userId = user.id;
       socket.pseudo = user.pseudo;
       socket.isAdmin = ADMIN_PSEUDOS.includes(pseudo);
+      socket.isContent = CONTENT_PSEUDOS.includes(pseudo);
       socket.isMuted = !!user.muted && (!user.muteUntil || user.muteUntil > Date.now());
       socket.muteUntil = user.muteUntil || null;
       const stats = user.stats || db.defaultStats();
@@ -719,6 +722,7 @@ io.on('connection', (socket) => {
         elo: stats['2v2']?.elo || 500,
         stats,
         isAdmin: socket.isAdmin,
+        isContent: socket.isContent || false,
         avatar: user.avatar || null,
         userId: user.id,
         isPremium: !!user.isPremium,
@@ -1104,7 +1108,8 @@ io.on('connection', (socket) => {
     const team = isSpectatingAdmin ? 'admin' : (room.teams[0].some(p => p.id === socket.userId) ? 'team1' : 'team2');
     const displayPseudo = isSpectatingAdmin ? `${socket.pseudo} [ADMIN]` : socket.pseudo;
     const userRec = db.getUserById(socket.userId);
-    const msg = { author: displayPseudo, team, text: text.trim(), time: Date.now(), isPremium: !!(userRec?.isPremium) };
+    const role = socket.isAdmin ? 'admin' : (socket.isContent ? 'content' : null);
+    const msg = { author: displayPseudo, team, text: text.trim(), time: Date.now(), isPremium: !!(userRec?.isPremium), role };
     room.chat.push(msg);
     io.to('room_' + socket.roomId).emit('chat_msg', msg);
   });
@@ -1426,6 +1431,29 @@ function applyEloResult(winTeam, loseTeam, mode) {
   });
 
   // ── CANCEL QUEUE ──
+  // ── INVITE AMI DANS LE GROUPE ──
+  socket.on('invite_friend_to_group', ({ friendId }) => {
+    const entry = getGroupBySocket(socket.id);
+    if (!entry) return socket.emit('notify_error', "Tu n'es pas dans un groupe");
+    const [code, group] = entry;
+    if (group.captain !== socket.userId) return socket.emit('notify_error', 'Seul le capitaine peut inviter');
+    const teamSize = { '1v1':1, '2v2':2, '3v3':3, '5v5':5 }[group.mode] || 2;
+    if (group.players.length >= teamSize) return socket.emit('notify_error', 'Groupe déjà complet');
+    // Vérifier que friendId est bien ami avec l'invitant
+    const inviterRec = db.getUserById(socket.userId);
+    if (!inviterRec || !(inviterRec.friends||[]).includes(friendId)) return socket.emit('notify_error', "Ce joueur n'est pas dans ta liste d'amis");
+    // Envoyer l'invitation au socket de l'ami
+    io.sockets.sockets.forEach(s => {
+      if (s.userId === friendId) {
+        s.emit('group_invite_received', {
+          fromId: socket.userId, fromPseudo: socket.pseudo, fromAvatar: inviterRec.avatar||null,
+          groupCode: code, mode: group.mode
+        });
+      }
+    });
+    socket.emit('chat_msg', { author: 'Système', team: 'system', text: `📨 Invitation envoyée !` });
+  });
+
   socket.on('cancel_queue', () => {
     // Also remove from solo queue
     for (const mode of Object.keys(soloQueue)) {
@@ -2205,6 +2233,12 @@ app.post('/api/clans/create', express.json(), (req, res) => {
   try {
     const data = readDB();
     if (!data.clans) data.clans = [];
+    // Cooldown 7 jours après dissolution
+    const cooldown7d = 7 * 24 * 60 * 60 * 1000;
+    if (user.lastClanDissolved && (Date.now() - user.lastClanDissolved) < cooldown7d) {
+      const remaining = Math.ceil((cooldown7d - (Date.now() - user.lastClanDissolved)) / (1000 * 3600 * 24));
+      return res.status(400).json({ error: `Tu dois attendre encore ${remaining} jour(s) avant de créer un nouveau clan.` });
+    }
     const user = data.users.find(u => u.id === userId);
     if (!user) return res.status(404).json({ error: 'Joueur introuvable' });
     if (user.clanId) return res.status(400).json({ error: 'Vous êtes déjà dans un clan' });
@@ -2283,6 +2317,8 @@ app.post('/api/clans/leave', express.json(), (req, res) => {
       // Leader leaves → dissolve clan
       clan.members.forEach(mId => { const m = data.users.find(u => u.id === mId); if (m) { m.clanId = null; } });
       data.clans = data.clans.filter(c => c.id !== clanId);
+      // Cooldown 7 jours avant de recréer un clan
+      user.lastClanDissolved = Date.now();
       writeDB(data);
       return res.json({ ok: true, dissolved: true });
     }
@@ -2659,13 +2695,16 @@ app.post('/api/tournaments/create', express.json(), (req, res) => {
     const data = readDB();
     const user = data.users.find(u => u.id === userId);
     if (!user) return res.status(404).json({ error: 'Utilisateur introuvable' });
-    if (!user.isPremium) return res.status(403).json({ error: 'PREMIUM_REQUIRED' });
-    // 5-day cooldown between tournaments
-    const lastCreated = user.lastTournamentAt || 0;
-    const cooldownMs = 5 * 24 * 60 * 60 * 1000;
-    if (Date.now() - lastCreated < cooldownMs) {
-      const remaining = Math.ceil((cooldownMs - (Date.now() - lastCreated)) / (1000 * 3600));
-      return res.status(400).json({ error: `Prochain tournoi disponible dans ${remaining}h` });
+    const isContentCreator = CONTENT_PSEUDOS.includes(user.pseudo);
+    if (!user.isPremium && !isContentCreator) return res.status(403).json({ error: 'PREMIUM_REQUIRED' });
+    // 5-day cooldown entre tournois — pas de cooldown pour les Content
+    if (!isContentCreator) {
+      const lastCreated = user.lastTournamentAt || 0;
+      const cooldownMs = 5 * 24 * 60 * 60 * 1000;
+      if (Date.now() - lastCreated < cooldownMs) {
+        const remaining = Math.ceil((cooldownMs - (Date.now() - lastCreated)) / (1000 * 3600));
+        return res.status(400).json({ error: `Prochain tournoi disponible dans ${remaining}h` });
+      }
     }
     // Scheduled date: minimum 24h from now
     const scheduled = scheduledAt ? new Date(scheduledAt).getTime() : 0;
