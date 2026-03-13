@@ -913,7 +913,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
             <div style="flex:1;text-align:center;position:relative;z-index:1;">
               <div style="width:40px;height:40px;background:var(--surface2);border:1px solid var(--border);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;margin:0 auto 10px;font-weight:800;">3</div>
               <div style="font-size:12px;font-weight:600;margin-bottom:4px;">Reçois le lien de paiement</div>
-              <div style="font-size:11px;color:var(--muted);">PayPal dans le ticket sous 24h</div>
+              <div style="font-size:11px;color:var(--muted);">PayPal ou Crypto dans le ticket sous 24h</div>
             </div>
             <div style="flex:1;text-align:center;position:relative;z-index:1;">
               <div style="width:40px;height:40px;background:var(--surface2);border:1px solid var(--border);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;margin:0 auto 10px;font-weight:800;">4</div>
@@ -929,7 +929,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
           <div style="display:flex;flex-direction:column;gap:12px;">
             <div style="padding:14px;background:var(--bg);border-radius:10px;">
               <div style="font-weight:700;font-size:13px;margin-bottom:4px;">💳 Quels modes de paiement sont acceptés ?</div>
-              <div style="font-size:12px;color:var(--muted);">Paiement via PayPal uniquement pour le moment. D'autres options arrivent bientôt.</div>
+              <div style="font-size:12px;color:var(--muted);">Paiement via <span style="color:var(--text);font-weight:600;">PayPal</span> ou en <span style="color:var(--text);font-weight:600;">cryptomonnaie</span> (BTC, ETH, USDT…). Précise ta préférence dans le ticket.</div>
             </div>
             <div style="padding:14px;background:var(--bg);border-radius:10px;">
               <div style="font-weight:700;font-size:13px;margin-bottom:4px;">⏱️ Combien de temps pour l'activation ?</div>
@@ -5560,7 +5560,7 @@ async function buyPremium() {
   if (!state.userId) return notify("Connecte-toi d'abord", { accent: 'var(--accent)' });
   const planLabel = selectedPlanMonths === 1 ? '1 mois' : selectedPlanMonths === 3 ? '3 mois' : '6 mois';
   const subject = `👑 Achat Premium — ${planLabel} (${selectedPlanPrice}€)`;
-  const message = `Bonjour,\n\nJe souhaite acheter le Premium pour ${planLabel} à ${selectedPlanPrice}€.\n\nPseudo : ${state.pseudo}\nDurée : ${planLabel}\nPrix : ${selectedPlanPrice}€\n\nMerci de m'envoyer le lien de paiement PayPal.`;
+  const message = `Bonjour,\n\nJe souhaite acheter le Premium pour ${planLabel} à ${selectedPlanPrice}€.\n\nPseudo : ${state.pseudo}\nDurée : ${planLabel}\nPrix : ${selectedPlanPrice}€\n\nMode de paiement souhaité : PayPal / Crypto (à préciser)\n\nMerci de m'envoyer les informations de paiement.`;
   try {
     const r = await fetch('/api/tickets', {
       method: 'POST',
@@ -5570,7 +5570,7 @@ async function buyPremium() {
     if (r.ok) {
       const btn = document.getElementById('boutique-buy-btn');
       if (btn) { btn.textContent = '✅ Ticket envoyé !'; btn.style.background = 'rgba(46,204,113,0.2)'; btn.style.color = '#2ecc71'; btn.style.border = '1px solid #2ecc71'; btn.disabled = true; }
-      notify('✅ Ticket créé ! Un staff va te contacter avec le lien PayPal dans le Support.', { accent: 'var(--gold)', duration: 6000, onClick: () => showMainTab('tickets') });
+      notify('✅ Ticket créé ! Un staff va te contacter avec les infos de paiement (PayPal ou Crypto) dans le Support.', { accent: 'var(--gold)', duration: 6000, onClick: () => showMainTab('tickets') });
       loadMyTickets();
     }
   } catch(e) { notify('Erreur lors de la création du ticket', { accent: 'var(--accent)' }); }
