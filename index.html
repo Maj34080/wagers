@@ -397,6 +397,12 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
 
       <button onclick="openFriendsPanel()" style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:8px 14px;color:var(--text);font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;" title="Amis">👥 <span id="friends-online-count" style="color:var(--green);font-size:11px;"></span></button>
 
+      <!-- Language Toggle -->
+      <button id="lang-toggle-btn" onclick="toggleLanguage()" title="Switch language" style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:8px 13px;color:var(--text);font-size:12px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:6px;letter-spacing:0.03em;font-family:'Space Grotesk',sans-serif;transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <span id="lang-flag" style="font-size:16px;">🇬🇧</span>
+        <span id="lang-label">EN</span>
+      </button>
+
       <div class="avatar" id="nav-avatar" onclick="openProfile()">?</div>
       <div style="display:flex;flex-direction:column;align-items:flex-start;gap:1px;">
         <span class="nav-pseudo" id="nav-pseudo" style="font-size:16px;font-weight:700;"></span>
@@ -6239,5 +6245,385 @@ async function loadProfileHistory(userId) {
     <button onclick="adminJoinRoomDirect()" style="background:rgba(247,201,72,0.15);border:1px solid rgba(247,201,72,0.4);color:var(--gold);border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">Rejoindre</button>
   </div>
 </div>
+
+<script>
+// ══════════════════════════════════════════════
+//  REVENGE — TRANSLATION SYSTEM (FR ↔ EN)
+// ══════════════════════════════════════════════
+
+const TRANSLATIONS = {
+  // ── AUTH ──
+  'Connexion':                        'Login',
+  'Créer un compte':                  'Register',
+  'Pseudo':                           'Username',
+  'Mot de passe':                     'Password',
+  'Confirmer':                        'Confirm',
+  'Souvenir de moi':                  'Remember me',
+  'Se connecter':                     'Sign in',
+  'Créer mon compte':                 'Create account',
+  'Code de parrainage':               'Referral code',
+  '(optionnel)':                      '(optional)',
+  'Remplis tous les champs.':         'Please fill in all fields.',
+  'Les mots de passe ne correspondent pas.': 'Passwords do not match.',
+
+  // ── NAVBAR TABS ──
+  '🎮 Ranked':                        '🎮 Ranked',
+  '🏆 Classement':                    '🏆 Leaderboard',
+  '🛡️ Clans':                        '🛡️ Clans',
+  '🎯 Tournois':                      '🎯 Tournaments',
+  '🛒 Boutique':                      '🛒 Shop',
+  '🎫 Support':                       '🎫 Support',
+  '🔐 Admin':                         '🔐 Admin',
+  'Groupe':                           'Group',
+
+  // ── ROOM / MATCHMAKING ──
+  'Trouver une Room':                 'Find a Room',
+  'Choisis ton mode, forme ton équipe\net lance la recherche.': 'Choose your mode, form your team\nand start searching.',
+  'Choisis ton mode, forme ton équipe':  'Choose your mode, form your team',
+  'et lance la recherche.':            'and start the search.',
+  '🔍 Rechercher une Room':           '🔍 Search for a Room',
+  'Forme ton équipe d\'abord':        'Form your team first',
+  '⚡ File d\'attente prioritaire — Premium actif': '⚡ Priority queue — Premium active',
+  'Recherche en cours':               'Searching',
+  '✕ Quitter la file d\'attente':     '✕ Cancel search',
+  '🤖 Admin — Lancer avec des Bots':  '🤖 Admin — Start with Bots',
+  '🟢 Rooms en direct':              '🟢 Live Rooms',
+  'Aucune room active':              'No active rooms',
+  'Streamers Live':                  'Live Streamers',
+  'Chargement…':                     'Loading…',
+  'Actualiser':                      'Refresh',
+  'Rejoindre':                       'Join',
+  'Rejoindre en spectateur':         'Join as spectator',
+  '👁️ Rejoindre en spectateur':      '👁️ Join as spectator',
+
+  // ── LEADERBOARD ──
+  'Classement':                      'Leaderboard',
+  '🔍 Rechercher un joueur…':        '🔍 Search a player…',
+  'Aucun joueur encore':             'No players yet',
+  'Reset dans':                      'Reset in',
+  'Chargement…':                     'Loading…',
+
+  // ── PROFILE ──
+  '📊 Stats':                        '📊 Stats',
+  '🕹️ Historique':                   '🕹️ History',
+  '🎁 Parrainage':                   '🎁 Referral',
+  'Winrate :':                       'Winrate:',
+  'Pseudo exact…':                   'Exact username…',
+  '👥 Ajouter':                      '👥 Add',
+  '🚫 Bannir':                       '🚫 Ban',
+  '✅ Débannir':                      '✅ Unban',
+  '🔊 Unmute':                       '🔊 Unmute',
+
+  // ── CLANS ──
+  '⚔️ Créer un clan':               '⚔️ Create a clan',
+  'Nom du clan':                     'Clan name',
+  'Ex: Les Invincibles':             'Ex: The Invincibles',
+  'Membres':                         'Members',
+  'Demandes d\'adhésion':            'Join requests',
+  'Choisir un clan à challenger…':   'Choose a clan to challenge…',
+  '⚔️ Challenger':                   '⚔️ Challenge',
+  'Quitter':                         'Leave',
+  'Quitter le clan':                 'Leave clan',
+  '💥 Dissoudre le clan':            '💥 Disband clan',
+  '🏆 Classement hebdo':             '🏆 Weekly ranking',
+
+  // ── RESULT SCREEN ──
+  'VICTOIRE':                        'VICTORY',
+  'DÉFAITE':                         'DEFEAT',
+  'ÉGALITÉ':                         'DRAW',
+  '⚖️ DÉCISION RENDUE':              '⚖️ DECISION RENDERED',
+  'Retour au Lobby':                 'Back to Lobby',
+  '🔄 Rejouer':                      '🔄 Replay',
+  '⚔️ Revanche':                     '⚔️ Rematch',
+  '📤 Partager':                     '📤 Share',
+  'En attente des autres joueurs…':  'Waiting for other players…',
+
+  // ── ROOM SCREEN ──
+  'Démarrage…':                      'Starting…',
+  'Votez pour votre arme !':         'Vote for your weapon!',
+  '✅ Accord — Arme :':              '✅ Agreed — Weapon:',
+  '🎲 Random — Arme :':             '🎲 Random — Weapon:',
+  'En jeu —':                        'In game —',
+
+  // ── ADMIN ──
+  '🔐 Admin — Alertes':              '🔐 Admin — Alerts',
+  '👁️ MODE ADMIN —':                 '👁️ ADMIN MODE —',
+  '✅ Équipe 1 gagne':               '✅ Team 1 wins',
+  '✅ Équipe 2 gagne':               '✅ Team 2 wins',
+  '🤝 Égalité':                      '🤝 Draw',
+  '🚪 Quitter':                      '🚪 Leave',
+  '👁 Admin — Rejoindre room':       '👁 Admin — Join room',
+  'ID room (ex: R4B2C)':             'Room ID (ex: R4B2C)',
+  'Pseudo du joueur':                'Player username',
+  '🔍 Fiche complète joueur':        '🔍 Full player profile',
+  '👑 Top joueurs (ELO max)':        '👑 Top players (max ELO)',
+  '🎮 Mode joueur':                  '🎮 Player mode',
+  '🔐 Mode admin':                   '🔐 Admin mode',
+  '🎮 Mode admin activé':            '🎮 Admin mode enabled',
+
+  // ── MISC / PREMIUM ──
+  'Pseudo animé en or':              'Animated gold username',
+  'Pseudo animé en or dans les rooms et le classement': 'Animated gold username in rooms and leaderboard',
+  '👑 Premium activé pour':          '👑 Premium activated for',
+  'mois ! Bienvenue dans l\'élite.': 'month(s)! Welcome to the elite.',
+  'aujourd\'hui':                    'today',
+  'cette semaine':                   'this week',
+  'joueur':                          'player',
+  'joueurs':                         'players',
+  'room':                            'room',
+  'rooms':                           'rooms',
+  'active':                          'active',
+  'actives':                         'active',
+  'permanent':                       'permanent',
+  'Saison':                          'Season',
+
+  // ── NOTIFICATIONS ──
+  '⚔️ Match trouvé !':               '⚔️ Match found!',
+  'Ta room':                         'Your room',
+  'est prête — clique pour rejoindre !': 'is ready — click to join!',
+  'Nouveau tournoi :':               'New tournament:',
+  'par':                             'by',
+  't\'invite dans l\'équipe':        'invites you to team',
+  'pour le tournoi':                 'for tournament',
+  'le':                              'on',
+
+  // ── SEASON ──
+  'Élargissement dans':              'Expanding in',
+  'Fenêtre max atteinte':            'Max window reached',
+  'Il faut':                         'You need',
+  'joueur(s) dans le groupe':        'player(s) in the group',
+  'File solo — tu seras matchmaké avec d\'autres solos': 'Solo queue — you\'ll be matched with other solos',
+  'Trop de joueurs pour le mode':    'Too many players for mode',
+
+  // ── TICKETS / SUPPORT ──
+  'Sujet':                           'Subject',
+  'Message':                         'Message',
+  'Envoyer':                         'Send',
+  'Fermer':                          'Close',
+
+  // ── FRIENDS ──
+  'Amis':                            'Friends',
+};
+
+// Elements to translate via data-i18n attribute (set on HTML elements)
+// We use a simpler approach: scan text nodes and inline labels
+
+let currentLang = localStorage.getItem('revenge_lang') || 'fr';
+
+function applyTranslations(lang) {
+  const isFR = lang === 'fr';
+
+  // Update button UI
+  const flagEl = document.getElementById('lang-flag');
+  const labelEl = document.getElementById('lang-label');
+  if (flagEl) flagEl.textContent = isFR ? '🇬🇧' : '🇫🇷';
+  if (labelEl) labelEl.textContent = isFR ? 'EN' : 'FR';
+
+  // Walk all elements and translate text nodes
+  translateNode(document.body, lang);
+}
+
+function translateNode(root, lang) {
+  const isFR = lang === 'fr';
+
+  // Translate all elements with data-i18n (future-proof)
+  root.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (isFR) {
+      el.textContent = key;
+    } else {
+      el.textContent = TRANSLATIONS[key] || key;
+    }
+  });
+
+  // Translate specific static elements by their content
+  translateStaticElements(lang);
+}
+
+function translateStaticElements(lang) {
+  const isFR = lang === 'fr';
+
+  // Helper: translate an element's textContent if it matches a known key
+  function tryTranslate(el) {
+    if (!el) return;
+    const text = el.textContent.trim();
+    if (isFR) {
+      // Find reverse: English → French
+      const frKey = Object.keys(TRANSLATIONS).find(k => TRANSLATIONS[k] === text);
+      if (frKey) el.textContent = frKey;
+    } else {
+      if (TRANSLATIONS[text]) el.textContent = TRANSLATIONS[text];
+    }
+  }
+
+  // Auth screen
+  const authEls = [
+    document.getElementById('tab-login'),
+    document.getElementById('tab-register'),
+  ];
+  authEls.forEach(tryTranslate);
+
+  // Auth labels
+  document.querySelectorAll('.field label').forEach(el => {
+    const t = el.textContent.trim();
+    if (!isFR && TRANSLATIONS[t]) el.textContent = TRANSLATIONS[t];
+    else if (isFR) {
+      const frKey = Object.keys(TRANSLATIONS).find(k => TRANSLATIONS[k] === t);
+      if (frKey) el.textContent = frKey;
+    }
+  });
+
+  // Auth buttons
+  document.querySelectorAll('.btn-primary').forEach(el => {
+    const t = el.textContent.trim();
+    if (!isFR && TRANSLATIONS[t]) el.textContent = TRANSLATIONS[t];
+    else if (isFR) {
+      const frKey = Object.keys(TRANSLATIONS).find(k => TRANSLATIONS[k] === t);
+      if (frKey) el.textContent = frKey;
+    }
+  });
+
+  // Nav tabs
+  const navTabIds = ['ntab-room','ntab-lb','ntab-clans','ntab-tournois','ntab-boutique','ntab-tickets','ntab-admin'];
+  navTabIds.forEach(id => tryTranslate(document.getElementById(id)));
+
+  // "Groupe" label in navbar
+  document.querySelectorAll('span').forEach(el => {
+    const t = el.textContent.trim();
+    const map = isFR
+      ? Object.keys(TRANSLATIONS).find(k => TRANSLATIONS[k] === t)
+      : TRANSLATIONS[t];
+    if (!isFR && TRANSLATIONS[t]) el.textContent = TRANSLATIONS[t];
+    else if (isFR && map) el.textContent = map;
+  });
+
+  // Specific divs by text content (find-room panel, live rooms, etc.)
+  translateDivsByText(lang);
+
+  // Placeholders
+  translatePlaceholders(lang);
+
+  // Result screen buttons
+  translateResultScreen(lang);
+
+  // Admin spectator bar
+  translateAdminBar(lang);
+}
+
+function translateDivsByText(lang) {
+  const isFR = lang === 'fr';
+  // Walk all text nodes in divs/buttons that are purely text
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null);
+  const toTranslate = [];
+  let node;
+  while ((node = walker.nextNode())) {
+    const t = node.textContent.trim();
+    if (!t || t.length < 2) continue;
+    // Skip script/style nodes
+    const parent = node.parentElement;
+    if (!parent) continue;
+    const tag = parent.tagName;
+    if (tag === 'SCRIPT' || tag === 'STYLE') continue;
+    // Only translate if the node's parent is not an input
+    if (tag === 'INPUT' || tag === 'TEXTAREA') continue;
+
+    if (!isFR && TRANSLATIONS[t]) {
+      toTranslate.push({ node, value: TRANSLATIONS[t] });
+    } else if (isFR) {
+      const frKey = Object.keys(TRANSLATIONS).find(k => TRANSLATIONS[k] === t);
+      if (frKey) toTranslate.push({ node, value: frKey });
+    }
+  }
+  toTranslate.forEach(({ node, value }) => { node.textContent = value; });
+}
+
+function translatePlaceholders(lang) {
+  const isFR = lang === 'fr';
+  document.querySelectorAll('input[placeholder], textarea[placeholder]').forEach(el => {
+    const ph = el.getAttribute('placeholder');
+    if (!ph) return;
+    if (!isFR && TRANSLATIONS[ph]) {
+      el.setAttribute('placeholder', TRANSLATIONS[ph]);
+      el.setAttribute('data-ph-fr', ph); // store original
+    } else if (isFR) {
+      const orig = el.getAttribute('data-ph-fr');
+      if (orig) el.setAttribute('placeholder', orig);
+      else {
+        const frKey = Object.keys(TRANSLATIONS).find(k => TRANSLATIONS[k] === ph);
+        if (frKey) el.setAttribute('placeholder', frKey);
+      }
+    }
+  });
+}
+
+function translateResultScreen(lang) {
+  const isFR = lang === 'fr';
+  const map = {
+    'result-title': isFR ? null : null, // dynamic, skip
+  };
+  const btns = document.querySelectorAll('.result-btn, .result-btn-secondary, .rematch-btn');
+  btns.forEach(el => {
+    const t = el.textContent.trim();
+    if (!isFR && TRANSLATIONS[t]) el.textContent = TRANSLATIONS[t];
+    else if (isFR) {
+      const frKey = Object.keys(TRANSLATIONS).find(k => TRANSLATIONS[k] === t);
+      if (frKey) el.textContent = frKey;
+    }
+  });
+}
+
+function translateAdminBar(lang) {
+  const isFR = lang === 'fr';
+  document.querySelectorAll('.btn-admin-win1, .btn-admin-win2').forEach(el => {
+    const t = el.textContent.trim();
+    if (!isFR && TRANSLATIONS[t]) el.textContent = TRANSLATIONS[t];
+    else if (isFR) {
+      const frKey = Object.keys(TRANSLATIONS).find(k => TRANSLATIONS[k] === t);
+      if (frKey) el.textContent = frKey;
+    }
+  });
+}
+
+function toggleLanguage() {
+  currentLang = currentLang === 'fr' ? 'en' : 'fr';
+  localStorage.setItem('revenge_lang', currentLang);
+  applyTranslations(currentLang);
+}
+
+// Patch textContent setters used by JS to also go through translation
+// We wrap the key dynamic text functions
+(function patchDynamicText() {
+  const origFns = {};
+
+  // Intercept document.getElementById result's textContent writes
+  // Instead, we expose a global helper JS can use
+  window.t = function(text) {
+    if (currentLang === 'en' && TRANSLATIONS[text]) return TRANSLATIONS[text];
+    return text;
+  };
+})();
+
+// Run on page load — respect saved preference
+document.addEventListener('DOMContentLoaded', () => {
+  // Small delay to let the page fully render before translating
+  if (currentLang === 'en') {
+    setTimeout(() => applyTranslations('en'), 100);
+  }
+  // Keep button state accurate
+  const flagEl = document.getElementById('lang-flag');
+  const labelEl = document.getElementById('lang-label');
+  if (flagEl) flagEl.textContent = currentLang === 'fr' ? '🇬🇧' : '🇫🇷';
+  if (labelEl) labelEl.textContent = currentLang === 'fr' ? 'EN' : 'FR';
+});
+
+// Also re-apply after navigation between tabs (the DOM might re-render some content)
+const _origShowMainTab = window.showMainTab;
+if (typeof _origShowMainTab === 'function') {
+  window.showMainTab = function(tab) {
+    _origShowMainTab(tab);
+    if (currentLang === 'en') setTimeout(() => applyTranslations('en'), 80);
+  };
+}
+</script>
 </body>
 </html>
