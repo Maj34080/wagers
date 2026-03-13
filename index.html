@@ -45,6 +45,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
 .nav-tab{padding:8px 20px;border-radius:9px;font-size:14px;font-weight:600;cursor:pointer;border:none;background:none;color:var(--muted);font-family:'DM Sans',sans-serif;transition:all 0.2s;}
 .nav-tab.active{background:var(--surface2);color:var(--text);}
 .nav-tab:hover:not(.active){color:var(--text);}
+.nav-tab{transition:background 0.15s ease, color 0.15s ease;}
 .nav-right{display:flex;align-items:center;gap:12px;position:relative;}
 .elo-badge{background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:7px 13px;font-size:13px;font-weight:700;color:var(--gold);font-family:'Syne',sans-serif;}
 .avatar{width:48px;height:48px;background:var(--accent);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:18px;font-family:'Syne',sans-serif;cursor:pointer;}
@@ -73,8 +74,9 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
 /* MAIN */
 #screen-main{flex-direction:column;overflow-y:auto;height:100vh;padding-bottom:40px;}
 .main-body{flex:1;padding:28px;max-width:1200px;margin:0 auto;width:100%;}
-.room-tab-content{display:none;}
-.room-tab-content.active{display:block;}
+.room-tab-content{display:none;opacity:0;}
+.room-tab-content.active{display:block;animation:tabFadeIn 0.22s ease forwards;}
+@keyframes tabFadeIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
 
 /* MODE SELECTOR */
 .mode-selector{display:flex;gap:8px;margin-bottom:20px;}
@@ -1791,19 +1793,42 @@ const ADMIN_KEY = 'revenge_admin_secret';
 
 function showMainTab(tab) {
   requestAnimationFrame(() => { const ms = document.getElementById('screen-main'); if (ms) ms.scrollTop = 0; });
-  ['room','lb','admin','tournois','tickets','clans','boutique'].forEach(t => {
-    const btn = document.getElementById('ntab-' + t);
-    const content = document.getElementById('tab-content-' + t);
-    if (btn) btn.classList.toggle('active', tab === t);
-    if (content) content.classList.toggle('active', tab === t);
-  });
-  if (tab === 'lb') { loadLeaderboard(state.lbMode); loadCotd(); loadSeasonBanner(); }
-  if (tab === 'room') { loadGlobalChat(); fetchLiveRooms(); loadTwitchLive(); }
-  if (tab === 'admin') { refreshAdminLogs(); refreshAdminTickets(); loadAdminStats(); loadPremiumAdmin(); loadStaffStatus(); loadContentList(); showAdminSection('stats'); }
-  if (tab === 'tickets') loadMyTickets();
-  if (tab === 'boutique') initBoutique();
-  if (tab === 'clans') initClanTab();
-  if (tab === 'tournois') loadTournaments();
+  const tabs = ['room','lb','admin','tournois','tickets','clans','boutique'];
+
+  // Find current active tab content and fade it out first
+  const currentActive = tabs.map(t => document.getElementById('tab-content-' + t)).find(el => el && el.classList.contains('active'));
+
+  const doSwitch = () => {
+    tabs.forEach(t => {
+      const btn = document.getElementById('ntab-' + t);
+      const content = document.getElementById('tab-content-' + t);
+      if (btn) btn.classList.toggle('active', tab === t);
+      if (content) {
+        content.classList.toggle('active', tab === t);
+        if (tab !== t) content.style.opacity = '';
+      }
+    });
+    if (tab === 'lb') { loadLeaderboard(state.lbMode); loadCotd(); loadSeasonBanner(); }
+    if (tab === 'room') { loadGlobalChat(); fetchLiveRooms(); loadTwitchLive(); }
+    if (tab === 'admin') { refreshAdminLogs(); refreshAdminTickets(); loadAdminStats(); loadPremiumAdmin(); loadStaffStatus(); loadContentList(); showAdminSection('stats'); }
+    if (tab === 'tickets') loadMyTickets();
+    if (tab === 'boutique') initBoutique();
+    if (tab === 'clans') initClanTab();
+    if (tab === 'tournois') loadTournaments();
+  };
+
+  if (currentActive && !currentActive.id.includes(tab)) {
+    // Quick fade out (80ms), then switch
+    currentActive.style.transition = 'opacity 0.08s ease';
+    currentActive.style.opacity = '0';
+    setTimeout(() => {
+      currentActive.style.transition = '';
+      currentActive.style.opacity = '';
+      doSwitch();
+    }, 80);
+  } else {
+    doSwitch();
+  }
 }
 
 // ── ADMIN SECTIONS ──
