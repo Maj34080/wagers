@@ -18,7 +18,7 @@ const WEAPONS = ['Vandal/Phantom', 'Sheriff', 'Operator', 'Marshall', 'Ghost'];
 const WEAPON_VOTE_TIMEOUT = 10000; // 10s pour voter
 const BAN_TIMEOUT = 15000;
 const START_COUNTDOWN = 5000;
-const ADMIN_PSEUDOS = ['Karim34', 'Telech']; // ← ajoute ton pseudo ici
+const ADMIN_PSEUDOS = ['Karim34', 'Telech', 'Biscuit']; // ← ajoute ton pseudo ici
 
 // Check premium expiry on boot and every hour
 db.checkPremiumExpiry();
