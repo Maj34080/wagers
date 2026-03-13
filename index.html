@@ -369,6 +369,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
       <button class="nav-tab" id="ntab-boutique" onclick="showMainTab('boutique')">🛒 Boutique</button>
       <button class="nav-tab" id="ntab-tickets" onclick="showMainTab('tickets')">🎫 Support</button>
       <button class="nav-tab" id="ntab-admin" onclick="showMainTab('admin')" style="display:none;color:var(--gold);">🔐 Admin</button>
+      <button id="btn-admin-mode-toggle" onclick="toggleAdminMode()" style="display:none;background:rgba(46,204,113,0.12);border:1px solid #2ecc71;color:#2ecc71;border-radius:8px;padding:5px 12px;font-family:'Syne',sans-serif;font-weight:800;font-size:11px;cursor:pointer;letter-spacing:0.03em;white-space:nowrap;" title="Basculer entre mode admin et mode joueur">🎮 Mode joueur</button>
     </div>
     <div class="nav-right">
 
@@ -2155,6 +2156,7 @@ function initSocket() {
 
   socket.on('admin_alert_received', ({ roomId, type, pseudo }) => {
     if (!state.isAdmin) return;
+    if (state.isAdminActive === false) return; // player mode: ignore alerts
     const panel = document.getElementById('admin-panel');
     panel.classList.add('show');
     const alerts = document.getElementById('admin-alerts');
@@ -2577,27 +2579,34 @@ function initSocket() {
       document.getElementById('result-map').textContent = 'Mode ' + mode + ' — Gagnants : ' + winTeam.join(', ');
     } else {
       const iWon = winTeam.includes(state.pseudo);
-      const prevElo = state.elo;
-      const prevRank = getRankFromElo(prevElo);
-      const myEloChange = eloChanges && eloChanges[state.userId] !== undefined ? eloChanges[state.userId] : (iWon ? 20 : -20);
-      state.elo = Math.max(0, state.elo + myEloChange);
-      if (!state.stats[mode]) state.stats[mode] = { elo: 500, wins: 0, losses: 0 };
-      state.stats[mode].elo = state.elo;
       document.getElementById('result-title').textContent = iWon ? 'VICTOIRE' : 'DÉFAITE';
       document.getElementById('result-title').className = 'result-title ' + (iWon ? 'win' : 'lose');
-      const eloChangeDisplay = myEloChange > 0 ? '+' + myEloChange : String(myEloChange);
-      document.getElementById('result-elo').textContent = eloChangeDisplay + ' ELO → ' + state.elo;
-      document.getElementById('result-map').textContent = 'Mode ' + mode + ' — Gagnants : ' + winTeam.join(', ');
-      document.getElementById('nav-elo').textContent = state.elo;
-      updateNavRank();
-      const newRank = getRankFromElo(state.elo);
-      if (newRank.name !== prevRank.name && state.elo > prevElo) {
-        setTimeout(() => playRankUpSound(), 600);
-        setTimeout(() => notify('🏆 RANK UP → ' + newRank.icon + ' ' + newRank.name + ' !', { duration: 5000, accent: newRank.color }), 700);
-      } else if (myEloChange > 0) {
-        setTimeout(() => playEloGainSound(), 400);
-      } else if (myEloChange < 0) {
-        setTimeout(() => playEloLossSound(), 400);
+      if (isTournamentRoom) {
+        // Tournament: no ELO change, show result only
+        document.getElementById('result-elo').textContent = "🏆 Match de tournoi — pas d'ELO en jeu";
+        document.getElementById('result-map').textContent = 'Mode ' + mode + ' — Gagnants : ' + winTeam.join(', ');
+        if (iWon) { setTimeout(() => playRankUpSound(), 400); }
+      } else {
+        const prevElo = state.elo;
+        const prevRank = getRankFromElo(prevElo);
+        const myEloChange = eloChanges && eloChanges[state.userId] !== undefined ? eloChanges[state.userId] : (iWon ? 20 : -20);
+        state.elo = Math.max(0, state.elo + myEloChange);
+        if (!state.stats[mode]) state.stats[mode] = { elo: 500, wins: 0, losses: 0 };
+        state.stats[mode].elo = state.elo;
+        const eloChangeDisplay = myEloChange > 0 ? '+' + myEloChange : String(myEloChange);
+        document.getElementById('result-elo').textContent = eloChangeDisplay + ' ELO → ' + state.elo;
+        document.getElementById('result-map').textContent = 'Mode ' + mode + ' — Gagnants : ' + winTeam.join(', ');
+        document.getElementById('nav-elo').textContent = state.elo;
+        updateNavRank();
+        const newRank = getRankFromElo(state.elo);
+        if (newRank.name !== prevRank.name && state.elo > prevElo) {
+          setTimeout(() => playRankUpSound(), 600);
+          setTimeout(() => notify('🏆 RANK UP → ' + newRank.icon + ' ' + newRank.name + ' !', { duration: 5000, accent: newRank.color }), 700);
+        } else if (myEloChange > 0) {
+          setTimeout(() => playEloGainSound(), 400);
+        } else if (myEloChange < 0) {
+          setTimeout(() => playEloLossSound(), 400);
+        }
       }
     }
     stopRoomEloWindow();
@@ -2639,6 +2648,18 @@ function initSocket() {
     }
 
     document.getElementById('result-overlay').classList.add('show');
+  });
+
+  // Live ELO update — server pushes after each match, no F5 needed
+  socket.on('elo_update', ({ mode, newElo, change }) => {
+    if (!state.stats) state.stats = {};
+    if (!state.stats[mode]) state.stats[mode] = { elo: 500, wins: 0, losses: 0 };
+    state.stats[mode].elo = newElo;
+    if (mode === state.mode) {
+      state.elo = newElo;
+      document.getElementById('nav-elo').textContent = newElo;
+      updateNavRank();
+    }
   });
 
   socket.on('rematch_update', ({ count, total }) => {
@@ -2953,6 +2974,8 @@ function enterMain() {
   if (adminBtn) adminBtn.style.display = state.isAdmin ? '' : 'none';
   const adminTab = document.getElementById('ntab-admin');
   if (adminTab) adminTab.style.display = state.isAdmin ? '' : 'none';
+  const adminToggleBtn = document.getElementById('btn-admin-mode-toggle');
+  if (adminToggleBtn) adminToggleBtn.style.display = state.isAdmin ? '' : 'none';
   showScreen('main');
   loadGlobalChat();
   loadTwitchLive();
@@ -5283,7 +5306,11 @@ function createRoom() {
   document.getElementById('btn-find-room').disabled = true;
   document.getElementById('searching-box').classList.add('show');
   const isSoloQueue = state.groupSize === 1 && getTeamSize(state.mode) > 1;
-  document.getElementById('searching-mode').textContent = (isSoloQueue ? '🎲 File solo — ' : '') + 'Mode ' + state.mode.toUpperCase();
+  const is1v1 = state.mode === '1v1';
+  const modeLabel = isSoloQueue ? '🎲 File solo — Mode ' + state.mode.toUpperCase()
+    : is1v1 ? '⚔️ Duel — Mode 1V1'
+    : 'Mode ' + state.mode.toUpperCase() + ' — groupe de ' + state.groupSize;
+  document.getElementById('searching-mode').textContent = modeLabel;
   // Live ELO window display — updates every 30s
   const myElo = (state.stats && state.mode && state.stats[state.mode]) ? state.stats[state.mode].elo : (state.elo || 500);
   const windowEl = document.getElementById('elo-window-display');
@@ -5682,6 +5709,34 @@ function adminDecide(winner) {
   // NE PAS toucher state.isSpectator ni state.roomId ici — game_result les reset
 }
 
+function toggleAdminMode() {
+  if (!state.isAdmin) return;
+  // state.isAdminActive: true = admin mode ON (default), false = player mode
+  if (state.isAdminActive === undefined) state.isAdminActive = true;
+  state.isAdminActive = !state.isAdminActive;
+  // Notify server so it stops/starts sending admin alerts
+  if (socket) socket.emit('set_admin_mode', { active: state.isAdminActive });
+  applyAdminMode();
+}
+
+function applyAdminMode() {
+  const active = state.isAdminActive !== false; // default true
+  const btn = document.getElementById('btn-admin-mode-toggle');
+  const adminTab = document.getElementById('ntab-admin');
+  const adminFloat = document.getElementById('admin-float-join');
+  const specBar = document.getElementById('admin-spectator-bar');
+  if (btn) {
+    btn.textContent = active ? '🎮 Mode joueur' : '🔐 Mode admin';
+    btn.style.background = active ? 'rgba(46,204,113,0.12)' : 'rgba(255,209,102,0.12)';
+    btn.style.borderColor = active ? '#2ecc71' : 'var(--gold)';
+    btn.style.color = active ? '#2ecc71' : 'var(--gold)';
+  }
+  if (adminTab) adminTab.style.display = active ? '' : 'none';
+  if (adminFloat) adminFloat.style.display = active ? '' : 'none';
+  if (!active && specBar) specBar.classList.remove('show');
+  notify(active ? '🔐 Mode admin activé' : '🎮 Mode joueur activé — les notifs admin sont suspendues', { duration: 3000 });
+}
+
 function adminLeave() {
   state.isSpectator = false;
   state.roomId = null;
@@ -5704,6 +5759,7 @@ function adminLeaveSpectator() {
   // Quitter la room en spectateur sans donner de décision
   document.getElementById('admin-spectator-bar').classList.remove('show');
   document.getElementById('declare-section').style.display = 'none';
+  if (socket && state.roomId) socket.emit('admin_leave_room', { roomId: state.roomId });
   state.isSpectator = false;
   state.roomId = null;
   if (socket) socket.roomId = null;

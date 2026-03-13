@@ -18,7 +18,7 @@ const WEAPONS = ['Vandal/Phantom', 'Sheriff', 'Operator', 'Marshall', 'Ghost'];
 const WEAPON_VOTE_TIMEOUT = 10000; // 10s pour voter
 const BAN_TIMEOUT = 15000;
 const START_COUNTDOWN = 5000;
-const ADMIN_PSEUDOS = ['Karim34', 'Telech']; // ← ajoute ton pseudo ici
+const ADMIN_PSEUDOS = ['Karim34']; // ← ajoute ton pseudo ici
 
 // Check premium expiry on boot and every hour
 db.checkPremiumExpiry();
@@ -1192,6 +1192,9 @@ function applyEloResult(winTeam, loseTeam, mode) {
     const change = db.computeEloChange(myElo, loseAvg, true);
     eloChanges[p.id] = change;
     db.updateUserElo(p.id, change, true, mode, loseTeam, winTeam, false);
+    const newElo = getElo(p);
+    const ps = [...io.sockets.sockets.values()].find(s => s.userId === p.id);
+    if (ps) ps.emit('elo_update', { mode, newElo, change });
     // Check referral reward
     const ref = db.checkReferralReward(p.id);
     if (ref && ref.rewardGiven) {
@@ -1204,6 +1207,9 @@ function applyEloResult(winTeam, loseTeam, mode) {
     const change = db.computeEloChange(myElo, winAvg, false);
     eloChanges[p.id] = change;
     db.updateUserElo(p.id, change, false, mode, winTeam, loseTeam, false);
+    const newElo = getElo(p);
+    const ps = [...io.sockets.sockets.values()].find(s => s.userId === p.id);
+    if (ps) ps.emit('elo_update', { mode, newElo, change });
     // Check referral reward
     const ref = db.checkReferralReward(p.id);
     if (ref && ref.rewardGiven) {
@@ -1251,8 +1257,9 @@ function applyEloResult(winTeam, loseTeam, mode) {
         room.status = 'finished';
         const winTeam = winner === 1 ? room.teams[0] : room.teams[1];
         const loseTeam = winner === 1 ? room.teams[1] : room.teams[0];
-        const eloChanges = applyEloResult(winTeam, loseTeam, room.mode);
-        computeCotd();
+        // No ELO changes for tournament rooms
+        const eloChanges = room.tournamentId ? {} : applyEloResult(winTeam, loseTeam, room.mode);
+        if (!room.tournamentId) computeCotd();
         emitGameResult(socket.roomId, {
           winner,
           winTeam: winTeam.map(p => p.pseudo),
@@ -1280,7 +1287,7 @@ function applyEloResult(winTeam, loseTeam, mode) {
         io.to('room_' + socket.roomId).emit('vote_conflict');
         // Alert admins
         io.sockets.sockets.forEach(s => {
-          if (s.isAdmin) s.emit('admin_alert_received', { roomId: socket.roomId, type: 'conflict', pseudo: 'Conflit de vote' });
+          if (s.isAdmin && s.adminModeActive !== false) s.emit('admin_alert_received', { roomId: socket.roomId, type: 'conflict', pseudo: 'Conflit de vote' });
         });
       }
     }
@@ -1302,8 +1309,9 @@ function applyEloResult(winTeam, loseTeam, mode) {
     const winTeam = winner === 1 ? room.teams[0] : room.teams[1];
     const loseTeam = winner === 1 ? room.teams[1] : room.teams[0];
 
-    const eloChanges = applyEloResult(winTeam, loseTeam, room.mode);
-    computeCotd();
+    // No ELO changes for tournament rooms
+    const eloChanges = room.tournamentId ? {} : applyEloResult(winTeam, loseTeam, room.mode);
+    if (!room.tournamentId) computeCotd();
 
     emitGameResult(socket.roomId, {
       winner,
@@ -1518,6 +1526,12 @@ function applyEloResult(winTeam, loseTeam, mode) {
     io.to('room_' + socket.roomId).emit('chat_img', { author: socket.pseudo, team, img, time: Date.now() });
   });
 
+  // ── ADMIN MODE TOGGLE ──
+  socket.on('set_admin_mode', ({ active }) => {
+    if (!socket.isAdmin) return;
+    socket.adminModeActive = !!active;
+  });
+
   // ── ADMIN ALERT ──
   socket.on('admin_alert', ({ roomId, type, pseudo }) => {
     const room = rooms[roomId] || archivedRooms[roomId];
@@ -1528,7 +1542,7 @@ function applyEloResult(winTeam, loseTeam, mode) {
     }
     let adminCount = 0;
     io.sockets.sockets.forEach(s => {
-      if (s.isAdmin) { s.emit('admin_alert_received', { roomId, type, pseudo }); adminCount++; }
+      if (s.isAdmin && s.adminModeActive !== false) { s.emit('admin_alert_received', { roomId, type, pseudo }); adminCount++; }
     });
     console.log(`[admin_alert] roomId=${roomId} type=${type} pseudo=${pseudo} admins_notifiés=${adminCount}`);
     if (adminCount === 0) {
@@ -1548,6 +1562,10 @@ function applyEloResult(winTeam, loseTeam, mode) {
     if (!socket.isAdmin) return;
     const room = rooms[roomId] || archivedRooms[roomId];
     if (!room) return socket.emit('notify_error', 'Room introuvable');
+    // Leave previous spectated room first to avoid receiving events from old room
+    if (socket.adminRoomId && socket.adminRoomId !== roomId) {
+      socket.leave('room_' + socket.adminRoomId);
+    }
     socket.join('room_' + roomId);
     socket.adminRoomId = roomId;
     socket.roomId = roomId;
@@ -1563,6 +1581,14 @@ function applyEloResult(winTeam, loseTeam, mode) {
     }
   });
 
+  // ── ADMIN LEAVE ROOM ──
+  socket.on('admin_leave_room', ({ roomId }) => {
+    if (!socket.isAdmin) return;
+    socket.leave('room_' + roomId);
+    if (socket.adminRoomId === roomId) socket.adminRoomId = null;
+    socket.roomId = null;
+  });
+
   // ── ADMIN DECIDE (with draw) ──
   socket.on('admin_decide', ({ roomId, winner }) => {
     if (!socket.isAdmin) return;
@@ -1575,16 +1601,19 @@ function applyEloResult(winTeam, loseTeam, mode) {
     room.status = 'finished';
     clearTimeout(room.banTimer);
     if (winner === 0) {
-      (room.teams[0] || []).filter(p => !p.isBot).forEach(p => db.updateUserElo(p.id, 0, false, room.mode, room.teams[1], room.teams[0], true));
-      (room.teams[1] || []).filter(p => !p.isBot).forEach(p => db.updateUserElo(p.id, 0, false, room.mode, room.teams[0], room.teams[1], true));
-      computeCotd();
+      if (!room.tournamentId) {
+        (room.teams[0] || []).filter(p => !p.isBot).forEach(p => db.updateUserElo(p.id, 0, false, room.mode, room.teams[1], room.teams[0], true));
+        (room.teams[1] || []).filter(p => !p.isBot).forEach(p => db.updateUserElo(p.id, 0, false, room.mode, room.teams[0], room.teams[1], true));
+        computeCotd();
+      }
       io.to('room_' + roomId).emit('chat_msg', { author: 'Système', team: 'system', text: '⚖️ Décision admin : Égalité — aucun ELO modifié.' });
       emitGameResult(roomId, { winner: 0, winTeam: [], loseTeam: [], mode: room.mode, draw: true });
     } else {
       const winTeam = winner === 1 ? room.teams[0] : room.teams[1];
       const loseTeam = winner === 1 ? room.teams[1] : room.teams[0];
-      const eloChanges = applyEloResult(winTeam, loseTeam, room.mode);
-      computeCotd();
+      // No ELO changes for tournament rooms
+      const eloChanges = room.tournamentId ? {} : applyEloResult(winTeam, loseTeam, room.mode);
+      if (!room.tournamentId) computeCotd();
       io.to('room_' + roomId).emit('chat_msg', { author: 'Système', team: 'system', text: `⚖️ Décision admin : Équipe ${winner} gagne !` });
       emitGameResult(roomId, { winner, winTeam: winTeam.map(p => p.pseudo), loseTeam: loseTeam.map(p => p.pseudo), mode: room.mode, eloChanges, tournamentId: room.tournamentId || null });
       // ── Advance tournament bracket if this is a tournament room ──
