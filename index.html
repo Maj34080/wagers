@@ -6239,5 +6239,21 @@ async function loadProfileHistory(userId) {
     <button onclick="adminJoinRoomDirect()" style="background:rgba(247,201,72,0.15);border:1px solid rgba(247,201,72,0.4);color:var(--gold);border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">Rejoindre</button>
   </div>
 </div>
+<button id="btn-admin-mode-toggle"
+onclick="toggleAdminMode()"
+style="position:fixed; bottom:20px; right:20px; z-index:9999;
+background:rgba(46,204,113,0.12);
+border:1px solid #2ecc71;
+color:#2ecc71;
+border-radius:8px;
+padding:8px 14px;
+font-family:'Syne',sans-serif;
+font-weight:800;
+font-size:12px;
+cursor:pointer;
+letter-spacing:0.03em;"
+title="Basculer entre mode admin et mode joueur">
+🎮 Mode joueur
+</button>
 </body>
 </html>
