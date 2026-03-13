@@ -331,7 +331,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
   <div class="auth-bg"></div>
   <div class="auth-card">
     <div class="logo">REVENGE<span>.</span></div>
-    <div class="auth-sub">Valorant — Compete. Rank. Dominate.</div>
+    <div class="auth-sub">Valorant — Ranked · Clan · Tournament</div>
     <div class="tabs">
       <button class="tab active" id="tab-login" onclick="switchTab('login')">Connexion</button>
       <button class="tab" id="tab-register" onclick="switchTab('register')">Créer un compte</button>
@@ -368,6 +368,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
       <button class="nav-tab" id="ntab-tournois" onclick="showMainTab('tournois')">🎯 Tournois</button>
       <button class="nav-tab" id="ntab-boutique" onclick="showMainTab('boutique')">🛒 Boutique</button>
       <button class="nav-tab" id="ntab-tickets" onclick="showMainTab('tickets')">🎫 Support</button>
+      <button class="nav-tab" id="ntab-rules" onclick="showMainTab('rules')" style="color:var(--blue);">📜 Règles</button>
       <button class="nav-tab" id="ntab-admin" onclick="showMainTab('admin')" style="display:none;color:var(--gold);">🔐 Admin</button>
     </div>
     <div class="nav-right">
@@ -602,7 +603,6 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
                       <option value="">Choisir un clan à challenger…</option>
                     </select>
                     <select id="clan-challenge-mode" style="background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:8px 12px;color:var(--text);font-size:13px;outline:none;font-family:'Space Grotesk',sans-serif;font-weight:700;">
-                      <option value="1v1">1v1</option>
                       <option value="2v2">2v2</option>
                       <option value="3v3">3v3</option>
                       <option value="5v5" selected>5v5</option>
@@ -946,6 +946,77 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
             <div style="padding:14px;background:var(--bg);border-radius:10px;">
               <div style="font-weight:700;font-size:13px;margin-bottom:4px;">🔄 Mon abonnement se renouvelle-t-il automatiquement ?</div>
               <div style="font-size:12px;color:var(--muted);">Non, c'est un achat unique. Tu recevras une notification avant expiration si tu veux renouveler.</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- RULES TAB -->
+    <div class="room-tab-content" id="tab-content-rules">
+      <div style="max-width:760px;margin:0 auto;padding:10px 0 40px;">
+
+        <!-- Header -->
+        <div style="text-align:center;margin-bottom:32px;">
+          <div style="font-size:36px;margin-bottom:8px;">📜</div>
+          <div style="font-family:'Syne',sans-serif;font-weight:900;font-size:28px;letter-spacing:0.02em;">RÈGLES</div>
+          <div style="font-size:13px;color:var(--muted);margin-top:6px;">Lisez attentivement avant de jouer</div>
+        </div>
+
+        <!-- Section : Règles générales -->
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px;margin-bottom:16px;">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
+            <span style="font-size:22px;">🏠</span>
+            <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:16px;">Règles générales</div>
+          </div>
+          <div id="rules-general" style="display:flex;flex-direction:column;gap:12px;">
+            <!-- Règles à venir — placeholder -->
+            <div style="display:flex;align-items:flex-start;gap:12px;padding:14px;background:var(--bg);border-radius:10px;border:1px dashed var(--border);">
+              <span style="color:var(--muted);font-size:18px;flex-shrink:0;">📌</span>
+              <div style="font-size:13px;color:var(--muted);font-style:italic;">Les règles générales seront ajoutées prochainement.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section : Règles des matchs -->
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px;margin-bottom:16px;">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
+            <span style="font-size:22px;">⚔️</span>
+            <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:16px;">Règles des matchs</div>
+          </div>
+          <div id="rules-matches" style="display:flex;flex-direction:column;gap:12px;">
+            <div style="display:flex;align-items:flex-start;gap:12px;padding:14px;background:var(--bg);border-radius:10px;border:1px dashed var(--border);">
+              <span style="color:var(--muted);font-size:18px;flex-shrink:0;">📌</span>
+              <div style="font-size:13px;color:var(--muted);font-style:italic;">Les règles des matchs seront ajoutées prochainement.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section : Règles des clans -->
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px;margin-bottom:16px;">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
+            <span style="font-size:22px;">🛡️</span>
+            <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:16px;">Règles des clans</div>
+          </div>
+          <div id="rules-clans" style="display:flex;flex-direction:column;gap:12px;">
+            <div style="display:flex;align-items:flex-start;gap:12px;padding:14px;background:var(--bg);border-radius:10px;border:1px dashed var(--border);">
+              <span style="color:var(--muted);font-size:18px;flex-shrink:0;">📌</span>
+              <div style="font-size:13px;color:var(--muted);font-style:italic;">Les règles des clans seront ajoutées prochainement.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section : Sanctions -->
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px;">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
+            <span style="font-size:22px;">🚫</span>
+            <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:16px;">Sanctions</div>
+          </div>
+          <div id="rules-sanctions" style="display:flex;flex-direction:column;gap:12px;">
+            <div style="display:flex;align-items:flex-start;gap:12px;padding:14px;background:var(--bg);border-radius:10px;border:1px dashed var(--border);">
+              <span style="color:var(--muted);font-size:18px;flex-shrink:0;">📌</span>
+              <div style="font-size:13px;color:var(--muted);font-style:italic;">Les sanctions seront détaillées prochainement.</div>
             </div>
           </div>
         </div>
@@ -1630,7 +1701,7 @@ const ADMIN_KEY = 'revenge_admin_secret';
 
 function showMainTab(tab) {
   requestAnimationFrame(() => { const ms = document.getElementById('screen-main'); if (ms) ms.scrollTop = 0; });
-  ['room','lb','admin','tournois','tickets','clans','boutique'].forEach(t => {
+  ['room','lb','admin','tournois','tickets','clans','boutique','rules'].forEach(t => {
     const btn = document.getElementById('ntab-' + t);
     const content = document.getElementById('tab-content-' + t);
     if (btn) btn.classList.toggle('active', tab === t);
