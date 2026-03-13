@@ -517,7 +517,7 @@ const GLOBAL_CHAT_MAX = 100;
 app.get('/api/global-chat', (req, res) => res.json(globalChat.slice(-50)));
 app.post('/api/global-chat', (req, res) => {
   const { userId, pseudo, text } = req.body;
-  if (!userId || !pseudo || !text || text.length > 200) return res.status(400).json({ error: 'Invalide' });
+  if (!userId || !pseudo || !text || text.length > 120) return res.status(400).json({ error: 'Invalide' });
   const user = db.getUserById(userId);
   if (!user || user.banned) return res.status(403).json({ error: 'Interdit' });
   if (user.muted) return res.status(403).json({ error: 'Mute' });
@@ -1113,7 +1113,7 @@ io.on('connection', (socket) => {
 
   // ── GROUP CHAT ──
   socket.on('group_chat_msg', ({ text }) => {
-    if (!text || text.trim().length === 0 || text.length > 200) return;
+    if (!text || text.trim().length === 0 || text.length > 120) return;
     if (socket.isMuted) return;
     const entry = getGroupBySocket(socket.id);
     if (!entry) return;
@@ -1136,7 +1136,7 @@ io.on('connection', (socket) => {
   // ── CHAT ──
   socket.on('chat_msg', ({ text }) => {
     if (!socket.roomId) return;
-    if (!text || text.trim().length === 0 || text.length > 200) return;
+    if (!text || text.trim().length === 0 || text.length > 120) return;
     if (socket.isMuted) {
       if (socket.muteUntil && socket.muteUntil <= Date.now()) {
         socket.isMuted = false; socket.muteUntil = null; // expired
@@ -2397,7 +2397,7 @@ app.get('/api/clans/:id/chat', (req, res) => {
 });
 app.post('/api/clans/:id/chat', express.json(), (req, res) => {
   const { userId, pseudo, text } = req.body;
-  if (!text || text.length > 200) return res.status(400).json({ error: 'Invalide' });
+  if (!text || text.length > 120) return res.status(400).json({ error: 'Invalide' });
   const data = readDB();
   const user = data.users.find(u => u.id === userId);
   if (!user || user.banned) return res.status(403).json({ error: 'Interdit' });
