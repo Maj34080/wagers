@@ -290,6 +290,50 @@ app.post('/api/admin/revoke-premium', (req, res) => {
   res.json({ success: true });
 });
 
+app.post('/api/admin/revoke-premium', (req, res) => {
+  if (!isAdminReq(req)) return res.status(403).json({ error: 'Interdit' });
+  const { userId } = req.body;
+  const ok = db.revokePremium(userId);
+  if (!ok) return res.status(404).json({ error: 'Utilisateur introuvable' });
+  io.sockets.sockets.forEach(s => {
+    if (s.userId === userId) s.emit('premium_revoked');
+  });
+  res.json({ success: true });
+});
+
+// ── CONTENT ROLE ──
+app.post('/api/admin/set-content', (req, res) => {
+  if (!isAdminReq(req)) return res.status(403).json({ error: 'Interdit' });
+  const { pseudo } = req.body;
+  if (!pseudo) return res.status(400).json({ error: 'Pseudo manquant' });
+  if (!CONTENT_PSEUDOS.includes(pseudo)) {
+    CONTENT_PSEUDOS.push(pseudo);
+    // Mettre à jour le socket actif si connecté
+    io.sockets.sockets.forEach(s => {
+      if (s.pseudo === pseudo) { s.isContent = true; s.emit('content_granted'); }
+    });
+  }
+  res.json({ ok: true, contentPseudos: CONTENT_PSEUDOS });
+});
+
+app.post('/api/admin/revoke-content', (req, res) => {
+  if (!isAdminReq(req)) return res.status(403).json({ error: 'Interdit' });
+  const { pseudo } = req.body;
+  const idx = CONTENT_PSEUDOS.indexOf(pseudo);
+  if (idx !== -1) {
+    CONTENT_PSEUDOS.splice(idx, 1);
+    io.sockets.sockets.forEach(s => {
+      if (s.pseudo === pseudo) { s.isContent = false; s.emit('content_revoked'); }
+    });
+  }
+  res.json({ ok: true, contentPseudos: CONTENT_PSEUDOS });
+});
+
+app.get('/api/admin/content-list', (req, res) => {
+  if (!isAdminReq(req)) return res.status(403).json({ error: 'Interdit' });
+  res.json({ contentPseudos: CONTENT_PSEUDOS });
+});
+
 app.post('/api/admin/ban', (req, res) => {
   if (!isAdminReq(req)) return res.status(403).json({ error: 'Interdit' });
   const { pseudo, reason } = req.body;
@@ -2233,14 +2277,14 @@ app.post('/api/clans/create', express.json(), (req, res) => {
   try {
     const data = readDB();
     if (!data.clans) data.clans = [];
+    const user = data.users.find(u => u.id === userId);
+    if (!user) return res.status(404).json({ error: 'Joueur introuvable' });
     // Cooldown 7 jours après dissolution
     const cooldown7d = 7 * 24 * 60 * 60 * 1000;
     if (user.lastClanDissolved && (Date.now() - user.lastClanDissolved) < cooldown7d) {
       const remaining = Math.ceil((cooldown7d - (Date.now() - user.lastClanDissolved)) / (1000 * 3600 * 24));
       return res.status(400).json({ error: `Tu dois attendre encore ${remaining} jour(s) avant de créer un nouveau clan.` });
     }
-    const user = data.users.find(u => u.id === userId);
-    if (!user) return res.status(404).json({ error: 'Joueur introuvable' });
     if (user.clanId) return res.status(400).json({ error: 'Vous êtes déjà dans un clan' });
     const tagUp = tag.toUpperCase().replace(/[^A-Z0-9]/g, '');
     if (data.clans.find(c => c.tag === tagUp)) return res.status(400).json({ error: 'Ce tag est déjà pris' });

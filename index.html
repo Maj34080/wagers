@@ -1060,6 +1060,21 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
             <div id="elo-adj-result" style="margin-top:10px;font-size:12px;min-height:18px;"></div>
           </div>
 
+          <!-- Content Role Management -->
+          <div style="background:var(--surface);border:1px solid rgba(145,71,255,0.3);border-radius:14px;padding:20px;margin-top:14px;">
+            <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:14px;margin-bottom:14px;color:#9147ff;">🎬 Rôle Content</div>
+            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
+              <input id="content-pseudo-input" placeholder="Pseudo du joueur" style="flex:1;min-width:160px;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:9px 14px;color:var(--text);font-size:13px;outline:none;font-family:'Inter',sans-serif;" onfocus="this.style.borderColor='#9147ff'" onblur="this.style.borderColor='var(--border)'"/>
+              <button onclick="adminSetContent()" style="background:rgba(145,71,255,0.15);border:1px solid rgba(145,71,255,0.4);color:#9147ff;border-radius:10px;padding:9px 16px;font-weight:800;font-size:13px;cursor:pointer;font-family:'Space Grotesk',sans-serif;white-space:nowrap;">✅ Donner Content</button>
+              <button onclick="adminRevokeContent()" style="background:rgba(255,70,85,0.08);border:1px solid rgba(255,70,85,0.25);color:var(--accent);border-radius:10px;padding:9px 16px;font-weight:800;font-size:13px;cursor:pointer;font-family:'Space Grotesk',sans-serif;white-space:nowrap;">✕ Retirer Content</button>
+            </div>
+            <div id="content-result" style="font-size:12px;min-height:16px;margin-bottom:10px;"></div>
+            <div style="font-size:11px;color:var(--muted);margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Membres Content actuels</div>
+            <div id="content-list" style="display:flex;flex-wrap:wrap;gap:6px;">
+              <div style="font-size:12px;color:var(--muted);font-style:italic;">Chargement…</div>
+            </div>
+          </div>
+
           <!-- Backup manuelle -->
           <div style="background:var(--surface);border:1px solid rgba(52,211,153,0.2);border-radius:14px;padding:16px 20px;margin-top:14px;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;">
             <div>
@@ -1723,7 +1738,7 @@ function showMainTab(tab) {
   });
   if (tab === 'lb') { loadLeaderboard(state.lbMode); loadCotd(); loadSeasonBanner(); }
   if (tab === 'room') { loadGlobalChat(); fetchLiveRooms(); loadTwitchLive(); }
-  if (tab === 'admin') { refreshAdminLogs(); refreshAdminTickets(); loadAdminStats(); loadPremiumAdmin(); loadStaffStatus(); showAdminSection('stats'); }
+  if (tab === 'admin') { refreshAdminLogs(); refreshAdminTickets(); loadAdminStats(); loadPremiumAdmin(); loadStaffStatus(); loadContentList(); showAdminSection('stats'); }
   if (tab === 'tickets') loadMyTickets();
   if (tab === 'boutique') initBoutique();
   if (tab === 'clans') initClanTab();
@@ -4202,6 +4217,66 @@ async function adminAdjustElo() {
     document.getElementById('elo-adj-pseudo').value = '';
     document.getElementById('elo-adj-amount').value = '';
   } catch(e) { resultEl.style.color = 'var(--accent)'; resultEl.textContent = 'Erreur réseau'; }
+}
+
+// ── CONTENT ROLE ADMIN ──
+async function loadContentList() {
+  const listEl = document.getElementById('content-list');
+  if (!listEl) return;
+  try {
+    const r = await fetch('/api/admin/content-list', { headers: { 'x-admin-key': ADMIN_KEY } });
+    const d = await r.json();
+    const pseudos = d.contentPseudos || [];
+    if (!pseudos.length) {
+      listEl.innerHTML = '<div style="font-size:12px;color:var(--muted);font-style:italic;">Aucun membre Content</div>';
+    } else {
+      listEl.innerHTML = pseudos.map(p => `
+        <div style="display:flex;align-items:center;gap:6px;background:rgba(145,71,255,0.1);border:1px solid rgba(145,71,255,0.3);border-radius:8px;padding:5px 10px;">
+          <span style="font-size:11px;font-weight:700;color:#9147ff;">🎬 ${p}</span>
+          <button onclick="adminRevokeContentPseudo('${p}')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:0;line-height:1;" title="Retirer">✕</button>
+        </div>`).join('');
+    }
+  } catch(e) {}
+}
+
+async function adminSetContent() {
+  const pseudo = document.getElementById('content-pseudo-input').value.trim();
+  const resultEl = document.getElementById('content-result');
+  if (!pseudo) { resultEl.style.color = 'var(--accent)'; resultEl.textContent = 'Entre un pseudo.'; return; }
+  try {
+    const r = await fetch('/api/admin/set-content', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'x-admin-key': ADMIN_KEY },
+      body: JSON.stringify({ pseudo })
+    });
+    const d = await r.json();
+    if (!r.ok) { resultEl.style.color = 'var(--accent)'; resultEl.textContent = '❌ ' + (d.error || 'Erreur'); return; }
+    resultEl.style.color = 'var(--green)';
+    resultEl.textContent = `✅ ${pseudo} a maintenant le rôle Content.`;
+    document.getElementById('content-pseudo-input').value = '';
+    loadContentList();
+  } catch(e) { resultEl.style.color = 'var(--accent)'; resultEl.textContent = 'Erreur réseau'; }
+}
+
+async function adminRevokeContent() {
+  const pseudo = document.getElementById('content-pseudo-input').value.trim();
+  const resultEl = document.getElementById('content-result');
+  if (!pseudo) { resultEl.style.color = 'var(--accent)'; resultEl.textContent = 'Entre un pseudo.'; return; }
+  await adminRevokeContentPseudo(pseudo);
+  document.getElementById('content-pseudo-input').value = '';
+}
+
+async function adminRevokeContentPseudo(pseudo) {
+  const resultEl = document.getElementById('content-result');
+  try {
+    const r = await fetch('/api/admin/revoke-content', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'x-admin-key': ADMIN_KEY },
+      body: JSON.stringify({ pseudo })
+    });
+    const d = await r.json();
+    if (!r.ok) { if (resultEl) { resultEl.style.color = 'var(--accent)'; resultEl.textContent = '❌ ' + (d.error || 'Erreur'); } return; }
+    if (resultEl) { resultEl.style.color = 'var(--muted)'; resultEl.textContent = `✕ Rôle Content retiré à ${pseudo}.`; }
+    loadContentList();
+  } catch(e) { if (resultEl) { resultEl.style.color = 'var(--accent)'; resultEl.textContent = 'Erreur réseau'; } }
 }
 
 // ── REJOUER ──
