@@ -1258,15 +1258,16 @@ function applyEloResult(winTeam, loseTeam, mode) {
         const winTeam = winner === 1 ? room.teams[0] : room.teams[1];
         const loseTeam = winner === 1 ? room.teams[1] : room.teams[0];
         // No ELO changes for tournament rooms
-        const eloChanges = room.tournamentId ? {} : applyEloResult(winTeam, loseTeam, room.mode);
-        if (!room.tournamentId) computeCotd();
+        const eloChanges = (room.tournamentId || room.isClanMatch) ? {} : applyEloResult(winTeam, loseTeam, room.mode);
+        if (!room.tournamentId && !room.isClanMatch) computeCotd();
         emitGameResult(socket.roomId, {
           winner,
           winTeam: winTeam.map(p => p.pseudo),
           loseTeam: loseTeam.map(p => p.pseudo),
           mode: room.mode,
           eloChanges,
-          tournamentId: room.tournamentId || null
+          tournamentId: room.tournamentId || null,
+          isClanMatch: !!room.isClanMatch
         });
         // Advance tournament bracket if tournament room
         if (room.tournamentId) {
@@ -1278,6 +1279,10 @@ function applyEloResult(winTeam, loseTeam, mode) {
               setMatchWinner(t, room.tournamentRoundIdx, room.tournamentMatchIdx, winnerTeamName, socket.roomId);
             }
           }
+        }
+        // Points de clan
+        if (room.isClanMatch && room.challengeId) {
+          resolveClanMatch(room.challengeId, winner === 1 ? 0 : 1);
         }
         setTimeout(() => { archiveRoom(socket.roomId); }, 30000);
       } else {
@@ -1309,9 +1314,9 @@ function applyEloResult(winTeam, loseTeam, mode) {
     const winTeam = winner === 1 ? room.teams[0] : room.teams[1];
     const loseTeam = winner === 1 ? room.teams[1] : room.teams[0];
 
-    // No ELO changes for tournament rooms
-    const eloChanges = room.tournamentId ? {} : applyEloResult(winTeam, loseTeam, room.mode);
-    if (!room.tournamentId) computeCotd();
+    // No ELO changes for tournament rooms or clan match rooms
+    const eloChanges = (room.tournamentId || room.isClanMatch) ? {} : applyEloResult(winTeam, loseTeam, room.mode);
+    if (!room.tournamentId && !room.isClanMatch) computeCotd();
 
     emitGameResult(socket.roomId, {
       winner,
@@ -1319,7 +1324,8 @@ function applyEloResult(winTeam, loseTeam, mode) {
       loseTeam: loseTeam.map(p => p.pseudo),
       mode: room.mode,
       eloChanges,
-      tournamentId: room.tournamentId || null
+      tournamentId: room.tournamentId || null,
+      isClanMatch: !!room.isClanMatch
     });
 
     // Advance tournament bracket if tournament room
@@ -1332,6 +1338,12 @@ function applyEloResult(winTeam, loseTeam, mode) {
           setMatchWinner(t, room.tournamentRoundIdx, room.tournamentMatchIdx, winnerTeamName, socket.roomId);
         }
       }
+    }
+
+    // Appliquer les points de clan si c'est un match de clan
+    if (room.isClanMatch && room.challengeId) {
+      const winnerTeamIndex = winTeam === room.teams[0] ? 0 : 1;
+      resolveClanMatch(room.challengeId, winnerTeamIndex);
     }
 
     setTimeout(() => { archiveRoom(socket.roomId); }, 30000);
@@ -1612,10 +1624,10 @@ function applyEloResult(winTeam, loseTeam, mode) {
       const winTeam = winner === 1 ? room.teams[0] : room.teams[1];
       const loseTeam = winner === 1 ? room.teams[1] : room.teams[0];
       // No ELO changes for tournament rooms
-      const eloChanges = room.tournamentId ? {} : applyEloResult(winTeam, loseTeam, room.mode);
-      if (!room.tournamentId) computeCotd();
+      const eloChanges = (room.tournamentId || room.isClanMatch) ? {} : applyEloResult(winTeam, loseTeam, room.mode);
+      if (!room.tournamentId && !room.isClanMatch) computeCotd();
       io.to('room_' + roomId).emit('chat_msg', { author: 'Système', team: 'system', text: `⚖️ Décision admin : Équipe ${winner} gagne !` });
-      emitGameResult(roomId, { winner, winTeam: winTeam.map(p => p.pseudo), loseTeam: loseTeam.map(p => p.pseudo), mode: room.mode, eloChanges, tournamentId: room.tournamentId || null });
+      emitGameResult(roomId, { winner, winTeam: winTeam.map(p => p.pseudo), loseTeam: loseTeam.map(p => p.pseudo), mode: room.mode, eloChanges, tournamentId: room.tournamentId || null, isClanMatch: !!room.isClanMatch });
       // ── Advance tournament bracket if this is a tournament room ──
       if (room.tournamentId) {
         const t = tournaments[room.tournamentId];
@@ -1626,6 +1638,10 @@ function applyEloResult(winTeam, loseTeam, mode) {
             setMatchWinner(t, room.tournamentRoundIdx, room.tournamentMatchIdx, winnerTeamName, roomId);
           }
         }
+      }
+      // Points de clan
+      if (room.isClanMatch && room.challengeId) {
+        resolveClanMatch(room.challengeId, winner === 1 ? 0 : 1);
       }
     }
     setTimeout(() => { archiveRoom(roomId); }, 30000);
@@ -2287,18 +2303,20 @@ app.get('/api/clans', (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// Send BO3 challenge
+// Send clan challenge — le challengeur choisit le mode
 app.post('/api/clans/challenge', express.json(), (req, res) => {
   try {
-    const { leaderId, challengerClanId, challengedClanId } = req.body;
+    const { leaderId, challengerClanId, challengedClanId, mode } = req.body;
+    const validMode = ['1v1','2v2','3v3','5v5'].includes(mode) ? mode : '5v5';
+    const teamSize = { '1v1':1, '2v2':2, '3v3':3, '5v5':5 }[validMode];
     const data = readDB();
     const challengerClan = (data.clans||[]).find(c => c.id === challengerClanId);
     const challengedClan = (data.clans||[]).find(c => c.id === challengedClanId);
     if (!challengerClan || !challengedClan) return res.status(404).json({ error: 'Clan introuvable' });
     if (challengerClan.leaderId !== leaderId) return res.status(403).json({ error: 'Seul le chef peut lancer un challenge' });
-    if (challengerClan.members.length < 5) return res.status(400).json({ error: 'Il faut 5 membres minimum pour challenger' });
-    if (challengedClan.members.length < 5) return res.status(400).json({ error: 'Le clan adverse a moins de 5 membres' });
-    // Check no active challenge between these clans
+    if (challengerClan.members.length < teamSize) return res.status(400).json({ error: `Il faut au moins ${teamSize} membres dans ton clan pour ce mode` });
+    if (challengedClan.members.length < teamSize) return res.status(400).json({ error: `Le clan adverse n'a pas assez de membres pour ce mode` });
+    // Pas de double challenge entre ces deux clans
     const existing = Object.values(clanChallenges).find(ch =>
       ch.status === 'pending' &&
       ((ch.challengerClanId === challengerClanId && ch.challengedClanId === challengedClanId) ||
@@ -2310,12 +2328,13 @@ app.post('/api/clans/challenge', express.json(), (req, res) => {
       id: challengeId, challengerClanId, challengedClanId,
       challengerName: challengerClan.name, challengerTag: challengerClan.tag,
       challengedName: challengedClan.name, challengedTag: challengedClan.tag,
+      mode: validMode, teamSize,
       status: 'pending', series: [0, 0], createdAt: Date.now()
     };
-    // Notify challenged clan leader via socket
+    // Notifier le chef du clan adverse
     io.sockets.sockets.forEach(s => {
       if (s.userId === challengedClan.leaderId) {
-        s.emit('clan_challenge_received', { challengeId, from: challengerClan.name, tag: challengerClan.tag });
+        s.emit('clan_challenge_received', { challengeId, from: challengerClan.name, tag: challengerClan.tag, mode: validMode });
       }
     });
     res.json({ ok: true, challengeId });
@@ -2331,24 +2350,105 @@ app.post('/api/clans/challenge/respond', express.json(), (req, res) => {
     if (ch.status !== 'pending') return res.status(400).json({ error: 'Challenge déjà traité' });
     const data = readDB();
     const challengedClan = (data.clans||[]).find(c => c.id === ch.challengedClanId);
+    const challengerClan = (data.clans||[]).find(c => c.id === ch.challengerClanId);
     if (!challengedClan || challengedClan.leaderId !== leaderId) return res.status(403).json({ error: 'Non autorisé' });
     if (!accept) {
       ch.status = 'declined';
       io.sockets.sockets.forEach(s => {
-        if (s.userId === (data.clans||[]).find(c=>c.id===ch.challengerClanId)?.leaderId)
+        if (s.userId === challengerClan?.leaderId)
           s.emit('clan_challenge_declined', { challengeId, by: challengedClan.name });
       });
       return res.json({ ok: true });
     }
     ch.status = 'active';
     ch.series = [0, 0];
-    // Notify challenger
-    const challengerClan = (data.clans||[]).find(c => c.id === ch.challengerClanId);
-    io.sockets.sockets.forEach(s => {
-      if (s.userId === challengerClan?.leaderId)
-        s.emit('clan_challenge_accepted', { challengeId, by: challengedClan.name });
+
+    // ── Créer la room de clan immédiatement ──
+    const mode = ch.mode || '5v5';
+    const teamSize = ch.teamSize || 5;
+
+    // Récupérer les membres en ligne de chaque clan (connectés via socket)
+    const onlineSockets = [...io.sockets.sockets.values()];
+    const getOnlineMembers = (clan) => {
+      const members = [];
+      for (const s of onlineSockets) {
+        if (clan.members.includes(s.userId) && s.userId) {
+          const u = data.users.find(u => u.id === s.userId);
+          if (u) members.push({
+            id: u.id, pseudo: u.pseudo,
+            elo: u.stats?.[mode]?.elo || 500,
+            stats: u.stats || {}, avatar: u.avatar || null,
+            socketId: s.id, isPremium: !!u.isPremium
+          });
+        }
+      }
+      return members;
+    };
+
+    const team1Online = getOnlineMembers(challengerClan);
+    const team2Online = getOnlineMembers(challengedClan);
+
+    if (team1Online.length < teamSize || team2Online.length < teamSize) {
+      // Pas assez de membres en ligne — on accepte quand même le challenge mais sans room
+      ch.status = 'waiting_players';
+      io.sockets.sockets.forEach(s => {
+        if (challengerClan.members.includes(s.userId) || challengedClan.members.includes(s.userId)) {
+          s.emit('clan_match_waiting', {
+            challengeId, mode, teamSize,
+            challengerName: challengerClan.name, challengerTag: challengerClan.tag,
+            challengedName: challengedClan.name, challengedTag: challengedClan.tag,
+            team1Online: team1Online.length, team2Online: team2Online.length
+          });
+        }
+      });
+      return res.json({ ok: true, challengeId, waiting: true, team1Online: team1Online.length, team2Online: team2Online.length });
+    }
+
+    // Assez de joueurs — créer la room
+    const team1 = team1Online.slice(0, teamSize);
+    const team2 = team2Online.slice(0, teamSize);
+    const roomId = 'C' + generateCode(4); // Prefix C = clan match
+    const cap1 = team1[0];
+    const cap2 = team2[0];
+    const room = {
+      id: roomId, mode,
+      teams: [team1, team2],
+      chat: [], mapBans: [], banTurn: 0, status: 'waiting',
+      chosenMap: null, banTimer: null, createdAt: Date.now(),
+      captains: [cap1.id, cap2.id], captainPseudos: [cap1.pseudo, cap2.pseudo], votes: {},
+      isClanMatch: true, challengeId,
+      challengerClanId: ch.challengerClanId, challengedClanId: ch.challengedClanId
+    };
+    rooms[roomId] = room;
+
+    // Joindre tous les joueurs au socket room
+    [...team1, ...team2].forEach(p => {
+      const s = io.sockets.sockets.get(p.socketId);
+      if (s) { s.join('room_' + roomId); s.roomId = roomId; }
     });
-    res.json({ ok: true, challengeId });
+
+    ch.roomId = roomId;
+    const payload = {
+      roomId, mode,
+      team1: team1.map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null, stats: p.stats || null, isPremium: !!p.isPremium })),
+      team2: team2.map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null, stats: p.stats || null, isPremium: !!p.isPremium })),
+      captains: [cap1.pseudo, cap2.pseudo], waiting: false
+    };
+    io.to('room_' + roomId).emit('room_ready', payload);
+    io.to('room_' + roomId).emit('chat_msg', { author: 'Système', team: 'system',
+      text: `⚔️ Match de clan : [${challengerClan.tag}] ${challengerClan.name} vs [${challengedClan.tag}] ${challengedClan.name} — Mode ${mode} ! Début dans 10 secondes…`
+    });
+    startRoomCountdown(roomId);
+
+    // Notifier tous les membres des deux clans
+    const allMemberIds = [...challengerClan.members, ...challengedClan.members];
+    onlineSockets.forEach(s => {
+      if (allMemberIds.includes(s.userId)) {
+        s.emit('clan_challenge_accepted', { challengeId, by: challengedClan.name, mode, roomId });
+      }
+    });
+
+    res.json({ ok: true, challengeId, roomId });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -2364,36 +2464,71 @@ app.get('/api/clans/:clanId/challenges', (req, res) => {
 
 // Report BO3 game result (called when a room in the BO3 series ends)
 // The room's game_result triggers this via the challengeId tag on the room
+// Calcul proportionnel des points de clan
+// Base +25/-15 à égalité. Si l'écart est grand (favori gagne), gain/perte réduits. Underdog = plus de gain.
+function computeClanPoints(winnerPts, loserPts) {
+  const diff = winnerPts - loserPts; // positif = winner était favori
+  const steps = Math.floor(Math.abs(diff) / 50);
+  let gain = 25, loss = 15;
+  if (diff > 0) {
+    // Le favori gagne : moins de points
+    gain = Math.max(8, 25 - steps * 4);
+    loss = Math.min(25, 15 + steps * 3);
+  } else if (diff < 0) {
+    // L'underdog gagne : plus de points
+    gain = Math.min(45, 25 + steps * 5);
+    loss = Math.max(5, 15 - steps * 3);
+  }
+  return { gain: Math.round(gain), loss: Math.round(loss) };
+}
+
+function resolveClanMatch(challengeId, winnerTeamIndex) {
+  const ch = clanChallenges[challengeId];
+  if (!ch || !['active'].includes(ch.status)) return;
+  const winnerId = winnerTeamIndex === 0 ? ch.challengerClanId : ch.challengedClanId;
+  const loserId  = winnerTeamIndex === 0 ? ch.challengedClanId : ch.challengerClanId;
+  ch.status = 'finished';
+  ch.winnerId = winnerId;
+  ch.finishedAt = Date.now();
+
+  const data = readDB();
+  const winner = (data.clans||[]).find(c => c.id === winnerId);
+  const loser  = (data.clans||[]).find(c => c.id === loserId);
+
+  const winnerPts = winner?.weeklyPoints || 0;
+  const loserPts  = loser?.weeklyPoints  || 0;
+  const { gain, loss } = computeClanPoints(winnerPts, loserPts);
+
+  if (winner) {
+    winner.weeklyPoints = (winner.weeklyPoints || 0) + gain;
+    winner.bo3Wins = (winner.bo3Wins || 0) + 1;
+  }
+  if (loser) {
+    loser.weeklyPoints = Math.max(0, (loser.weeklyPoints || 0) - loss);
+    loser.bo3Losses = (loser.bo3Losses || 0) + 1;
+  }
+  writeDB(data);
+
+  // Notifier tous les membres des deux clans
+  const notifyMembers = (clanId, event, payload) => {
+    const clan = (data.clans||[]).find(c => c.id === clanId);
+    if (!clan) return;
+    clan.members.forEach(mId => {
+      io.sockets.sockets.forEach(s => { if (s.userId === mId) s.emit(event, payload); });
+    });
+  };
+  notifyMembers(winnerId, 'clan_bo3_won',  { challengeId, series: ch.series || [1,0], opponentName: loser?.name  || '?', pointsGained: gain });
+  notifyMembers(loserId,  'clan_bo3_lost', { challengeId, series: ch.series || [0,1], opponentName: winner?.name || '?', pointsLost: loss });
+  // Broadcast leaderboard update
+  io.emit('clan_points_updated');
+}
+
+// Kept for backward compat (BO3 series — not used in new single-match flow but kept in case)
 function resolveClanBo3Game(challengeId, winnerTeamClanId) {
   const ch = clanChallenges[challengeId];
   if (!ch || ch.status !== 'active') return;
   if (winnerTeamClanId === ch.challengerClanId) ch.series[0]++;
   else if (winnerTeamClanId === ch.challengedClanId) ch.series[1]++;
-  // Best of 3 — check if someone reached 2 wins
-  if (ch.series[0] >= 2 || ch.series[1] >= 2) {
-    const winnerId = ch.series[0] >= 2 ? ch.challengerClanId : ch.challengedClanId;
-    const loserId = winnerId === ch.challengerClanId ? ch.challengedClanId : ch.challengerClanId;
-    ch.status = 'finished';
-    ch.winnerId = winnerId;
-    ch.finishedAt = Date.now();
-    // Award points
-    const data = readDB();
-    const winner = (data.clans||[]).find(c => c.id === winnerId);
-    const loser = (data.clans||[]).find(c => c.id === loserId);
-    if (winner) { winner.weeklyPoints = (winner.weeklyPoints||0) + 3; winner.bo3Wins = (winner.bo3Wins||0) + 1; }
-    if (loser) { loser.bo3Losses = (loser.bo3Losses||0) + 1; }
-    writeDB(data);
-    // Notify all members of both clans
-    const notifyMembers = (clanId, event, payload) => {
-      const clan = (data.clans||[]).find(c => c.id === clanId);
-      if (!clan) return;
-      clan.members.forEach(mId => {
-        io.sockets.sockets.forEach(s => { if (s.userId === mId) s.emit(event, payload); });
-      });
-    };
-    notifyMembers(winnerId, 'clan_bo3_won', { challengeId, series: ch.series, opponentName: loser?.name || '?' });
-    notifyMembers(loserId, 'clan_bo3_lost', { challengeId, series: ch.series, opponentName: winner?.name || '?' });
-  }
 }
 
 // ══════════════════════════════════════════════════════
