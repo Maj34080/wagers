@@ -1315,6 +1315,32 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
 </div>
 
 <!-- PREMIUM MODAL -->
+<!-- CLAN LINEUP MODAL -->
+<div class="modal-overlay" id="clan-lineup-modal">
+  <div class="modal-card" style="max-width:460px;padding:0;overflow:hidden;">
+    <div style="background:linear-gradient(135deg,#0f1a0f,#1a2a10);padding:24px 28px 18px;border-bottom:1px solid rgba(255,70,85,0.2);">
+      <div style="font-size:28px;margin-bottom:6px;">⚔️</div>
+      <div style="font-family:'Syne',sans-serif;font-weight:900;font-size:20px;color:var(--accent);">Sélection de ton équipe</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:4px;" id="clan-lineup-subtitle">Choisis tes joueurs</div>
+    </div>
+    <div style="padding:20px 28px;">
+      <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">
+        Membres en ligne dans ton clan — sélectionne exactement <span id="clan-lineup-needed" style="color:var(--accent);font-weight:700;">?</span> joueur(s) :
+      </div>
+      <div id="clan-lineup-players" style="display:flex;flex-direction:column;gap:8px;max-height:280px;overflow-y:auto;margin-bottom:18px;"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <div style="font-size:12px;color:var(--muted);">Sélectionnés : <span id="clan-lineup-count" style="color:var(--accent);font-weight:700;">0</span> / <span id="clan-lineup-max">?</span></div>
+        <div id="clan-lineup-warning" style="font-size:11px;color:orange;display:none;"></div>
+      </div>
+      <div style="display:flex;gap:10px;">
+        <button onclick="closeClanLineupModal()" style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:11px;color:var(--text);font-weight:600;cursor:pointer;font-size:13px;">Annuler</button>
+        <button id="clan-lineup-confirm-btn" onclick="submitClanLineup()" style="flex:2;background:linear-gradient(135deg,var(--accent),#c0392b);border:none;border-radius:10px;padding:11px;color:#fff;font-family:'Syne',sans-serif;font-weight:800;font-size:14px;cursor:pointer;letter-spacing:0.04em;" disabled>⚔️ Confirmer la lineup</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PREMIUM MODAL -->
 <div class="modal-overlay" id="premium-modal">
   <div class="modal-card" style="max-width:500px;padding:0;overflow:hidden;">
     <div style="background:linear-gradient(135deg,#1a1400,#2a1f00);padding:32px 32px 24px;text-align:center;border-bottom:1px solid rgba(247,201,72,0.2);">
@@ -2329,8 +2355,19 @@ function initSocket() {
     });
     loadClanChallenges();
   });
-  socket.on('clan_challenge_accepted', ({ challengeId, by, mode, roomId }) => {
-    notify(`✅ <b>${by}</b> a accepté le challenge ${mode || ''} — la room est lancée !`, { accent: '#2ecc71', duration: 6000 });
+  socket.on('clan_challenge_accepted', ({ challengeId, by, mode }) => {
+    notify(`✅ <b>${by}</b> a accepté le challenge ${mode || ''} — sélectionnez votre lineup !`, { accent: '#2ecc71', duration: 8000 });
+    loadClanChallenges();
+  });
+  socket.on('clan_lineup_select', ({ challengeId, mode, teamSize, teamIdx, myClanName, myClanTag, opponentName, opponentTag, availablePlayers }) => {
+    playBeep(660, 0.15);
+    openClanLineupModal({ challengeId, mode, teamSize, teamIdx, myClanName, myClanTag, opponentName, opponentTag, availablePlayers });
+  });
+  socket.on('clan_lineup_submitted', ({ challengeId, teamIdx }) => {
+    notify('✅ Lineup soumise ! En attente de l\'équipe adverse…', { accent: '#2ecc71', duration: 6000 });
+  });
+  socket.on('clan_room_created', ({ challengeId, roomId, mode }) => {
+    notify(`⚔️ Les deux lineups sont prêtes — la room de clan est lancée en ${mode} !`, { accent: 'var(--gold)', duration: 6000 });
     loadClanChallenges();
   });
   socket.on('clan_challenge_declined', ({ challengeId, by }) => {
@@ -4797,9 +4834,81 @@ async function respondClanChallenge(challengeId, accept) {
     });
     const d = await r.json();
     if (d.error) { notify('❌ ' + d.error); return; }
-    notify(accept ? '✅ Challenge accepté !' : '✕ Challenge refusé', { accent: accept ? '#2ecc71' : 'var(--muted)' });
+    notify(accept ? '✅ Challenge accepté ! Prépare ta lineup…' : '✕ Challenge refusé', { accent: accept ? '#2ecc71' : 'var(--muted)' });
     loadClanChallenges();
   } catch(e) { notify('❌ Erreur réseau'); }
+}
+
+// ── CLAN LINEUP MODAL ──
+let _clanLineupData = null;
+
+function openClanLineupModal({ challengeId, mode, teamSize, teamIdx, myClanName, myClanTag, opponentName, opponentTag, availablePlayers }) {
+  _clanLineupData = { challengeId, teamSize };
+  const modal = document.getElementById('clan-lineup-modal');
+  document.getElementById('clan-lineup-subtitle').textContent = `[${myClanTag}] ${myClanName}  vs  [${opponentTag}] ${opponentName} — Mode ${mode}`;
+  document.getElementById('clan-lineup-needed').textContent = teamSize;
+  document.getElementById('clan-lineup-max').textContent = teamSize;
+  document.getElementById('clan-lineup-count').textContent = '0';
+  document.getElementById('clan-lineup-confirm-btn').disabled = true;
+  const warning = document.getElementById('clan-lineup-warning');
+  warning.style.display = 'none';
+
+  const container = document.getElementById('clan-lineup-players');
+  if (!availablePlayers.length) {
+    container.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:20px;">Aucun membre en ligne dans ton clan</div>';
+    warning.textContent = `Il faut ${teamSize} membre(s) en ligne pour lancer le match.`;
+    warning.style.display = 'block';
+  } else {
+    container.innerHTML = availablePlayers.map(p => `
+      <label style="display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;cursor:pointer;transition:border-color 0.2s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="if(!this.querySelector('input').checked)this.style.borderColor='var(--border)'">
+        <input type="checkbox" value="${p.id}" onchange="updateLineupCount()" style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer;flex-shrink:0;">
+        ${p.avatar ? `<img src="${p.avatar}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;flex-shrink:0;">` : `<div style="width:32px;height:32px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;flex-shrink:0;">${p.pseudo[0].toUpperCase()}</div>`}
+        <div style="flex:1;">
+          <div style="font-size:13px;font-weight:700;">${p.pseudo}</div>
+          <div style="font-size:11px;color:var(--muted);">${p.elo} ELO</div>
+        </div>
+      </label>`).join('');
+  }
+
+  modal.classList.add('show');
+  // Fermer si clic hors du modal
+  modal.onclick = (e) => { if (e.target === modal) closeClanLineupModal(); };
+}
+
+function updateLineupCount() {
+  const checkboxes = document.querySelectorAll('#clan-lineup-players input[type=checkbox]:checked');
+  const count = checkboxes.length;
+  const teamSize = _clanLineupData?.teamSize || 0;
+  document.getElementById('clan-lineup-count').textContent = count;
+  // Update label borders
+  document.querySelectorAll('#clan-lineup-players label').forEach(label => {
+    const cb = label.querySelector('input');
+    label.style.borderColor = cb.checked ? 'var(--accent)' : 'var(--border)';
+    label.style.background = cb.checked ? 'rgba(255,70,85,0.07)' : 'var(--surface2)';
+  });
+  // Disable extra checkboxes if limit reached
+  document.querySelectorAll('#clan-lineup-players input[type=checkbox]').forEach(cb => {
+    if (!cb.checked) cb.disabled = count >= teamSize;
+  });
+  document.getElementById('clan-lineup-confirm-btn').disabled = count !== teamSize;
+}
+
+function closeClanLineupModal() {
+  document.getElementById('clan-lineup-modal').classList.remove('show');
+  _clanLineupData = null;
+}
+
+function submitClanLineup() {
+  if (!_clanLineupData) return;
+  const checkboxes = document.querySelectorAll('#clan-lineup-players input[type=checkbox]:checked');
+  const playerIds = [...checkboxes].map(cb => cb.value);
+  if (playerIds.length !== _clanLineupData.teamSize) {
+    notify(`⚠️ Sélectionne exactement ${_clanLineupData.teamSize} joueur(s)`);
+    return;
+  }
+  socket.emit('clan_submit_lineup', { challengeId: _clanLineupData.challengeId, playerIds });
+  closeClanLineupModal();
+  notify('⏳ Lineup envoyée, en attente de l\'équipe adverse…', { accent: 'var(--gold)', duration: 5000 });
 }
 
 // ── TOURNAMENTS ──

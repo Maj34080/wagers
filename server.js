@@ -1646,6 +1646,102 @@ function applyEloResult(winTeam, loseTeam, mode) {
     }
     setTimeout(() => { archiveRoom(roomId); }, 30000);
   });
+
+  // ── CLAN LINEUP SUBMIT ──
+  socket.on('clan_submit_lineup', ({ challengeId, playerIds }) => {
+    const ch = clanChallenges[challengeId];
+    if (!ch || ch.status !== 'lineup_select') return socket.emit('notify_error', 'Challenge introuvable ou déjà lancé');
+    const data = readDB();
+    const challengerClan = (data.clans||[]).find(c => c.id === ch.challengerClanId);
+    const challengedClan = (data.clans||[]).find(c => c.id === ch.challengedClanId);
+
+    // Déterminer quel clan soumet
+    let myClan, teamIdx;
+    if (challengerClan && challengerClan.leaderId === socket.userId) { myClan = challengerClan; teamIdx = 0; }
+    else if (challengedClan && challengedClan.leaderId === socket.userId) { myClan = challengedClan; teamIdx = 1; }
+    else return socket.emit('notify_error', 'Seul le chef de clan peut soumettre la lineup');
+
+    const mode = ch.mode || '5v5';
+    const teamSize = ch.teamSize || 5;
+    if (!playerIds || playerIds.length !== teamSize) return socket.emit('notify_error', `Sélectionne exactement ${teamSize} joueur(s)`);
+    // Vérifier que tous les joueurs sélectionnés sont membres du clan et online
+    const onlineSockets = [...io.sockets.sockets.values()];
+    const onlineIds = onlineSockets.filter(s => myClan.members.includes(s.userId)).map(s => s.userId);
+    const invalid = playerIds.filter(id => !onlineIds.includes(id));
+    if (invalid.length) return socket.emit('notify_error', 'Certains joueurs sélectionnés ne sont plus en ligne');
+
+    // Stocker la lineup
+    if (!ch.lineups) ch.lineups = {};
+    ch.lineups[myClan.id] = playerIds;
+    socket.emit('clan_lineup_submitted', { challengeId, teamIdx });
+
+    // Notifier l'autre chef qu'on attend encore
+    const otherClan = teamIdx === 0 ? challengedClan : challengerClan;
+    const otherSubmitted = ch.lineups[otherClan?.id];
+    if (!otherSubmitted) {
+      socket.emit('notify_error', `✅ Lineup soumise ! En attente du chef de [${otherClan.tag}] ${otherClan.name}…`);
+      // Pas d'erreur, juste un message — utiliser chat_msg via une notif custom
+      return;
+    }
+
+    // Les deux chefs ont soumis → créer la room
+    ch.status = 'active';
+    const buildTeam = (clan, ids) => ids.map(id => {
+      const u = data.users.find(u => u.id === id);
+      const s = onlineSockets.find(s => s.userId === id);
+      if (!u || !s) return null;
+      return { id: u.id, pseudo: u.pseudo, elo: u.stats?.[mode]?.elo || 500, stats: u.stats || {}, avatar: u.avatar || null, socketId: s.id, isPremium: !!u.isPremium };
+    }).filter(Boolean);
+
+    const team1 = buildTeam(challengerClan, ch.lineups[challengerClan.id]);
+    const team2 = buildTeam(challengedClan, ch.lineups[challengedClan.id]);
+
+    if (team1.length < teamSize || team2.length < teamSize) {
+      ch.status = 'lineup_select';
+      delete ch.lineups[myClan.id];
+      return socket.emit('notify_error', 'Certains joueurs sélectionnés se sont déconnectés. Refais ta sélection.');
+    }
+
+    const roomId = 'C' + generateCode(4);
+    const cap1 = team1[0];
+    const cap2 = team2[0];
+    const room = {
+      id: roomId, mode,
+      teams: [team1, team2],
+      chat: [], mapBans: [], banTurn: 0, status: 'waiting',
+      chosenMap: null, banTimer: null, createdAt: Date.now(),
+      captains: [cap1.id, cap2.id], captainPseudos: [cap1.pseudo, cap2.pseudo], votes: {},
+      isClanMatch: true, challengeId,
+      challengerClanId: ch.challengerClanId, challengedClanId: ch.challengedClanId
+    };
+    rooms[roomId] = room;
+    ch.roomId = roomId;
+
+    // Joindre tous les joueurs au socket room
+    [...team1, ...team2].forEach(p => {
+      const s = io.sockets.sockets.get(p.socketId);
+      if (s) { s.join('room_' + roomId); s.roomId = roomId; }
+    });
+
+    const payload = {
+      roomId, mode,
+      team1: team1.map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null, stats: p.stats || null, isPremium: !!p.isPremium })),
+      team2: team2.map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null, stats: p.stats || null, isPremium: !!p.isPremium })),
+      captains: [cap1.pseudo, cap2.pseudo], waiting: false
+    };
+    io.to('room_' + roomId).emit('room_ready', payload);
+    io.to('room_' + roomId).emit('chat_msg', { author: 'Système', team: 'system',
+      text: `⚔️ Match de clan : [${challengerClan.tag}] ${challengerClan.name} vs [${challengedClan.tag}] ${challengedClan.name} — Mode ${mode} ! Début dans 10 secondes…`
+    });
+    startRoomCountdown(roomId);
+
+    // Notifier tous les membres
+    const allIds = [...challengerClan.members, ...challengedClan.members];
+    onlineSockets.forEach(s => {
+      if (allIds.includes(s.userId)) s.emit('clan_room_created', { challengeId, roomId, mode });
+    });
+  });
+
 });
 
 // Radiant leaderboard (sorted by best ELO across all modes)
@@ -2360,26 +2456,21 @@ app.post('/api/clans/challenge/respond', express.json(), (req, res) => {
       });
       return res.json({ ok: true });
     }
-    ch.status = 'active';
+    ch.status = 'lineup_select';
     ch.series = [0, 0];
+    ch.lineups = {}; // { [clanId]: [playerIds] }
 
-    // ── Créer la room de clan immédiatement ──
     const mode = ch.mode || '5v5';
     const teamSize = ch.teamSize || 5;
 
-    // Récupérer les membres en ligne de chaque clan (connectés via socket)
+    // Récupérer les membres online de chaque clan
     const onlineSockets = [...io.sockets.sockets.values()];
     const getOnlineMembers = (clan) => {
       const members = [];
       for (const s of onlineSockets) {
         if (clan.members.includes(s.userId) && s.userId) {
           const u = data.users.find(u => u.id === s.userId);
-          if (u) members.push({
-            id: u.id, pseudo: u.pseudo,
-            elo: u.stats?.[mode]?.elo || 500,
-            stats: u.stats || {}, avatar: u.avatar || null,
-            socketId: s.id, isPremium: !!u.isPremium
-          });
+          if (u) members.push({ id: u.id, pseudo: u.pseudo, elo: u.stats?.[mode]?.elo || 500, avatar: u.avatar || null, socketId: s.id });
         }
       }
       return members;
@@ -2388,67 +2479,33 @@ app.post('/api/clans/challenge/respond', express.json(), (req, res) => {
     const team1Online = getOnlineMembers(challengerClan);
     const team2Online = getOnlineMembers(challengedClan);
 
-    if (team1Online.length < teamSize || team2Online.length < teamSize) {
-      // Pas assez de membres en ligne — on accepte quand même le challenge mais sans room
-      ch.status = 'waiting_players';
+    // Envoyer l'event de sélection de lineup aux deux chefs
+    // (même si pas assez online — le chef verra combien sont dispo)
+    const sendLineupSelect = (leaderId, myClan, opponentClan, myOnline, teamIdx) => {
       io.sockets.sockets.forEach(s => {
-        if (challengerClan.members.includes(s.userId) || challengedClan.members.includes(s.userId)) {
-          s.emit('clan_match_waiting', {
-            challengeId, mode, teamSize,
-            challengerName: challengerClan.name, challengerTag: challengerClan.tag,
-            challengedName: challengedClan.name, challengedTag: challengedClan.tag,
-            team1Online: team1Online.length, team2Online: team2Online.length
+        if (s.userId === leaderId) {
+          s.emit('clan_lineup_select', {
+            challengeId, mode, teamSize, teamIdx,
+            myClanName: myClan.name, myClanTag: myClan.tag,
+            opponentName: opponentClan.name, opponentTag: opponentClan.tag,
+            availablePlayers: myOnline.map(p => ({ id: p.id, pseudo: p.pseudo, elo: p.elo, avatar: p.avatar }))
           });
         }
       });
-      return res.json({ ok: true, challengeId, waiting: true, team1Online: team1Online.length, team2Online: team2Online.length });
-    }
-
-    // Assez de joueurs — créer la room
-    const team1 = team1Online.slice(0, teamSize);
-    const team2 = team2Online.slice(0, teamSize);
-    const roomId = 'C' + generateCode(4); // Prefix C = clan match
-    const cap1 = team1[0];
-    const cap2 = team2[0];
-    const room = {
-      id: roomId, mode,
-      teams: [team1, team2],
-      chat: [], mapBans: [], banTurn: 0, status: 'waiting',
-      chosenMap: null, banTimer: null, createdAt: Date.now(),
-      captains: [cap1.id, cap2.id], captainPseudos: [cap1.pseudo, cap2.pseudo], votes: {},
-      isClanMatch: true, challengeId,
-      challengerClanId: ch.challengerClanId, challengedClanId: ch.challengedClanId
     };
-    rooms[roomId] = room;
 
-    // Joindre tous les joueurs au socket room
-    [...team1, ...team2].forEach(p => {
-      const s = io.sockets.sockets.get(p.socketId);
-      if (s) { s.join('room_' + roomId); s.roomId = roomId; }
-    });
-
-    ch.roomId = roomId;
-    const payload = {
-      roomId, mode,
-      team1: team1.map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null, stats: p.stats || null, isPremium: !!p.isPremium })),
-      team2: team2.map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null, stats: p.stats || null, isPremium: !!p.isPremium })),
-      captains: [cap1.pseudo, cap2.pseudo], waiting: false
-    };
-    io.to('room_' + roomId).emit('room_ready', payload);
-    io.to('room_' + roomId).emit('chat_msg', { author: 'Système', team: 'system',
-      text: `⚔️ Match de clan : [${challengerClan.tag}] ${challengerClan.name} vs [${challengedClan.tag}] ${challengedClan.name} — Mode ${mode} ! Début dans 10 secondes…`
-    });
-    startRoomCountdown(roomId);
+    sendLineupSelect(challengerClan.leaderId, challengerClan, challengedClan, team1Online, 0);
+    sendLineupSelect(challengedClan.leaderId, challengedClan, challengerClan, team2Online, 1);
 
     // Notifier tous les membres des deux clans
     const allMemberIds = [...challengerClan.members, ...challengedClan.members];
     onlineSockets.forEach(s => {
       if (allMemberIds.includes(s.userId)) {
-        s.emit('clan_challenge_accepted', { challengeId, by: challengedClan.name, mode, roomId });
+        s.emit('clan_challenge_accepted', { challengeId, by: challengedClan.name, mode });
       }
     });
 
-    res.json({ ok: true, challengeId, roomId });
+    res.json({ ok: true, challengeId, lineupSelect: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
