@@ -4410,8 +4410,8 @@ function appendGlobalChatMsg(msg, scroll = true) {
 
   const gcPremBorder = msg.isPremium ? 'box-shadow:0 0 0 2px #f7c948;' : '';
   const avatarHtml = msg.avatar
-    ? `<img src="${msg.avatar}" style="width:20px;height:20px;border-radius:50%;object-fit:cover;flex-shrink:0;${gcPremBorder}">`
-    : `<div style="width:20px;height:20px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;flex-shrink:0;${gcPremBorder}">${msg.pseudo[0].toUpperCase()}</div>`;
+    ? `<img src="${msg.avatar}" style="width:30px;height:30px;border-radius:50%;object-fit:cover;flex-shrink:0;${gcPremBorder}">`
+    : `<div style="width:30px;height:30px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex-shrink:0;${gcPremBorder}">${msg.pseudo[0].toUpperCase()}</div>`;
 
   const gcRoleBadge = msg.role === 'admin'
     ? `<span style="background:rgba(255,70,85,0.2);color:var(--accent);font-size:9px;font-weight:800;border-radius:4px;padding:1px 5px;">ADMIN</span>`
@@ -4419,8 +4419,8 @@ function appendGlobalChatMsg(msg, scroll = true) {
     ? `<span style="background:rgba(145,71,255,0.2);color:#9147ff;font-size:9px;font-weight:800;border-radius:4px;padding:1px 5px;">CONTENT</span>`
     : '';
   const pseudoHtml = isMe
-    ? `<span style="font-size:11px;font-weight:700;color:var(--accent);">Toi ${state.isPremium ? '👑' : ''}</span>`
-    : `<span onclick="openGlobalChatProfile('${msg.pseudo.replace(/'/g,"\'")}',event)" style="font-size:11px;font-weight:700;color:${msg.isPremium ? '#f7c948' : 'var(--muted)'};cursor:pointer;">${msg.isPremium ? '👑 ' : ''}${msg.pseudo}</span>${gcRoleBadge}`;
+    ? `<span style="font-size:13px;font-weight:700;color:var(--accent);">Toi ${state.isPremium ? '👑' : ''}</span>`
+    : `<span onclick="openGlobalChatProfile('${msg.pseudo.replace(/'/g,"\'")}',event)" style="font-size:13px;font-weight:700;color:${msg.isPremium ? '#f7c948' : 'var(--text)'};cursor:pointer;">${msg.isPremium ? '👑 ' : ''}${msg.pseudo}</span>${gcRoleBadge}`;
 
   div.innerHTML = `
     <div style="display:flex;align-items:center;gap:5px;${isMe?'flex-direction:row-reverse;':''}">
@@ -5174,7 +5174,7 @@ async function loadTournaments() {
   const listEl = document.getElementById('tournaments-list');
   if (!listEl) return;
   const btnCreate = document.getElementById('btn-create-tournament');
-  if (btnCreate) btnCreate.style.display = state.isPremium ? '' : 'none';
+  if (btnCreate) btnCreate.style.display = (state.isPremium || state.isContent) ? '' : 'none';
   const btnSim = document.getElementById('btn-admin-sim-tournament');
   if (btnSim) btnSim.style.display = state.isAdmin ? '' : 'none';
   renderTournamentInvites();
@@ -5185,7 +5185,7 @@ async function loadTournaments() {
       listEl.innerHTML = `<div style="text-align:center;padding:60px 20px;">
         <div style="font-size:40px;margin-bottom:12px;">🏆</div>
         <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:18px;margin-bottom:8px;">Aucun tournoi en cours</div>
-        <div style="color:var(--muted);font-size:13px;">${state.isPremium ? 'Crée le premier tournoi !' : 'Un joueur Premium peut créer un tournoi ouvert à tous.'}</div>
+        <div style="color:var(--muted);font-size:13px;">${(state.isPremium || state.isContent) ? 'Crée le premier tournoi !' : 'Un joueur Premium peut créer un tournoi ouvert à tous.'}</div>
       </div>`;
       return;
     }
@@ -5288,7 +5288,7 @@ async function createTournament() {
     });
     const d = await r.json();
     if (d.error) {
-      if (errEl) errEl.textContent = d.error === 'PREMIUM_REQUIRED' ? '👑 Premium requis' : d.error;
+      if (errEl) errEl.textContent = d.error === 'PREMIUM_REQUIRED' ? '👑 Premium ou rôle Content requis' : d.error;
       return;
     }
     notify('🏆 Tournoi créé !', { accent: 'var(--gold)' });
