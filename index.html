@@ -420,22 +420,21 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
           </div>
         </div>
         <div id="nav-group-members-inline" style="font-size:11px;color:var(--text);margin-bottom:7px;line-height:1.5;"></div>
-        <div style="display:flex;gap:5px;">
-          <input type="text" id="join-code-mini" placeholder="CODE" maxlength="6" style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:5px 7px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:11px;outline:none;letter-spacing:1px;font-weight:700;text-transform:uppercase;" onkeydown="if(event.key==='Enter')joinGroup()"/>
-          <button onclick="joinGroup()" style="background:var(--accent);color:#fff;border:none;border-radius:6px;padding:5px 9px;font-size:11px;font-weight:700;cursor:pointer;">OK</button>
-          <button onclick="leaveGroup()" title="Quitter" style="background:none;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:5px 7px;font-size:11px;cursor:pointer;">🚪</button>
+        <!-- Rejoindre sur sa propre ligne -->
+        <div style="margin-bottom:5px;">
+          <input type="text" id="join-code-mini" placeholder="Code du groupe…" maxlength="6" style="width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:6px 8px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:11px;outline:none;letter-spacing:1px;font-weight:700;text-transform:uppercase;margin-bottom:5px;" onkeydown="if(event.key==='Enter')joinGroup()"/>
+          <button onclick="joinGroup()" style="width:100%;background:var(--accent);color:#fff;border:none;border-radius:6px;padding:6px;font-size:11px;font-weight:700;cursor:pointer;margin-bottom:4px;">Rejoindre</button>
+          <button onclick="leaveGroup()" style="width:100%;background:none;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:5px;font-size:11px;cursor:pointer;">🚪 Quitter le groupe</button>
         </div>
       </div>
-      <div style="display:flex;gap:6px;">
-        <button onclick="openFriendsPanel()" style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px;font-size:11px;font-weight:700;color:var(--text);cursor:pointer;">👥 <span id="friends-online-count" style="color:var(--green);font-size:11px;"></span></button>
-        <div class="avatar" id="nav-avatar" onclick="openProfile()" style="width:32px;height:32px;font-size:13px;flex-shrink:0;">?</div>
-      </div>
-      <!-- ELO badge (used by existing JS) -->
-      <div style="margin-top:6px;text-align:center;">
-        <span id="nav-rank-badge" style="font-size:12px;"></span>
-        <span style="font-size:11px;color:var(--gold);font-weight:700;font-family:'Syne',sans-serif;display:none;"> <span id="nav-elo">500</span> ELO</span>
-        <span id="nav-pseudo" style="display:none;"></span>
-        <span id="nav-clan-tag" style="display:none;"></span>
+      <button onclick="openFriendsPanel()" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px;font-size:12px;font-weight:700;color:var(--text);cursor:pointer;">👥 Amis <span id="friends-online-count" style="color:var(--green);font-size:11px;"></span></button>
+      <!-- IDs requis par le JS — cachés -->
+      <div style="display:none;">
+        <div id="nav-avatar"></div>
+        <span id="nav-rank-badge"></span>
+        <span id="nav-elo">500</span>
+        <span id="nav-pseudo"></span>
+        <span id="nav-clan-tag"></span>
       </div>
     </div>
   </div>
