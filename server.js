@@ -12,6 +12,11 @@ const io = new Server(server, {
   transports: ['polling', 'websocket']
 });
 
+// Fil d'activité global — disponible partout dans le fichier
+function emitActivity(type, data) {
+  io.emit('activity_feed', { type, data, time: Date.now() });
+}
+
 const PORT = process.env.PORT || 3000;
 const MAPS = ['Ascent', 'Bind', 'Haven', 'Icebox', 'Lotus', 'Pearl', 'Split'];
 const WEAPONS = ['Vandal/Phantom', 'Sheriff', 'Operator', 'Marshall', 'Ghost'];
@@ -1288,10 +1293,6 @@ function getRankNameFromElo(elo) {
   return 'Bronze';
 }
 
-// Émettre un événement dans le fil d'activité global
-function emitActivity(type, data) {
-  io.emit('activity_feed', { type, data, time: Date.now() });
-}
 function applyEloResult(winTeam, loseTeam, mode) {
   // Always read ELO from DB (fresh, not stale group data)
   const getElo = (p) => {

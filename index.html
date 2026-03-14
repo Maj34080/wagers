@@ -465,10 +465,10 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
         <div class="v2-stat-card"><div class="v2-stat-label">Rang</div><div class="v2-stat-value" id="v2-stat-rank" style="font-size:20px;color:var(--accent);">—</div></div>
       </div>
       <!-- 3 colonnes : matchmaking | chat global | rooms live -->
-      <div style="display:grid;grid-template-columns:1fr 380px 240px;gap:16px;align-items:start;">
+      <div style="display:grid;grid-template-columns:230px 380px 1fr;gap:16px;align-items:start;">
 
         <!-- Matchmaking -->
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px;text-align:center;position:relative;overflow:hidden;">
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px 14px;text-align:center;position:relative;overflow:hidden;">
           <div style="position:absolute;top:-30px;left:50%;transform:translateX(-50%);width:160px;height:60px;background:rgba(255,70,85,0.06);filter:blur(20px);border-radius:50%;pointer-events:none;"></div>
           <div style="position:relative;">
             <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:22px;margin-bottom:6px;">Trouver une Room</div>
@@ -4367,7 +4367,11 @@ async function loadGlobalChat() {
     if (!box) return;
     box.innerHTML = '';
     msgs.forEach(m => appendGlobalChatMsg(m, false));
-    // Vider la file d'activité en attente
+    // Ré-injecter les activity events conservés localement
+    if (window._activityHistory && window._activityHistory.length > 0) {
+      window._activityHistory.forEach(q => _appendActivityMsgToBox(box, q.type, q.data, q.time));
+    }
+    // Vider la file d'attente (events reçus avant que le chat était prêt)
     if (window._activityQueue && window._activityQueue.length > 0) {
       const queue = [...window._activityQueue];
       window._activityQueue = [];
@@ -4442,6 +4446,10 @@ function _appendActivityMsgToBox(box, type, data, time) {
 
   box.appendChild(div);
   box.scrollTop = box.scrollHeight;
+  // Sauvegarder dans l'historique local (max 50 events)
+  window._activityHistory = window._activityHistory || [];
+  window._activityHistory.push({ type, data, time });
+  if (window._activityHistory.length > 50) window._activityHistory.shift();
 }
 
 function appendGlobalChatMsg(msg, scroll = true) {
