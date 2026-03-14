@@ -273,13 +273,11 @@ app.post('/api/admin/premium', (req, res) => {
   if (!ok) return res.status(404).json({ error: 'Utilisateur introuvable' });
   const pu = db.getUserById(userId);
   db.addAdminLog(req.headers['x-admin-pseudo'] || 'Admin', 'PREMIUM', pu?.pseudo || userId, `${months || 1} mois`);
+  const pu2 = db.getUserById(userId);
   io.sockets.sockets.forEach(s => {
-    if (s.userId === userId) {
-      s.emit('premium_granted', { months: months || 1 });
-      const pu = db.getUserById(userId);
-      if (pu) emitActivity('premium_granted', { pseudo: pu.pseudo, months: months || 1 });
-    }
+    if (s.userId === userId) s.emit('premium_granted', { months: months || 1 });
   });
+  if (pu2) emitActivity('premium_granted', { pseudo: pu2.pseudo, months: months || 1 });
   res.json({ success: true });
 });
 
@@ -741,8 +739,7 @@ io.on('connection', (socket) => {
       socket.isMuted = false;
       socket.isPremium = false;
       const stats = user.stats || db.defaultStats();
-            emitActivity('new_player', { pseudo });
-      socket.emit('auth_ok', {
+            socket.emit('auth_ok', {
         pseudo: user.pseudo,
         elo: stats['2v2']?.elo || 500,
         stats,
@@ -754,6 +751,7 @@ io.on('connection', (socket) => {
         premiumUntil: null,
         referralCode: user.referralCode || null
       });
+      emitActivity('new_player', { pseudo });
     } catch(e) { socket.emit('auth_error', 'Erreur: ' + e.message); }
   });
 
