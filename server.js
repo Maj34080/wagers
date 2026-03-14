@@ -280,10 +280,19 @@ app.get('/api/admin/find-user', (req, res) => {
 
 app.post('/api/admin/premium', (req, res) => {
   if (!isAdminReq(req)) return res.status(403).json({ error: 'Interdit' });
-  const { userId, months } = req.body;
+  const { userId, months, pricePaid } = req.body;
   const ok = db.setPremium(userId, months || 1);
   if (!ok) return res.status(404).json({ error: 'Utilisateur introuvable' });
   const pu = db.getUserById(userId);
+  // Stocker le montant payé pour le calcul de commission
+  if (pu && pricePaid) {
+    const data = db.loadDB();
+    const u = data.users.find(u => u.id === userId);
+    if (u) {
+      u.premiumPaidAmount = (u.premiumPaidAmount || 0) + pricePaid;
+      db.saveDB(data);
+    }
+  }
   db.addAdminLog(req.headers['x-admin-pseudo'] || 'Admin', 'PREMIUM', pu?.pseudo || userId, `${months || 1} mois`);
   const pu2 = db.getUserById(userId);
   io.sockets.sockets.forEach(s => {
@@ -2234,19 +2243,22 @@ app.get('/api/content/dashboard/:userId', (req, res) => {
         createdAt: u.createdAt,
         isPremium: !!u.isPremium,
         premiumUntil: u.premiumUntil || null,
-        premiumMonths: u.totalPremiumMonths || 0,
+        premiumPaidAmount: u.premiumPaidAmount || 0,
       }));
 
-    // Compter les filleuls premium
+    // Compter les filleuls premium (avec montant réel payé)
     const premiumReferrals = referrals.filter(r => r.isPremium);
     const premiumCount = premiumReferrals.length;
     const palier = getContentPalier(premiumCount);
     const nextPalier = CONTENT_PALIERS.find(p => p.min > palier.min) || null;
 
-    // Calculer le portefeuille (gains sur les achats premium des filleuls)
-    // On estime 7.99€/mois × % palier pour chaque filleul premium actif
-    const gainParFilleul = 7.99 * (palier.pct / 100);
-    const portefeuille = premiumCount * gainParFilleul;
+    // Calculer le portefeuille sur le montant RÉEL payé par chaque filleul
+    // On récupère premiumPaidAmount stocké sur chaque user
+    const portefeuille = referrals.reduce((total, r) => {
+      if (!r.isPremium) return total;
+      const paidAmt = r.premiumPaidAmount || PREMIUM_PRICES[1]; // fallback 7.99€ si inconnu
+      return total + (paidAmt * palier.pct / 100);
+    }, 0);
 
     // Gains déjà payés (stocké en BDD)
     const paid = user.contentPaid || 0;

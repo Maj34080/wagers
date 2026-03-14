@@ -6386,7 +6386,8 @@ async function loadContentDashboard() {
           const premBadge = u.isPremium
             ? `<span style="font-size:10px;font-weight:700;background:rgba(255,209,102,.1);border:1px solid rgba(255,209,102,.3);color:var(--gold);border-radius:6px;padding:2px 8px;">👑 PREMIUM</span>`
             : `<span style="font-size:10px;font-weight:700;background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:2px 8px;">Gratuit</span>`;
-          const gain = u.isPremium ? `<span style="font-size:11px;color:var(--green);font-weight:700;">+${(7.99 * d.pct / 100).toFixed(2)}€</span>` : `<span style="font-size:11px;color:var(--muted);">0.00€</span>`;
+          const realPaid = u.premiumPaidAmount || 7.99;
+        const gain = u.isPremium ? `<span style="font-size:11px;color:var(--green);font-weight:700;">+${(realPaid * d.pct / 100).toFixed(2)}€</span>` : `<span style="font-size:11px;color:var(--muted);">0.00€</span>`;
           return `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:${u.isPremium ? 'rgba(255,209,102,.03)' : 'var(--bg)'};border-radius:10px;border:1px solid ${u.isPremium ? 'rgba(255,209,102,.15)' : 'transparent'};">
             ${av}
             <div style="flex:1;min-width:0;">
@@ -6432,8 +6433,9 @@ async function grantPremium() {
   const pseudo = document.getElementById('premium-pseudo-input').value.trim();
   const months = parseInt(document.getElementById('premium-months-input').value);
   if (!pseudo) return notify('Entrez un pseudo', { accent: 'var(--accent)' });
+  const PRICES = { 1: 7.99, 3: 14.99, 6: 24.99, 12: 39.99 };
+  const pricePaid = PRICES[months] || 7.99;
   try {
-    // Find user directly by pseudo (works even with 0 games played)
     const res = await fetch('/api/admin/find-user?pseudo=' + encodeURIComponent(pseudo), {
       headers: { 'x-admin-key': 'revenge_admin_secret', 'x-admin-pseudo': state.pseudo || '' }
     });
@@ -6442,10 +6444,10 @@ async function grantPremium() {
     const r = await fetch('/api/admin/premium', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-admin-key': 'revenge_admin_secret', 'x-admin-pseudo': state.pseudo || '' },
-      body: JSON.stringify({ userId: user.id, months })
+      body: JSON.stringify({ userId: user.id, months, pricePaid })
     });
     if (r.ok) {
-      notify(`👑 Premium activé pour ${pseudo} (${months} mois)`, { accent: 'var(--gold)' });
+      notify(`👑 Premium activé pour ${pseudo} (${months} mois · ${pricePaid}€)`, { accent: 'var(--gold)' });
       document.getElementById('premium-pseudo-input').value = '';
       loadPremiumAdmin();
     }
