@@ -44,8 +44,8 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
 .nav-tabs{display:flex;gap:6px;}
 .nav-tab{padding:8px 20px;border-radius:9px;font-size:14px;font-weight:600;cursor:pointer;border:none;background:none;color:var(--muted);font-family:'DM Sans',sans-serif;transition:all 0.2s;}
 .nav-tab.active{background:var(--surface2);color:var(--text);}
+.nav-tab{transition:background 0.15s ease,color 0.15s ease;}
 .nav-tab:hover:not(.active){color:var(--text);}
-.nav-tab{transition:background 0.15s ease, color 0.15s ease;}
 .nav-right{display:flex;align-items:center;gap:12px;position:relative;}
 .elo-badge{background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:7px 13px;font-size:13px;font-weight:700;color:var(--gold);font-family:'Syne',sans-serif;}
 .avatar{width:48px;height:48px;background:var(--accent);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:18px;font-family:'Syne',sans-serif;cursor:pointer;}
@@ -326,28 +326,34 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
 @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.4;}}
 
 /* ── INTERFACE V2 ── */
-body.ui-v2 #screen-main { overflow: hidden; }
-body.ui-v2 .navbar { display: none !important; }
-body.ui-v2 #screen-main { flex-direction: row !important; }
-.v2-sidebar { display: none; width: 200px; min-width: 200px; height: 100vh; background: #0a0a0f; border-right: 1px solid var(--border); flex-direction: column; flex-shrink: 0; overflow-y: auto; }
+body.ui-v2 #screen-main { overflow: hidden !important; flex-direction: row !important; padding: 0 !important; }
+.navbar { display: none !important; } /* navbar hidden, V2 sidebar replaces it */
+/* Sidebar */
+.v2-sidebar { display: none; width: 210px; min-width: 210px; height: 100vh; background: var(--bg); border-right: 1px solid var(--border); flex-direction: column; flex-shrink: 0; overflow-y: auto; }
 body.ui-v2 .v2-sidebar { display: flex; }
-.v2-main { display: none; flex: 1; flex-direction: column; overflow: hidden; }
-body.ui-v2 .v2-main { display: flex; }
-body.ui-v2 .main-body { display: none !important; }
-.v2-nav-item { display: flex; align-items: center; gap: 10px; padding: 11px 20px; border-radius: 9px; margin: 2px 10px; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--muted); transition: all 0.15s; border: none; background: none; width: calc(100% - 20px); text-align: left; font-family: 'DM Sans', sans-serif; }
+/* Main wrapper inside v2 */
+.v2-wrapper { display: none; flex: 1; flex-direction: column; min-width: 0; height: 100vh; overflow: hidden; }
+body.ui-v2 .v2-wrapper { display: flex; }
+/* main-body lives inside v2-wrapper in V2 */
+body.ui-v2 .main-body { max-width: none !important; padding: 20px 24px !important; overflow-y: auto; flex: 1; height: calc(100vh - 56px); }
+/* Topbar */
+.v2-topbar { height: 56px; min-height: 56px; border-bottom: 1px solid var(--border); background: var(--surface); display: flex; align-items: center; padding: 0 24px; gap: 14px; flex-shrink: 0; }
+/* Ranked home tab */
+.v2-ranked-home { flex: 1; overflow-y: auto; padding: 20px 24px; height: calc(100vh - 56px); }
+/* Nav items */
+.v2-nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-radius: 9px; margin: 2px 8px; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--muted); transition: all 0.15s; border: none; background: none; width: calc(100% - 16px); text-align: left; font-family: 'DM Sans', sans-serif; }
 .v2-nav-item:hover { background: var(--surface2); color: var(--text); }
 .v2-nav-item.active { background: rgba(255,70,85,0.12); color: var(--accent); font-weight: 700; }
 .v2-nav-item.admin-item { color: var(--gold); }
-.v2-topbar { height: 56px; border-bottom: 1px solid var(--border); background: var(--surface); display: flex; align-items: center; padding: 0 24px; gap: 16px; flex-shrink: 0; }
-.v2-content { flex: 1; overflow-y: auto; padding: 20px 24px; }
+body.ui-v2 #tab-content-room { display: none !important; }
+/* Stat cards */
 .v2-stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
 .v2-stat-label { font-size: 11px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
 .v2-stat-value { font-size: 24px; font-weight: 800; font-family: 'Space Grotesk', sans-serif; }
-/* Hide group chat and admin float in V2 */
+/* Hide group chat bubble/panel in V2 */
 body.ui-v2 #group-chat-panel,
 body.ui-v2 #group-chat-bubble,
 body.ui-v2 #admin-float-join { display: none !important; }
-
 </style>
 </head>
 <body>
@@ -386,34 +392,32 @@ body.ui-v2 #admin-float-join { display: none !important; }
 <!-- MAIN -->
 <div id="screen-main" class="screen">
 
-  <!-- ══ INTERFACE V2 SIDEBAR ══ -->
+  <!-- ══ V2 SIDEBAR ══ -->
   <div class="v2-sidebar" id="v2-sidebar">
-    <!-- Logo -->
-    <div style="padding:20px 20px 14px;border-bottom:1px solid var(--border);flex-shrink:0;">
-      <div style="font-family:'Syne',sans-serif;font-weight:900;font-size:18px;cursor:pointer;" onclick="v2ShowTab('room')">REVENGE<span style="color:var(--accent);">.</span></div>
-      <div id="v2-user-info" style="margin-top:12px;display:flex;align-items:center;gap:10px;">
+    <div style="padding:18px 16px 12px;border-bottom:1px solid var(--border);flex-shrink:0;">
+      <div style="font-family:'Syne',sans-serif;font-weight:900;font-size:18px;cursor:pointer;" onclick="v2GoRanked()">REVENGE<span style="color:var(--accent);">.</span></div>
+      <div style="margin-top:12px;display:flex;align-items:center;gap:10px;">
         <div id="v2-avatar" style="width:36px;height:36px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;flex-shrink:0;cursor:pointer;" onclick="openProfile()"></div>
-        <div style="min-width:0;">
+        <div style="min-width:0;flex:1;">
           <div id="v2-pseudo" style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;" onclick="openProfile()"></div>
           <div style="font-size:11px;color:var(--gold);font-weight:700;font-family:'Syne',sans-serif;">🔥 <span id="v2-elo">500</span> ELO</div>
         </div>
       </div>
     </div>
     <!-- Rank progress -->
-    <div style="padding:10px 14px 4px;border-bottom:1px solid var(--border);">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;">
+    <div style="padding:10px 14px 8px;border-bottom:1px solid var(--border);">
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
         <span id="v2-rank-name" style="font-size:11px;font-weight:800;color:var(--accent);text-transform:uppercase;letter-spacing:0.05em;">—</span>
         <span id="v2-rank-next" style="font-size:10px;color:var(--muted);">→ —</span>
       </div>
       <div style="background:var(--surface2);border-radius:4px;height:5px;overflow:hidden;">
         <div id="v2-rank-bar" style="height:5px;border-radius:4px;background:linear-gradient(90deg,var(--accent),#ff8a94);width:0%;transition:width 0.5s ease;"></div>
       </div>
-      <div style="font-size:10px;color:var(--muted);margin-top:4px;text-align:right;"><span id="v2-rank-elo-label">500</span> ELO</div>
+      <div style="font-size:10px;color:var(--muted);margin-top:3px;text-align:right;"><span id="v2-rank-elo-label">500</span> ELO</div>
     </div>
-
-    <!-- Nav items -->
-    <div style="padding:10px 0;flex:1;">
-      <button class="v2-nav-item active" id="v2-ntab-room" onclick="v2ShowTab('room')">🎮 Ranked</button>
+    <!-- Nav -->
+    <div style="padding:8px 0;flex:1;">
+      <button class="v2-nav-item active" id="v2-ntab-room" onclick="v2GoRanked()">🎮 Ranked</button>
       <button class="v2-nav-item" id="v2-ntab-lb" onclick="v2ShowTab('lb')">🏆 Classement</button>
       <button class="v2-nav-item" id="v2-ntab-clans" onclick="v2ShowTab('clans')">🛡️ Clans</button>
       <button class="v2-nav-item" id="v2-ntab-tournois" onclick="v2ShowTab('tournois')">🎯 Tournois</button>
@@ -421,101 +425,100 @@ body.ui-v2 #admin-float-join { display: none !important; }
       <button class="v2-nav-item" id="v2-ntab-tickets" onclick="v2ShowTab('tickets')">🎫 Support</button>
       <button class="v2-nav-item admin-item" id="v2-ntab-admin" onclick="v2ShowTab('admin')" style="display:none;">🔐 Admin</button>
     </div>
-    <!-- Bottom: group + actions -->
-    <div style="padding:14px;border-top:1px solid var(--border);flex-shrink:0;display:flex;flex-direction:column;gap:8px;">
-      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:12px;">
+    <!-- Groupe + amis -->
+    <div style="padding:12px;border-top:1px solid var(--border);flex-shrink:0;display:flex;flex-direction:column;gap:8px;">
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
           <span style="color:var(--muted);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Groupe</span>
-          <span id="v2-group-code" style="font-family:'Space Grotesk',sans-serif;font-weight:800;color:var(--accent);letter-spacing:2px;font-size:13px;">——</span>
+          <div style="display:flex;align-items:center;gap:5px;">
+            <span id="v2-group-code" style="font-family:'Space Grotesk',sans-serif;font-weight:800;color:var(--accent);letter-spacing:2px;font-size:13px;">——</span>
+            <button onclick="copyCode()" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:11px;padding:0;">📋</button>
+          </div>
         </div>
-        <div id="v2-group-members" style="font-size:11px;color:var(--text);"></div>
-        <div style="display:flex;gap:5px;margin-top:8px;">
-          <input id="v2-join-code" placeholder="CODE" maxlength="6" style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:5px 7px;color:var(--text);font-size:11px;outline:none;letter-spacing:1px;font-weight:700;text-transform:uppercase;" onkeydown="if(event.key==='Enter'){document.getElementById('join-code-mini').value=this.value;joinGroup();}"/>
-          <button onclick="document.getElementById('join-code-mini').value=document.getElementById('v2-join-code').value;joinGroup();" style="background:var(--accent);color:#fff;border:none;border-radius:6px;padding:5px 8px;font-size:11px;font-weight:700;cursor:pointer;">OK</button>
+        <div id="v2-group-members" style="font-size:11px;color:var(--text);margin-bottom:7px;"></div>
+        <div style="display:flex;gap:5px;">
+          <input id="v2-join-code" placeholder="CODE" maxlength="6" style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:5px 7px;color:var(--text);font-size:11px;outline:none;letter-spacing:1px;font-weight:700;text-transform:uppercase;" onkeydown="if(event.key==='Enter')v2JoinGroup()"/>
+          <button onclick="v2JoinGroup()" style="background:var(--accent);color:#fff;border:none;border-radius:6px;padding:5px 9px;font-size:11px;font-weight:700;cursor:pointer;">OK</button>
+          <button onclick="leaveGroup()" title="Quitter" style="background:none;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:5px 7px;font-size:11px;cursor:pointer;">🚪</button>
         </div>
       </div>
-      <div style="display:flex;gap:6px;">
-        <button onclick="openFriendsPanel()" style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px;font-size:11px;font-weight:700;color:var(--text);cursor:pointer;">👥 Amis</button>
-
-      </div>
+      <button onclick="openFriendsPanel()" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px;font-size:12px;font-weight:700;color:var(--text);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">👥 Amis <span id="v2-friends-count" style="color:var(--green);font-size:11px;"></span></button>
     </div>
   </div>
 
-  <!-- ══ INTERFACE V2 MAIN AREA ══ -->
-  <div class="v2-main" id="v2-main">
+  <!-- ══ V2 MAIN WRAPPER (contains topbar + content) ══ -->
+  <div class="v2-wrapper" id="v2-wrapper">
     <!-- Topbar -->
     <div class="v2-topbar">
       <div style="flex:1;">
-        <span id="v2-welcome" style="font-size:14px;font-weight:700;">Bonjour — </span>
-        <span id="v2-live-status" style="font-size:12px;color:var(--muted);"></span>
+        <span id="v2-welcome" style="font-size:14px;font-weight:700;color:var(--text);">Bonjour 👋</span>
+        <span id="v2-live-status" style="font-size:12px;color:var(--muted);margin-left:10px;"></span>
       </div>
-      <!-- Group inline in topbar -->
-      <div id="nav-group-inline-v2" style="display:flex;align-items:center;gap:8px;">
-      </div>
-      <div id="v2-rank-badge" style="font-size:13px;"></div>
-      <button onclick="openFriendsPanel()" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px 12px;color:var(--text);font-size:12px;font-weight:700;cursor:pointer;">👥 <span id="v2-friends-count" style="color:var(--green);font-size:11px;"></span></button>
+      <span id="v2-rank-badge-top" style="font-size:12px;"></span>
+      <button onclick="openProfile()" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;color:var(--text);cursor:pointer;">👤 Profil</button>
     </div>
 
-    <!-- V2 Content: Ranked tab -->
-    <div class="v2-content" id="v2-tab-room">
-      <!-- Stat cards row -->
+    <!-- V2 Ranked home (only shown on room tab) -->
+    <div class="v2-ranked-home" id="v2-ranked-home">
+      <!-- Stat cards -->
       <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:20px;">
         <div class="v2-stat-card"><div class="v2-stat-label">Mon ELO</div><div class="v2-stat-value" id="v2-stat-elo" style="color:var(--gold);">500</div></div>
         <div class="v2-stat-card"><div class="v2-stat-label">Win rate</div><div class="v2-stat-value" id="v2-stat-wr" style="color:var(--green);">—</div></div>
         <div class="v2-stat-card"><div class="v2-stat-label">Matchs</div><div class="v2-stat-value" id="v2-stat-matches">—</div></div>
         <div class="v2-stat-card"><div class="v2-stat-label">Rang</div><div class="v2-stat-value" id="v2-stat-rank" style="font-size:14px;color:var(--accent);">—</div></div>
       </div>
+      <!-- 3 cols: matchmaking | chat global | rooms -->
+      <div style="display:grid;grid-template-columns:1fr 300px 1fr;gap:16px;align-items:start;">
 
-      <!-- Main 3-col grid -->
-      <div style="display:grid;grid-template-columns:1fr 320px 1fr;gap:16px;align-items:start;">
-
-        <!-- Left: matchmaking -->
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px;text-align:center;position:relative;overflow:hidden;">
-          <div style="position:absolute;top:-30px;left:50%;transform:translateX(-50%);width:160px;height:60px;background:rgba(255,70,85,0.06);filter:blur(20px);border-radius:50%;pointer-events:none;"></div>
+        <!-- Matchmaking -->
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;text-align:center;">
           <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:20px;margin-bottom:6px;">Trouver une Room</div>
-          <div style="color:var(--muted);font-size:12px;margin-bottom:22px;">Choisis ton mode et lance la recherche</div>
-          <div class="mode-selector" id="mode-selector-v2" style="gap:8px;margin-bottom:20px;display:flex;">
-            <div class="mode-btn" onclick="selectMode('1v1',this);document.querySelectorAll('#mode-selector .mode-btn').forEach((b,i)=>{b.classList.toggle('active',['1v1','2v2','3v3','5v5'][i]==='1v1')});" style="flex:1;padding:10px 0;font-size:13px;">1v1</div>
-            <div class="mode-btn active" onclick="selectMode('2v2',this);document.querySelectorAll('#mode-selector .mode-btn').forEach((b,i)=>{b.classList.toggle('active',['1v1','2v2','3v3','5v5'][i]==='2v2')});" style="flex:1;padding:10px 0;font-size:13px;">2v2</div>
-            <div class="mode-btn" onclick="selectMode('3v3',this);document.querySelectorAll('#mode-selector .mode-btn').forEach((b,i)=>{b.classList.toggle('active',['1v1','2v2','3v3','5v5'][i]==='3v3')});" style="flex:1;padding:10px 0;font-size:13px;">3v3</div>
-            <div class="mode-btn" onclick="selectMode('5v5',this);document.querySelectorAll('#mode-selector .mode-btn').forEach((b,i)=>{b.classList.toggle('active',['1v1','2v2','3v3','5v5'][i]==='5v5')});" style="flex:1;padding:10px 0;font-size:13px;">5v5</div>
+          <div style="color:var(--muted);font-size:12px;margin-bottom:20px;">Choisis ton mode et lance la recherche</div>
+          <div class="mode-selector" style="gap:8px;margin-bottom:18px;display:flex;" id="v2-mode-selector">
+            <div class="mode-btn" onclick="selectMode('1v1',this)" style="flex:1;padding:10px 0;font-size:13px;">1v1</div>
+            <div class="mode-btn active" onclick="selectMode('2v2',this)" style="flex:1;padding:10px 0;font-size:13px;">2v2</div>
+            <div class="mode-btn" onclick="selectMode('3v3',this)" style="flex:1;padding:10px 0;font-size:13px;">3v3</div>
+            <div class="mode-btn" onclick="selectMode('5v5',this)" style="flex:1;padding:10px 0;font-size:13px;">5v5</div>
           </div>
-          <button class="btn-find" id="btn-find-room-v2" onclick="document.getElementById('btn-find-room').click()" disabled style="width:100%;padding:15px;font-size:14px;border-radius:12px;">🔍 Rechercher une Room</button>
-          <div class="room-hint" id="room-hint-v2" style="margin-top:12px;font-size:12px;">Forme ton équipe d'abord</div>
-          <div id="premium-queue-badge-v2" style="display:none;margin-top:8px;background:linear-gradient(135deg,rgba(247,201,72,0.12),rgba(255,149,0,0.08));border:1px solid rgba(247,201,72,0.3);border-radius:10px;padding:8px;font-size:11px;font-weight:700;color:var(--gold);">⚡ File prioritaire — Premium actif</div>
+          <button class="btn-find" id="btn-find-room" onclick="createRoom()" disabled style="width:100%;padding:15px;font-size:14px;border-radius:12px;">🔍 Rechercher une Room</button>
+          <div class="room-hint" id="room-hint" style="margin-top:12px;font-size:12px;">Forme ton équipe d'abord</div>
+          <div id="premium-queue-badge" style="display:none;margin-top:8px;background:linear-gradient(135deg,rgba(247,201,72,0.12),rgba(255,149,0,0.08));border:1px solid rgba(247,201,72,0.3);border-radius:10px;padding:8px;font-size:11px;font-weight:700;color:var(--gold);">⚡ File prioritaire — Premium actif</div>
+          <div class="searching-box" id="searching-box">
+            <div class="searching-dots">Recherche en cours<span>.</span><span>.</span><span>.</span></div>
+            <div style="font-size:11px;color:var(--muted);margin-top:4px;" id="searching-mode"></div>
+            <div id="elo-window-display" style="display:none;margin-top:8px;background:rgba(77,166,255,0.08);border:1px solid rgba(77,166,255,0.2);border-radius:8px;padding:7px 12px;font-size:11px;color:var(--blue);font-weight:600;"></div>
+            <button onclick="cancelQueue()" style="margin-top:12px;width:100%;background:rgba(255,70,85,0.1);border:1px solid rgba(255,70,85,0.4);color:var(--accent);border-radius:10px;padding:10px;font-family:'Syne',sans-serif;font-weight:700;font-size:12px;cursor:pointer;">✕ Quitter la file d'attente</button>
+          </div>
+          <button id="admin-bot-btn" style="display:none;margin-top:14px;width:100%;background:rgba(255,209,102,0.1);border:1px solid var(--gold);color:var(--gold);border-radius:12px;padding:12px;font-family:'Syne',sans-serif;font-weight:700;font-size:12px;cursor:pointer;letter-spacing:0.05em;" onclick="spawnBots()">🤖 Admin — Lancer avec des Bots</button>
         </div>
 
-        <!-- Center: global chat -->
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;display:flex;flex-direction:column;height:420px;">
-          <div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-shrink:0;">
-            <span style="width:7px;height:7px;border-radius:50%;background:var(--green);display:inline-block;"></span>
+        <!-- Chat global V2 -->
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;display:flex;flex-direction:column;height:460px;">
+          <div style="padding:13px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-shrink:0;">
+            <span style="width:7px;height:7px;border-radius:50%;background:var(--green);display:inline-block;flex-shrink:0;"></span>
             <span style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:13px;">Chat global</span>
+            <span id="v2-chat-online" style="font-size:10px;color:var(--muted);margin-left:auto;"></span>
           </div>
-          <div id="global-chat-messages-v2" style="flex:1;overflow-y:auto;padding:10px 12px;display:flex;flex-direction:column;gap:5px;scrollbar-width:thin;"></div>
+          <div id="v2-chat-messages" style="flex:1;overflow-y:auto;padding:10px 12px;display:flex;flex-direction:column;gap:5px;scrollbar-width:thin;scrollbar-color:var(--border) transparent;"></div>
           <div style="padding:10px 12px;border-top:1px solid var(--border);display:flex;gap:7px;flex-shrink:0;">
-            <input id="global-chat-input-v2" placeholder="Écrire…" maxlength="120" onkeydown="if(event.key==='Enter')sendGlobalChatV2()" style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:8px 11px;color:var(--text);font-size:12px;outline:none;font-family:'Inter',sans-serif;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"/>
-            <button onclick="sendGlobalChatV2()" style="background:var(--accent);border:none;color:#fff;border-radius:8px;padding:8px 13px;cursor:pointer;font-size:13px;">➤</button>
+            <input id="v2-chat-input" placeholder="Écrire…" maxlength="120" onkeydown="if(event.key==='Enter')v2SendGlobalChat()" style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:8px 11px;color:var(--text);font-size:12px;outline:none;font-family:'Inter',sans-serif;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"/>
+            <button onclick="v2SendGlobalChat()" style="background:var(--accent);border:none;color:#fff;border-radius:8px;padding:8px 13px;cursor:pointer;font-size:13px;">➤</button>
           </div>
         </div>
 
-        <!-- Right: live rooms (pseudos masqués) -->
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px;">
-          <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:14px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;">
+        <!-- Rooms live (anonymisées) -->
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:16px;">
+          <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:14px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;">
             <span>🟢 Rooms live</span>
-            <span id="live-rooms-count-v2" style="font-size:11px;color:var(--muted);font-weight:600;"></span>
+            <span id="v2-rooms-count" style="font-size:11px;color:var(--muted);font-weight:600;"></span>
           </div>
-          <div id="live-rooms-list-v2" style="display:flex;flex-direction:column;gap:8px;max-height:360px;overflow-y:auto;scrollbar-width:thin;"></div>
+          <div id="v2-rooms-list" style="display:flex;flex-direction:column;gap:8px;max-height:380px;overflow-y:auto;scrollbar-width:thin;"></div>
         </div>
       </div>
     </div>
 
-    <!-- V2 content placeholders for other tabs (they reuse the existing main-body content) -->
-    <div class="v2-content" id="v2-tab-other" style="display:none;">
-      <!-- Other tabs render into main-body which becomes visible below -->
-    </div>
-  </div>
-
-  <nav class="navbar">
+    <!-- main-body lives here in V2 (other tabs) — hidden when on ranked home -->
+    <div class="main-body" id="main-body-v2-slot" style="display:none;">
     <div class="nav-logo" onclick="showMainTab('room')">REVENGE<span>.</span></div>
     <div class="nav-tabs">
       <button class="nav-tab active" id="ntab-room" onclick="showMainTab('room')">🎮 Ranked</button>
@@ -553,7 +556,6 @@ body.ui-v2 #admin-float-join { display: none !important; }
 
       <button onclick="openFriendsPanel()" style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:8px 14px;color:var(--text);font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;" title="Amis">👥 <span id="friends-online-count" style="color:var(--green);font-size:11px;"></span></button>
 
-
       <div class="avatar" id="nav-avatar" onclick="openProfile()">?</div>
       <div style="display:flex;flex-direction:column;align-items:flex-start;gap:1px;">
         <span class="nav-pseudo" id="nav-pseudo" style="font-size:16px;font-weight:700;"></span>
@@ -580,7 +582,7 @@ body.ui-v2 #admin-float-join { display: none !important; }
             </div>
             <div id="global-chat-messages" style="flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:6px;scrollbar-width:thin;scrollbar-color:var(--border) transparent;"></div>
             <div style="padding:12px 14px;border-top:1px solid var(--border);display:flex;gap:8px;">
-              <input id="global-chat-input" placeholder="Écrire un message…" maxlength="120" onkeydown="if(event.key==='Enter')sendGlobalChat()" style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px 13px;color:var(--text);font-size:13px;outline:none;font-family:'Inter',sans-serif;transition:border-color 0.2s;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"/>
+              <input id="global-chat-input" placeholder="Écrire un message…" maxlength="200" onkeydown="if(event.key==='Enter')sendGlobalChat()" style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px 13px;color:var(--text);font-size:13px;outline:none;font-family:'Inter',sans-serif;transition:border-color 0.2s;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"/>
               <button onclick="sendGlobalChat()" style="background:var(--accent);border:none;color:#fff;border-radius:10px;padding:10px 15px;cursor:pointer;font-size:15px;flex-shrink:0;transition:opacity 0.15s;" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">➤</button>
             </div>
           </div>
@@ -600,16 +602,16 @@ body.ui-v2 #admin-float-join { display: none !important; }
                 <div class="mode-btn" onclick="selectMode('3v3',this)" style="padding:14px 10px;font-size:14px;">3v3</div>
                 <div class="mode-btn" onclick="selectMode('5v5',this)" style="padding:14px 10px;font-size:14px;">5v5</div>
               </div>
-              <button class="btn-find" id="btn-find-room" onclick="createRoom()" disabled style="padding:18px;font-size:15px;border-radius:14px;">🔍 Rechercher une Room</button>
-              <div class="room-hint" id="room-hint" style="margin-top:14px;font-size:13px;">Forme ton équipe d'abord</div>
-              <div id="premium-queue-badge" style="display:none;margin-top:8px;background:linear-gradient(135deg,rgba(247,201,72,0.12),rgba(255,149,0,0.08));border:1px solid rgba(247,201,72,0.3);border-radius:10px;padding:8px 14px;font-size:12px;font-weight:700;color:var(--gold);text-align:center;">⚡ File d'attente prioritaire — Premium actif</div>
-              <div class="searching-box" id="searching-box">
+              <button class="btn-find" id="btn-find-room-legacy" onclick="createRoom()" disabled style="padding:18px;font-size:15px;border-radius:14px;">🔍 Rechercher une Room</button>
+              <div class="room-hint" id="legacy-room-hint" style="margin-top:14px;font-size:13px;">Forme ton équipe d'abord</div>
+              <div id="legacy-premium-queue-badge" style="display:none;margin-top:8px;background:linear-gradient(135deg,rgba(247,201,72,0.12),rgba(255,149,0,0.08));border:1px solid rgba(247,201,72,0.3);border-radius:10px;padding:8px 14px;font-size:12px;font-weight:700;color:var(--gold);text-align:center;">⚡ File d'attente prioritaire — Premium actif</div>
+              <div class="searching-box" id="legacy-searching-box">
                 <div class="searching-dots">Recherche en cours<span>.</span><span>.</span><span>.</span></div>
                 <div style="font-size:11px;color:var(--muted);margin-top:4px;" id="searching-mode"></div>
                 <div id="elo-window-display" style="display:none;margin-top:8px;background:rgba(77,166,255,0.08);border:1px solid rgba(77,166,255,0.2);border-radius:8px;padding:7px 12px;font-size:11px;color:var(--blue);font-weight:600;"></div>
                 <button onclick="cancelQueue()" style="margin-top:12px;width:100%;background:rgba(255,70,85,0.1);border:1px solid rgba(255,70,85,0.4);color:var(--accent);border-radius:10px;padding:10px;font-family:'Syne',sans-serif;font-weight:700;font-size:12px;cursor:pointer;">✕ Quitter la file d'attente</button>
               </div>
-              <button id="admin-bot-btn" style="display:none;margin-top:14px;width:100%;background:rgba(255,209,102,0.1);border:1px solid var(--gold);color:var(--gold);border-radius:12px;padding:12px;font-family:'Syne',sans-serif;font-weight:700;font-size:12px;cursor:pointer;letter-spacing:0.05em;" onclick="spawnBots()">🤖 Admin — Lancer avec des Bots</button>
+              <button id="legacy-admin-bot-btn" style="display:none;margin-top:14px;width:100%;background:rgba(255,209,102,0.1);border:1px solid var(--gold);color:var(--gold);border-radius:12px;padding:12px;font-family:'Syne',sans-serif;font-weight:700;font-size:12px;cursor:pointer;letter-spacing:0.05em;" onclick="spawnBots()">🤖 Admin — Lancer avec des Bots</button>
             </div>
           </div>
         </div>
@@ -753,18 +755,11 @@ body.ui-v2 #admin-float-join { display: none !important; }
                 <div style="font-weight:700;font-size:13px;margin-bottom:4px;color:var(--gold);text-transform:uppercase;letter-spacing:0.05em;">⚔️ Challenges BO3</div>
                 <div id="clan-bo3-ready-status" style="font-size:11px;color:var(--muted);margin-bottom:10px;"></div>
                 <div id="clan-challenges-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px;"></div>
-                <div id="clan-challenge-form" style="display:flex;flex-direction:column;gap:8px;">
-                  <div style="display:flex;gap:8px;align-items:center;">
-                    <select id="clan-challenge-target" style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:8px 12px;color:var(--text);font-size:13px;outline:none;">
-                      <option value="">Choisir un clan à challenger…</option>
-                    </select>
-                    <select id="clan-challenge-mode" style="background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:8px 12px;color:var(--text);font-size:13px;outline:none;font-family:'Space Grotesk',sans-serif;font-weight:700;">
-                      <option value="2v2">2v2</option>
-                      <option value="3v3">3v3</option>
-                      <option value="5v5" selected>5v5</option>
-                    </select>
-                    <button id="clan-challenge-btn" onclick="sendClanChallenge()" style="background:linear-gradient(135deg,var(--gold),#ff9500);color:#000;border:none;border-radius:9px;padding:9px 16px;font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:13px;cursor:pointer;white-space:nowrap;">⚔️ Challenger</button>
-                  </div>
+                <div id="clan-challenge-form" style="display:flex;gap:8px;align-items:center;">
+                  <select id="clan-challenge-target" style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:8px 12px;color:var(--text);font-size:13px;outline:none;">
+                    <option value="">Choisir un clan à challenger…</option>
+                  </select>
+                  <button id="clan-challenge-btn" onclick="sendClanChallenge()" style="background:linear-gradient(135deg,var(--gold),#ff9500);color:#000;border:none;border-radius:9px;padding:9px 16px;font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:13px;cursor:pointer;white-space:nowrap;">⚔️ Challenger</button>
                 </div>
               </div>
               <div style="padding:12px 24px;border-top:1px solid var(--border);display:flex;gap:8px;">
@@ -850,7 +845,7 @@ body.ui-v2 #admin-float-join { display: none !important; }
             </div>
             <div id="clan-chat-messages" style="flex:1;overflow-y:auto;padding:10px 12px;display:flex;flex-direction:column;gap:5px;scrollbar-width:thin;scrollbar-color:var(--border) transparent;"></div>
             <div style="padding:10px 12px;border-top:1px solid var(--border);display:flex;gap:7px;">
-              <input id="clan-chat-input" placeholder="Message au clan…" maxlength="120" onkeydown="if(event.key==='Enter')sendClanChat()" style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:8px 12px;color:var(--text);font-size:13px;outline:none;font-family:'Inter',sans-serif;transition:border-color 0.2s;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"/>
+              <input id="clan-chat-input" placeholder="Message au clan…" maxlength="200" onkeydown="if(event.key==='Enter')sendClanChat()" style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:8px 12px;color:var(--text);font-size:13px;outline:none;font-family:'Inter',sans-serif;transition:border-color 0.2s;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"/>
               <button onclick="sendClanChat()" style="background:var(--accent);border:none;color:#fff;border-radius:9px;padding:8px 13px;cursor:pointer;font-size:14px;">➤</button>
             </div>
           </div>
@@ -1217,21 +1212,6 @@ body.ui-v2 #admin-float-join { display: none !important; }
             <div id="elo-adj-result" style="margin-top:10px;font-size:12px;min-height:18px;"></div>
           </div>
 
-          <!-- Content Role Management -->
-          <div style="background:var(--surface);border:1px solid rgba(145,71,255,0.3);border-radius:14px;padding:20px;margin-top:14px;">
-            <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:14px;margin-bottom:14px;color:#9147ff;">🎬 Rôle Content</div>
-            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
-              <input id="content-pseudo-input" placeholder="Pseudo du joueur" style="flex:1;min-width:160px;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:9px 14px;color:var(--text);font-size:13px;outline:none;font-family:'Inter',sans-serif;" onfocus="this.style.borderColor='#9147ff'" onblur="this.style.borderColor='var(--border)'"/>
-              <button onclick="adminSetContent()" style="background:rgba(145,71,255,0.15);border:1px solid rgba(145,71,255,0.4);color:#9147ff;border-radius:10px;padding:9px 16px;font-weight:800;font-size:13px;cursor:pointer;font-family:'Space Grotesk',sans-serif;white-space:nowrap;">✅ Donner Content</button>
-              <button onclick="adminRevokeContent()" style="background:rgba(255,70,85,0.08);border:1px solid rgba(255,70,85,0.25);color:var(--accent);border-radius:10px;padding:9px 16px;font-weight:800;font-size:13px;cursor:pointer;font-family:'Space Grotesk',sans-serif;white-space:nowrap;">✕ Retirer Content</button>
-            </div>
-            <div id="content-result" style="font-size:12px;min-height:16px;margin-bottom:10px;"></div>
-            <div style="font-size:11px;color:var(--muted);margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Membres Content actuels</div>
-            <div id="content-list" style="display:flex;flex-wrap:wrap;gap:6px;">
-              <div style="font-size:12px;color:var(--muted);font-style:italic;">Chargement…</div>
-            </div>
-          </div>
-
           <!-- Backup manuelle -->
           <div style="background:var(--surface);border:1px solid rgba(52,211,153,0.2);border-radius:14px;padding:16px 20px;margin-top:14px;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;">
             <div>
@@ -1407,25 +1387,15 @@ body.ui-v2 #admin-float-join { display: none !important; }
       </div>
 
       <div id="chat-box-wrap">
-
-        <!-- Info banner : code de groupe Valorant -->
-        <div style="display:flex;align-items:flex-start;gap:10px;background:rgba(77,166,255,0.07);border:1px solid rgba(77,166,255,0.25);border-radius:12px;padding:11px 14px;margin-bottom:10px;">
-          <span style="font-size:18px;flex-shrink:0;">📋</span>
-          <div style="font-size:12px;color:rgba(255,255,255,0.75);line-height:1.6;">
-            <span style="font-weight:700;color:var(--blue);">Échangez votre code de groupe Valorant</span> dans le chat pour vous retrouver en jeu — allez dans <span style="color:var(--text);font-weight:600;">Jouer → Jeu personnalisé</span> et partagez le code à votre adversaire.
-          </div>
-        </div>
-
         <div class="chat-box">
         <div class="chat-header">💬 Chat</div>
         <div class="chat-messages" id="chat-messages"></div>
         <div class="chat-input-row">
           <input type="file" id="chat-img-input" accept="image/*" style="display:none" onchange="sendChatImage(event)"/>
           <button class="chat-img-btn" onclick="document.getElementById('chat-img-input').click()" title="Envoyer une image">🖼️</button>
-          <input class="chat-input" id="chat-input" placeholder="Écrire…" maxlength="120" oninput="updateChatCounter()" onkeydown="if(event.key==='Enter')sendChat()"/>
+          <input class="chat-input" id="chat-input" placeholder="Écrire…" onkeydown="if(event.key==='Enter')sendChat()"/>
           <button class="chat-send" onclick="sendChat()"><svg viewBox="0 0 24 24"><path d="M2 21L23 12 2 3v7l15 2-15 2v7z"/></svg></button>
         </div>
-        <div style="text-align:right;padding:2px 12px 6px;"><span id="chat-counter" style="font-size:10px;color:var(--muted);">0/120</span></div>
         <div class="room-action-btns">
           <button class="btn-report" onclick="reportRoom()">🚨 Report</button>
           <button class="btn-decision" onclick="requestDecision()">⚖️ Demander une décision</button>
@@ -1482,178 +1452,6 @@ body.ui-v2 #admin-float-join { display: none !important; }
     <div class="team-panel">
       <div class="team-label team2" id="team2-label">⚔ Équipe 2</div>
       <div id="team2-players"></div>
-    </div>
-  </div>
-</div>
-
-<!-- PREMIUM MODAL -->
-<!-- RULES MODAL -->
-<div class="modal-overlay" id="rules-modal" style="z-index:500;align-items:center;justify-content:center;">
-  <div style="background:var(--surface);border:1px solid var(--border);border-radius:20px;width:100%;max-width:560px;max-height:85vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 80px rgba(0,0,0,0.7);">
-
-    <!-- Header fixe -->
-    <div style="padding:24px 28px 18px;border-bottom:1px solid var(--border);flex-shrink:0;background:linear-gradient(135deg,rgba(255,70,85,0.06),transparent);">
-      <div style="display:flex;align-items:center;gap:12px;">
-        <span style="font-size:28px;">📜</span>
-        <div>
-          <div style="font-family:'Syne',sans-serif;font-weight:900;font-size:20px;letter-spacing:0.02em;">RÈGLES DU SITE</div>
-          <div style="font-size:12px;color:var(--muted);margin-top:2px;">Lisez attentivement avant de jouer</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Contenu scrollable -->
-    <div style="overflow-y:auto;flex:1;padding:20px 28px;scrollbar-width:thin;scrollbar-color:var(--border) transparent;">
-
-      <!-- Règles générales -->
-      <div style="margin-bottom:20px;">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-          <span style="font-size:16px;">🏠</span>
-          <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:14px;color:var(--text);">Règles générales</div>
-        </div>
-        <div id="rules-general" style="display:flex;flex-direction:column;gap:8px;">
-          <div style="display:flex;align-items:flex-start;gap:10px;padding:12px;background:var(--bg);border-radius:10px;">
-            <span style="font-size:15px;flex-shrink:0;">🤝</span>
-            <div style="font-size:12px;color:var(--text);line-height:1.6;"><b>Respect obligatoire</b> — Tout comportement irrespectueux est interdit : insultes, propos homophobes, sexistes, racistes ou discriminatoires envers un joueur, quel que soit le contexte.</div>
-          </div>
-          <div style="display:flex;align-items:flex-start;gap:10px;padding:12px;background:var(--bg);border-radius:10px;">
-            <span style="font-size:15px;flex-shrink:0;">🗣️</span>
-            <div style="font-size:12px;color:var(--text);line-height:1.6;"><b>Comportement en jeu</b> — Le trash talk excessif, le harcèlement ou l'intimidation d'un autre joueur sont interdits et sanctionnés. Gardez une attitude fair-play.</div>
-          </div>
-          <div style="display:flex;align-items:flex-start;gap:10px;padding:12px;background:var(--bg);border-radius:10px;">
-            <span style="font-size:15px;flex-shrink:0;">🧾</span>
-            <div style="font-size:12px;color:var(--text);line-height:1.6;"><b>Bonne foi</b> — En vous inscrivant sur Revenge, vous acceptez de jouer honnêtement et de respecter l'ensemble des règles. Toute tentative de contournement des règles sera sanctionnée.</div>
-          </div>
-          <div style="display:flex;align-items:flex-start;gap:10px;padding:12px;background:var(--bg);border-radius:10px;">
-            <span style="font-size:15px;flex-shrink:0;">📛</span>
-            <div style="font-size:12px;color:var(--text);line-height:1.6;"><b>Pseudo</b> — Les pseudos offensants, discriminatoires ou imitant un membre du staff sont interdits. Le staff se réserve le droit de bannir tout compte au pseudo inapproprié.</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Règles des matchs -->
-      <div style="margin-bottom:20px;">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-          <span style="font-size:16px;">⚔️</span>
-          <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:14px;color:var(--text);">Règles des matchs</div>
-        </div>
-        <div id="rules-matches" style="display:flex;flex-direction:column;gap:8px;">
-          <div style="display:flex;align-items:flex-start;gap:10px;padding:12px;background:var(--bg);border-radius:10px;">
-            <span style="font-size:15px;flex-shrink:0;">📸</span>
-            <div style="font-size:12px;color:var(--text);line-height:1.6;"><b>Screenshot obligatoire</b> — Chaque joueur doit prendre un screenshot de l'écran de fin de match (victoire ou défaite) afin de prouver le résultat. En cas de litige, seuls les screens seront pris en compte par le staff.</div>
-          </div>
-          <div style="display:flex;align-items:flex-start;gap:10px;padding:12px;background:var(--bg);border-radius:10px;">
-            <span style="font-size:15px;flex-shrink:0;">🔫</span>
-            <div style="font-size:12px;color:var(--text);line-height:1.6;"><b>Arme pré-choisie</b> — L'arme votée en début de room est <b>obligatoire</b> pour toute la durée du match. Ne pas la respecter entraîne une <b>défaite immédiate</b>, sans appel.</div>
-          </div>
-          <div style="display:flex;align-items:flex-start;gap:10px;padding:12px;background:var(--bg);border-radius:10px;">
-            <span style="font-size:15px;flex-shrink:0;">⚖️</span>
-            <div style="font-size:12px;color:var(--text);line-height:1.6;"><b>Litige</b> — En cas de désaccord sur le résultat, utilisez le bouton <b>"Demander une décision"</b> dans la room. Le staff tranchera en se basant sur les screenshots fournis par les deux parties.</div>
-          </div>
-          <div style="display:flex;align-items:flex-start;gap:10px;padding:12px;background:var(--bg);border-radius:10px;">
-            <span style="font-size:15px;flex-shrink:0;">🎬</span>
-            <div style="font-size:12px;color:var(--text);line-height:1.6;"><b>Enregistrement recommandé</b> — Si vous suspectez un adversaire de triche, enregistrez votre partie. Une vidéo constitue la preuve la plus solide lors d'un signalement au staff.</div>
-          </div>
-          <div style="display:flex;align-items:flex-start;gap:10px;padding:12px;background:var(--bg);border-radius:10px;">
-            <span style="font-size:15px;flex-shrink:0;">🚪</span>
-            <div style="font-size:12px;color:var(--text);line-height:1.6;"><b>Abandon</b> — Quitter une room en cours sans raison valable est interdit. Un abandon répété pourra entraîner une suspension temporaire.</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Règles des clans -->
-      <div style="margin-bottom:20px;">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-          <span style="font-size:16px;">🛡️</span>
-          <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:14px;color:var(--text);">Règles des clans</div>
-        </div>
-        <div id="rules-clans" style="display:flex;flex-direction:column;gap:8px;">
-          <div style="display:flex;align-items:flex-start;gap:10px;padding:12px;background:var(--bg);border-radius:10px;">
-            <span style="font-size:15px;flex-shrink:0;">🏆</span>
-            <div style="font-size:12px;color:var(--text);line-height:1.6;"><b>Format BO3</b> — Les matchs inter-clans se jouent en <b>Best of 3</b>. L'équipe qui remporte 2 manches en premier gagne le match et empoche les points de classement.</div>
-          </div>
-          <div style="display:flex;align-items:flex-start;gap:10px;padding:12px;background:var(--bg);border-radius:10px;">
-            <span style="font-size:15px;flex-shrink:0;">🚨</span>
-            <div style="font-size:12px;color:var(--text);line-height:1.6;"><b>Litige clan</b> — En cas de désaccord entre chefs de clan sur le résultat d'une manche, appuyez sur le bouton <b>"Report"</b> dans la room. Le staff interviendra et tranchera définitivement.</div>
-          </div>
-          <div style="display:flex;align-items:flex-start;gap:10px;padding:12px;background:var(--bg);border-radius:10px;">
-            <span style="font-size:15px;flex-shrink:0;">👑</span>
-            <div style="font-size:12px;color:var(--text);line-height:1.6;"><b>Responsabilité du chef</b> — Le chef de clan est responsable du comportement de ses membres. Un clan dont les membres accumulent des sanctions pourra être dissous par le staff.</div>
-          </div>
-          <div style="display:flex;align-items:flex-start;gap:10px;padding:12px;background:var(--bg);border-radius:10px;">
-            <span style="font-size:15px;flex-shrink:0;">⏳</span>
-            <div style="font-size:12px;color:var(--text);line-height:1.6;"><b>Recréation de clan</b> — Après dissolution d'un clan (volontaire ou par sanction), un délai de <b>7 jours</b> est obligatoire avant de pouvoir en créer un nouveau.</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Sanctions -->
-      <div>
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-          <span style="font-size:16px;">🚫</span>
-          <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:14px;color:var(--text);">Sanctions</div>
-        </div>
-        <div id="rules-sanctions" style="display:flex;flex-direction:column;gap:8px;">
-          <div style="display:flex;align-items:flex-start;gap:10px;padding:12px;background:rgba(255,70,85,0.05);border:1px solid rgba(255,70,85,0.15);border-radius:10px;">
-            <span style="font-size:15px;flex-shrink:0;">💻</span>
-            <div style="font-size:12px;color:var(--text);line-height:1.6;"><b>Cheat / Hack</b> — L'utilisation de tout programme tiers donnant un avantage injuste (aimbot, wallhack, scripts…) est <b>strictement interdite</b>. Les parties sont surveillées et tout cheat confirmé entraîne un <b>ban permanent immédiat</b>.</div>
-          </div>
-          <div style="display:flex;align-items:flex-start;gap:10px;padding:12px;background:rgba(255,70,85,0.05);border:1px solid rgba(255,70,85,0.15);border-radius:10px;">
-            <span style="font-size:15px;flex-shrink:0;">👥</span>
-            <div style="font-size:12px;color:var(--text);line-height:1.6;"><b>Smurfing</b> — La création de comptes multiples pour manipuler le classement est interdite. Tout compte smurf détecté sera banni, et le compte principal sanctionné.</div>
-          </div>
-          <div style="display:flex;align-items:flex-start;gap:10px;padding:12px;background:rgba(255,70,85,0.05);border:1px solid rgba(255,70,85,0.15);border-radius:10px;">
-            <span style="font-size:15px;flex-shrink:0;">🤝</span>
-            <div style="font-size:12px;color:var(--text);line-height:1.6;"><b>Win trading</b> — S'arranger avec un adversaire pour échanger des victoires afin de gonfler son ELO est interdit. Les profils suspects sont activement surveillés et les contrevenants bannis.</div>
-          </div>
-          <div style="display:flex;align-items:flex-start;gap:10px;padding:12px;background:rgba(255,70,85,0.05);border:1px solid rgba(255,70,85,0.15);border-radius:10px;">
-            <span style="font-size:15px;flex-shrink:0;">🔇</span>
-            <div style="font-size:12px;color:var(--text);line-height:1.6;"><b>Insultes & toxicité</b> — Toute insulte, propos haineux ou harcèlement dans les chats (room, global, clan) est sanctionné par un <b>mute temporaire</b>, pouvant aller jusqu'au ban en cas de récidive.</div>
-          </div>
-          <div style="display:flex;align-items:flex-start;gap:10px;padding:12px;background:rgba(255,70,85,0.05);border:1px solid rgba(255,70,85,0.15);border-radius:10px;">
-            <span style="font-size:15px;flex-shrink:0;">⚠️</span>
-            <div style="font-size:12px;color:var(--text);line-height:1.6;"><b>Récidive</b> — Tout joueur déjà sanctionné qui renouvelle une infraction verra sa peine aggravée. Le staff se réserve le droit de bannir définitivement tout joueur dont le comportement nuit à la communauté.</div>
-          </div>
-          <div style="display:flex;align-items:flex-start;gap:10px;padding:12px;background:rgba(255,70,85,0.05);border:1px solid rgba(255,70,85,0.15);border-radius:10px;">
-            <span style="font-size:15px;flex-shrink:0;">📩</span>
-            <div style="font-size:12px;color:var(--text);line-height:1.6;"><b>Contester une sanction</b> — Si vous estimez qu'une sanction est injustifiée, ouvrez un ticket dans l'onglet <b>Support</b> en détaillant votre situation. Toute contestation sera étudiée par le staff.</div>
-          </div>
-        </div>
-      </div>
-
-    </div>
-
-    <!-- Footer fixe avec bouton -->
-    <div style="padding:16px 28px;border-top:1px solid var(--border);flex-shrink:0;background:var(--surface);">
-      <button onclick="closeRulesModal()" style="width:100%;background:linear-gradient(135deg,var(--accent),#c0392b);border:none;border-radius:12px;padding:13px;color:#fff;font-family:'Syne',sans-serif;font-weight:800;font-size:14px;letter-spacing:0.05em;cursor:pointer;transition:all 0.2s;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">
-        ✅ J'ai lu et j'accepte les règles
-      </button>
-    </div>
-
-  </div>
-</div>
-
-<!-- CLAN LINEUP MODAL -->
-<div class="modal-overlay" id="clan-lineup-modal">
-  <div class="modal-card" style="max-width:460px;padding:0;overflow:hidden;">
-    <div style="background:linear-gradient(135deg,#0f1a0f,#1a2a10);padding:24px 28px 18px;border-bottom:1px solid rgba(255,70,85,0.2);">
-      <div style="font-size:28px;margin-bottom:6px;">⚔️</div>
-      <div style="font-family:'Syne',sans-serif;font-weight:900;font-size:20px;color:var(--accent);">Sélection de ton équipe</div>
-      <div style="font-size:12px;color:var(--muted);margin-top:4px;" id="clan-lineup-subtitle">Choisis tes joueurs</div>
-    </div>
-    <div style="padding:20px 28px;">
-      <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">
-        Membres en ligne dans ton clan — sélectionne exactement <span id="clan-lineup-needed" style="color:var(--accent);font-weight:700;">?</span> joueur(s) :
-      </div>
-      <div id="clan-lineup-players" style="display:flex;flex-direction:column;gap:8px;max-height:280px;overflow-y:auto;margin-bottom:18px;"></div>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
-        <div style="font-size:12px;color:var(--muted);">Sélectionnés : <span id="clan-lineup-count" style="color:var(--accent);font-weight:700;">0</span> / <span id="clan-lineup-max">?</span></div>
-        <div id="clan-lineup-warning" style="font-size:11px;color:orange;display:none;"></div>
-      </div>
-      <div style="display:flex;gap:10px;">
-        <button onclick="closeClanLineupModal()" style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:11px;color:var(--text);font-weight:600;cursor:pointer;font-size:13px;">Annuler</button>
-        <button id="clan-lineup-confirm-btn" onclick="submitClanLineup()" style="flex:2;background:linear-gradient(135deg,var(--accent),#c0392b);border:none;border-radius:10px;padding:11px;color:#fff;font-family:'Syne',sans-serif;font-weight:800;font-size:14px;cursor:pointer;letter-spacing:0.04em;" disabled>⚔️ Confirmer la lineup</button>
-      </div>
     </div>
   </div>
 </div>
@@ -1948,42 +1746,19 @@ const ADMIN_KEY = 'revenge_admin_secret';
 
 function showMainTab(tab) {
   requestAnimationFrame(() => { const ms = document.getElementById('screen-main'); if (ms) ms.scrollTop = 0; });
-  const tabs = ['room','lb','admin','tournois','tickets','clans','boutique'];
-
-  // Find current active tab content and fade it out first
-  const currentActive = tabs.map(t => document.getElementById('tab-content-' + t)).find(el => el && el.classList.contains('active'));
-
-  const doSwitch = () => {
-    tabs.forEach(t => {
-      const btn = document.getElementById('ntab-' + t);
-      const content = document.getElementById('tab-content-' + t);
-      if (btn) btn.classList.toggle('active', tab === t);
-      if (content) {
-        content.classList.toggle('active', tab === t);
-        if (tab !== t) content.style.opacity = '';
-      }
-    });
-    if (tab === 'lb') { loadLeaderboard(state.lbMode); loadCotd(); loadSeasonBanner(); }
-    if (tab === 'room') { loadGlobalChat(); fetchLiveRooms(); loadTwitchLive(); }
-    if (tab === 'admin') { refreshAdminLogs(); refreshAdminTickets(); loadAdminStats(); loadPremiumAdmin(); loadStaffStatus(); loadContentList(); showAdminSection('stats'); }
-    if (tab === 'tickets') loadMyTickets();
-    if (tab === 'boutique') initBoutique();
-    if (tab === 'clans') initClanTab();
-    if (tab === 'tournois') loadTournaments();
-  };
-
-  if (currentActive && !currentActive.id.includes(tab)) {
-    // Quick fade out (80ms), then switch
-    currentActive.style.transition = 'opacity 0.08s ease';
-    currentActive.style.opacity = '0';
-    setTimeout(() => {
-      currentActive.style.transition = '';
-      currentActive.style.opacity = '';
-      doSwitch();
-    }, 80);
-  } else {
-    doSwitch();
-  }
+  ['room','lb','admin','tournois','tickets','clans','boutique'].forEach(t => {
+    const btn = document.getElementById('ntab-' + t);
+    const content = document.getElementById('tab-content-' + t);
+    if (btn) btn.classList.toggle('active', tab === t);
+    if (content) content.classList.toggle('active', tab === t);
+  });
+  if (tab === 'lb') { loadLeaderboard(state.lbMode); loadCotd(); loadSeasonBanner(); }
+  if (tab === 'room') { loadGlobalChat(); fetchLiveRooms(); loadTwitchLive(); }
+  if (tab === 'admin') { refreshAdminLogs(); refreshAdminTickets(); loadAdminStats(); loadPremiumAdmin(); loadStaffStatus(); showAdminSection('stats'); }
+  if (tab === 'tickets') loadMyTickets();
+  if (tab === 'boutique') initBoutique();
+  if (tab === 'clans') initClanTab();
+  if (tab === 'tournois') loadTournaments();
 }
 
 // ── ADMIN SECTIONS ──
@@ -2357,12 +2132,8 @@ function updateRoomBtn() {
     btn.disabled = true;
     hint.style.display = '';
     hint.textContent = `Il faut ${currentTeamSize} joueur(s) dans le groupe`;
-    hint.style.color = '';n  }
-  // Sync V2 find button and hint
-  const v2btn = document.getElementById('btn-find-room-v2');
-  const v2hint = document.getElementById('room-hint-v2');
-  if (v2btn) { v2btn.disabled = btn.disabled; v2btn.textContent = btn.textContent || (btn.disabled ? '🔍 Rechercher une Room' : '🔍 Rechercher une Room'); }
-  if (v2hint && hint) { v2hint.textContent = hint.textContent; v2hint.style.display = hint.style.display; v2hint.style.color = hint.style.color; }
+    hint.style.color = '';
+  }
 }
 
 // ── SOCKET ──
@@ -2403,11 +2174,10 @@ function initSocket() {
   if (socket) return;
   socket = io({ transports: ['polling', 'websocket'] });
 
-  socket.on('auth_ok', ({ pseudo, elo, stats, isAdmin, isContent, avatar, userId, isPremium, premiumUntil, referralCode }) => {
+  socket.on('auth_ok', ({ pseudo, elo, stats, isAdmin, avatar, userId, isPremium, premiumUntil, referralCode }) => {
     state.pseudo = pseudo;
     state.stats = stats || {};
     state.isAdmin = isAdmin || false;
-    state.isContent = isContent || false;
     state.avatar = avatar || null;
     state.userId = userId || null;
     state.isPremium = !!isPremium;
@@ -2439,8 +2209,6 @@ function initSocket() {
     setTimeout(() => {
       if (lockEl) lockEl.style.display = state.isPremium ? 'none' : 'flex';
     }, 100);
-    // Show rules popup (once per session)
-    setTimeout(() => showRulesModal(), 600);
   });
 
   socket.on('auth_error', (msg) => {
@@ -2455,7 +2223,7 @@ function initSocket() {
     if (el) el.textContent = code;
     renderGroupMembers(players);
     updateRoomBtn();
-    hideGroupChat(); // solo = no group chat needed
+    hideGroupChat();
   });
 
   socket.on('group_joined', ({ code, players, mode }) => {
@@ -2541,7 +2309,7 @@ function initSocket() {
     document.getElementById('btn-find-room').disabled = false;
   });
 
-  socket.on('chat_msg', (msg) => addMsg(msg.author, msg.team || 'system', msg.text, msg.time, msg.isPremium, msg.role || null));
+  socket.on('chat_msg', (msg) => addMsg(msg.author, msg.team || 'system', msg.text, msg.time, msg.isPremium));
 
   socket.on('chat_img', ({ author, team, img, time }) => addMsgImg(author, team, img, time));
 
@@ -2696,52 +2464,31 @@ function initSocket() {
   });
 
   // ── CLAN CHALLENGE ──
-  socket.on('clan_challenge_received', ({ challengeId, from, tag, mode }) => {
+  socket.on('clan_challenge_received', ({ challengeId, from, tag }) => {
     playBeep(660, 0.2);
-    notify(`⚔️ Le clan <b>[${tag}] ${from}</b> vous challenge en <b>${mode || '5v5'}</b> ! Rendez-vous dans l'onglet Clans.`, {
-      accent: 'var(--gold)', duration: 12000,
+    notify(`⚔️ Le clan <b>[${tag}] ${from}</b> vous challenge en BO3 !`, {
+      accent: 'var(--gold)', duration: 10000,
       onClick: () => { showMainTab('clans'); loadClanChallenges(); }
     });
     loadClanChallenges();
   });
-  socket.on('clan_challenge_accepted', ({ challengeId, by, mode }) => {
-    notify(`✅ <b>${by}</b> a accepté le challenge ${mode || ''} — sélectionnez votre lineup !`, { accent: '#2ecc71', duration: 8000 });
-    loadClanChallenges();
-  });
-  socket.on('clan_lineup_select', ({ challengeId, mode, teamSize, teamIdx, myClanName, myClanTag, opponentName, opponentTag, availablePlayers }) => {
-    playBeep(660, 0.15);
-    openClanLineupModal({ challengeId, mode, teamSize, teamIdx, myClanName, myClanTag, opponentName, opponentTag, availablePlayers });
-  });
-  socket.on('clan_lineup_submitted', ({ challengeId, teamIdx }) => {
-    notify('✅ Lineup soumise ! En attente de l\'équipe adverse…', { accent: '#2ecc71', duration: 6000 });
-  });
-  socket.on('clan_room_created', ({ challengeId, roomId, mode }) => {
-    notify(`⚔️ Les deux lineups sont prêtes — la room de clan est lancée en ${mode} !`, { accent: 'var(--gold)', duration: 6000 });
+  socket.on('clan_challenge_accepted', ({ challengeId, by }) => {
+    notify(`✅ <b>${by}</b> a accepté votre challenge BO3 !`, { accent: '#2ecc71', duration: 6000 });
     loadClanChallenges();
   });
   socket.on('clan_challenge_declined', ({ challengeId, by }) => {
-    notify(`❌ <b>${by}</b> a refusé votre challenge`, { accent: 'var(--accent)', duration: 5000 });
+    notify(`❌ <b>${by}</b> a refusé votre challenge BO3`, { accent: 'var(--accent)', duration: 5000 });
     loadClanChallenges();
   });
-  socket.on('clan_match_waiting', ({ challengeId, mode, teamSize, challengerName, challengerTag, challengedName, challengedTag, team1Online, team2Online }) => {
-    notify(`⚠️ Challenge accepté mais pas assez de membres en ligne pour le ${mode} (${teamSize}v${teamSize} requis). [${challengerTag}] ${team1Online}/${teamSize} · [${challengedTag}] ${team2Online}/${teamSize}`, {
-      accent: 'orange', duration: 10000,
-      onClick: () => { showMainTab('clans'); }
-    });
-    loadClanChallenges();
-  });
-  socket.on('clan_bo3_won', ({ series, opponentName, pointsGained }) => {
+  socket.on('clan_bo3_won', ({ series, opponentName }) => {
     playRankUpSound();
-    notify(`🏆 Victoire de clan contre <b>${opponentName}</b> ! +${pointsGained || '?'} pts`, { accent: 'var(--gold)', duration: 8000 });
+    notify(`🏆 Victoire BO3 contre <b>${opponentName}</b> ! (${series[0]}-${series[1]}) +3 pts`, { accent: 'var(--gold)', duration: 8000 });
     loadMyClan(); loadClanLeaderboard(); loadClanChallenges();
   });
-  socket.on('clan_bo3_lost', ({ series, opponentName, pointsLost }) => {
+  socket.on('clan_bo3_lost', ({ series, opponentName }) => {
     playEloLossSound();
-    notify(`💀 Défaite de clan contre <b>${opponentName}</b> — -${pointsLost || '?'} pts`, { accent: 'var(--accent)', duration: 6000 });
+    notify(`💀 Défaite BO3 contre <b>${opponentName}</b> (${series[0]}-${series[1]})`, { accent: 'var(--accent)', duration: 6000 });
     loadMyClan(); loadClanLeaderboard(); loadClanChallenges();
-  });
-  socket.on('clan_points_updated', () => {
-    loadClanLeaderboard(); loadMyClan();
   });
 
   // ── WEEKLY RESET ──
@@ -2922,12 +2669,6 @@ function initSocket() {
     // Update local state if same mode
     if (state.stats && state.stats[mode]) state.stats[mode].elo = newElo;
     if (state.mode === mode) { state.elo = newElo; document.getElementById('nav-elo').textContent = newElo; updateNavRank(); }
-    // Sync V2
-    const v2eloEl = document.getElementById('v2-elo');
-    const v2statElo = document.getElementById('v2-stat-elo');
-    if (v2eloEl) v2eloEl.textContent = newElo;
-    if (v2statElo) v2statElo.textContent = newElo;
-    if (_uiV2) syncV2State();
   });
 
   socket.on('premium_revoked', () => {
@@ -3173,19 +2914,6 @@ function initSocket() {
     });
   });
 
-  socket.on('group_invite_received', ({ fromId, fromPseudo, fromAvatar, groupCode, mode }) => {
-    playBeep(660, 0.15);
-    notify(`👥 <b>${fromPseudo}</b> t'invite dans son groupe <b>${mode}</b> ! Clique pour rejoindre.`, {
-      accent: 'var(--green)', duration: 12000,
-      onClick: () => {
-        if (socket) {
-          socket.emit('join_group', { code: groupCode });
-          notify(`✅ Tu as rejoint le groupe de ${fromPseudo} !`, { accent: 'var(--green)', duration: 3000 });
-        }
-      }
-    });
-  });
-
   socket.on('friend_request_accepted', ({ pseudo }) => {
     playSound('friend_request');
     loadFriends();
@@ -3399,7 +3127,7 @@ function enterMain() {
     }).catch(()=>{});
   }
   state.groupSize = 1;
-  hideGroupChat(); // hide until at least 2 members in group
+  hideGroupChat();
   socket.emit('create_group', { mode: state.mode });
   updateRoomBtn();
   const adminBtn = document.getElementById('admin-bot-btn');
@@ -3412,8 +3140,6 @@ function enterMain() {
   loadGlobalChat();
   loadTwitchLive();
   loadMyClan();
-  // Apply saved interface preference
-  if (_uiV2) { setTimeout(() => { applyInterface(); syncV2State(); }, 200); }
 }
 
 let _clansByUser = {}; // userId -> tag
@@ -3703,23 +3429,11 @@ async function loadFriends() {
           <div style="font-size:11px;color:${f.online?'#2ecc71':'var(--muted)'};">${f.online?'🟢 En ligne':'⚫ Hors ligne'}</div>
         </div>
         <div style="display:flex;gap:6px;">
-          ${f.online ? `<button onclick="inviteFriendToGroup('${f.id}','${f.pseudo}')" title="Inviter dans le groupe" style="background:rgba(58,255,160,0.08);border:1px solid rgba(58,255,160,0.25);color:var(--green);border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;">➕</button>` : ''}
           <button onclick="openChat('${f.id}','${f.pseudo}','${f.avatar||''}','${f.online}')" title="Message" style="background:rgba(79,142,247,0.1);border:1px solid rgba(79,142,247,0.25);color:#4f8ef7;border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;">💬</button>
           <button onclick="askRemoveFriend('${f.id}','${f.pseudo}')" title="Supprimer" style="background:rgba(255,70,85,0.08);border:1px solid rgba(255,70,85,0.2);color:var(--accent);border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;">✕</button>
         </div>
       </div>`).join('');
   } catch(e) {}
-}
-
-function inviteFriendToGroup(friendId, friendPseudo) {
-  if (!socket) return;
-  const entry = document.getElementById('nav-group-code')?.textContent;
-  if (!entry || entry === '——') {
-    notify('❌ Tu dois être dans un groupe pour inviter un ami', { accent: 'var(--accent)' });
-    return;
-  }
-  socket.emit('invite_friend_to_group', { friendId });
-  notify(`📨 Invitation envoyée à <b>${friendPseudo}</b> !`, { accent: 'var(--green)', duration: 3000 });
 }
 
 async function loadFriendRequests() {
@@ -4474,66 +4188,6 @@ async function adminAdjustElo() {
   } catch(e) { resultEl.style.color = 'var(--accent)'; resultEl.textContent = 'Erreur réseau'; }
 }
 
-// ── CONTENT ROLE ADMIN ──
-async function loadContentList() {
-  const listEl = document.getElementById('content-list');
-  if (!listEl) return;
-  try {
-    const r = await fetch('/api/admin/content-list', { headers: { 'x-admin-key': ADMIN_KEY } });
-    const d = await r.json();
-    const pseudos = d.contentPseudos || [];
-    if (!pseudos.length) {
-      listEl.innerHTML = '<div style="font-size:12px;color:var(--muted);font-style:italic;">Aucun membre Content</div>';
-    } else {
-      listEl.innerHTML = pseudos.map(p => `
-        <div style="display:flex;align-items:center;gap:6px;background:rgba(145,71,255,0.1);border:1px solid rgba(145,71,255,0.3);border-radius:8px;padding:5px 10px;">
-          <span style="font-size:11px;font-weight:700;color:#9147ff;">🎬 ${p}</span>
-          <button onclick="adminRevokeContentPseudo('${p}')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:0;line-height:1;" title="Retirer">✕</button>
-        </div>`).join('');
-    }
-  } catch(e) {}
-}
-
-async function adminSetContent() {
-  const pseudo = document.getElementById('content-pseudo-input').value.trim();
-  const resultEl = document.getElementById('content-result');
-  if (!pseudo) { resultEl.style.color = 'var(--accent)'; resultEl.textContent = 'Entre un pseudo.'; return; }
-  try {
-    const r = await fetch('/api/admin/set-content', {
-      method: 'POST', headers: { 'Content-Type': 'application/json', 'x-admin-key': ADMIN_KEY },
-      body: JSON.stringify({ pseudo })
-    });
-    const d = await r.json();
-    if (!r.ok) { resultEl.style.color = 'var(--accent)'; resultEl.textContent = '❌ ' + (d.error || 'Erreur'); return; }
-    resultEl.style.color = 'var(--green)';
-    resultEl.textContent = `✅ ${pseudo} a maintenant le rôle Content.`;
-    document.getElementById('content-pseudo-input').value = '';
-    loadContentList();
-  } catch(e) { resultEl.style.color = 'var(--accent)'; resultEl.textContent = 'Erreur réseau'; }
-}
-
-async function adminRevokeContent() {
-  const pseudo = document.getElementById('content-pseudo-input').value.trim();
-  const resultEl = document.getElementById('content-result');
-  if (!pseudo) { resultEl.style.color = 'var(--accent)'; resultEl.textContent = 'Entre un pseudo.'; return; }
-  await adminRevokeContentPseudo(pseudo);
-  document.getElementById('content-pseudo-input').value = '';
-}
-
-async function adminRevokeContentPseudo(pseudo) {
-  const resultEl = document.getElementById('content-result');
-  try {
-    const r = await fetch('/api/admin/revoke-content', {
-      method: 'POST', headers: { 'Content-Type': 'application/json', 'x-admin-key': ADMIN_KEY },
-      body: JSON.stringify({ pseudo })
-    });
-    const d = await r.json();
-    if (!r.ok) { if (resultEl) { resultEl.style.color = 'var(--accent)'; resultEl.textContent = '❌ ' + (d.error || 'Erreur'); } return; }
-    if (resultEl) { resultEl.style.color = 'var(--muted)'; resultEl.textContent = `✕ Rôle Content retiré à ${pseudo}.`; }
-    loadContentList();
-  } catch(e) { if (resultEl) { resultEl.style.color = 'var(--accent)'; resultEl.textContent = 'Erreur réseau'; } }
-}
-
 // ── REJOUER ──
 function replayGame() {
   backToLobby();
@@ -4665,17 +4319,12 @@ function appendGlobalChatMsg(msg, scroll = true) {
 
   const gcPremBorder = msg.isPremium ? 'box-shadow:0 0 0 2px #f7c948;' : '';
   const avatarHtml = msg.avatar
-    ? `<img src="${msg.avatar}" style="width:30px;height:30px;border-radius:50%;object-fit:cover;flex-shrink:0;${gcPremBorder}">`
-    : `<div style="width:30px;height:30px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex-shrink:0;${gcPremBorder}">${msg.pseudo[0].toUpperCase()}</div>`;
+    ? `<img src="${msg.avatar}" style="width:20px;height:20px;border-radius:50%;object-fit:cover;flex-shrink:0;${gcPremBorder}">`
+    : `<div style="width:20px;height:20px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;flex-shrink:0;${gcPremBorder}">${msg.pseudo[0].toUpperCase()}</div>`;
 
-  const gcRoleBadge = msg.role === 'admin'
-    ? `<span style="background:rgba(255,70,85,0.2);color:var(--accent);font-size:9px;font-weight:800;border-radius:4px;padding:1px 5px;">ADMIN</span>`
-    : msg.role === 'content'
-    ? `<span style="background:rgba(145,71,255,0.2);color:#9147ff;font-size:9px;font-weight:800;border-radius:4px;padding:1px 5px;">CONTENT</span>`
-    : '';
   const pseudoHtml = isMe
-    ? `<span style="font-size:13px;font-weight:700;color:var(--accent);">Toi ${state.isPremium ? '👑' : ''}</span>`
-    : `<span onclick="openGlobalChatProfile('${msg.pseudo.replace(/'/g,"\'")}',event)" style="font-size:13px;font-weight:700;color:${msg.isPremium ? '#f7c948' : 'var(--text)'};cursor:pointer;">${msg.isPremium ? '👑 ' : ''}${msg.pseudo}</span>${gcRoleBadge}`;
+    ? `<span style="font-size:11px;font-weight:700;color:var(--accent);">Toi ${state.isPremium ? '👑' : ''}</span>`
+    : `<span onclick="openGlobalChatProfile('${msg.pseudo.replace(/'/g,"\'")}',event)" style="font-size:11px;font-weight:700;color:${msg.isPremium ? '#f7c948' : 'var(--muted)'};cursor:pointer;">${msg.isPremium ? '👑 ' : ''}${msg.pseudo}</span>`;
 
   div.innerHTML = `
     <div style="display:flex;align-items:center;gap:5px;${isMe?'flex-direction:row-reverse;':''}">
@@ -5226,11 +4875,10 @@ async function loadClanChallenges() {
       const isChallenger = ch.challengerClanId === state.clanId;
       const opponent = isChallenger ? ch.challengedName : ch.challengerName;
       const opponentTag = isChallenger ? ch.challengedTag : ch.challengerTag;
-      const mode = ch.mode || '5v5';
-      const modeBadge = `<span style="background:rgba(255,70,85,0.15);color:var(--accent);border-radius:5px;padding:1px 7px;font-size:11px;font-weight:800;font-family:'Space Grotesk',sans-serif;">${mode}</span>`;
+      const score = isChallenger ? `${ch.series[0]}-${ch.series[1]}` : `${ch.series[1]}-${ch.series[0]}`;
       if (ch.status === 'pending' && !isChallenger) {
         return `<div style="background:rgba(247,201,72,0.08);border:1px solid rgba(247,201,72,0.25);border-radius:10px;padding:10px 12px;">
-          <div style="font-size:12px;font-weight:700;margin-bottom:6px;display:flex;align-items:center;gap:8px;">⚔️ Challenge de <b>[${ch.challengerTag}] ${ch.challengerName}</b> ${modeBadge}</div>
+          <div style="font-size:12px;font-weight:700;margin-bottom:8px;">⚔️ Challenge de <b>[${ch.challengerTag}] ${ch.challengerName}</b></div>
           <div style="display:flex;gap:8px;">
             <button onclick="respondClanChallenge('${ch.id}',true)" style="background:rgba(46,204,113,0.15);border:1px solid #2ecc71;color:#2ecc71;border-radius:7px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer;">✓ Accepter</button>
             <button onclick="respondClanChallenge('${ch.id}',false)" style="background:rgba(255,70,85,0.1);border:1px solid rgba(255,70,85,0.3);color:var(--accent);border-radius:7px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer;">✕ Refuser</button>
@@ -5239,16 +4887,13 @@ async function loadClanChallenges() {
       }
       if (ch.status === 'pending' && isChallenger) {
         return `<div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px 12px;">
-          <div style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:8px;">⏳ Challenge ${modeBadge} envoyé à <b>[${opponentTag}] ${opponent}</b> — En attente de réponse</div>
+          <div style="font-size:12px;color:var(--muted);">⏳ Challenge envoyé à <b>[${opponentTag}] ${opponent}</b> — En attente de réponse</div>
         </div>`;
       }
-      if (ch.status === 'active' || ch.status === 'waiting_players') {
-        const waitingMsg = ch.status === 'waiting_players'
-          ? `<div style="font-size:11px;color:orange;margin-top:4px;">⚠️ En attente que les membres rejoignent…</div>`
-          : '';
+      if (ch.status === 'active') {
         return `<div style="background:rgba(255,70,85,0.05);border:1px solid rgba(255,70,85,0.2);border-radius:10px;padding:10px 12px;">
-          <div style="font-size:12px;font-weight:700;display:flex;align-items:center;gap:8px;">🔴 Match de clan vs <b>[${opponentTag}] ${opponent}</b> ${modeBadge}</div>
-          ${waitingMsg}
+          <div style="font-size:12px;font-weight:700;">🔴 BO3 vs <b>[${opponentTag}] ${opponent}</b></div>
+          <div style="font-size:20px;font-family:'Space Grotesk',sans-serif;font-weight:800;text-align:center;margin:6px 0;color:var(--gold);">${score}</div>
         </div>`;
       }
       return '';
@@ -5258,18 +4903,16 @@ async function loadClanChallenges() {
 
 async function sendClanChallenge() {
   const select = document.getElementById('clan-challenge-target');
-  const modeSelect = document.getElementById('clan-challenge-mode');
   const targetId = select ? select.value : '';
-  const mode = modeSelect ? modeSelect.value : '5v5';
   if (!targetId) { notify('Choisis un clan à challenger'); return; }
   try {
     const r = await fetch('/api/clans/challenge', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ leaderId: state.userId, challengerClanId: state.clanId, challengedClanId: targetId, mode })
+      body: JSON.stringify({ leaderId: state.userId, challengerClanId: state.clanId, challengedClanId: targetId })
     });
     const d = await r.json();
     if (d.error) { notify('❌ ' + d.error); return; }
-    notify(`⚔️ Challenge ${mode} envoyé !`, { accent: 'var(--gold)' });
+    notify('⚔️ Challenge envoyé !', { accent: 'var(--gold)' });
     loadClanChallenges();
   } catch(e) { notify('❌ Erreur réseau'); }
 }
@@ -5282,337 +4925,9 @@ async function respondClanChallenge(challengeId, accept) {
     });
     const d = await r.json();
     if (d.error) { notify('❌ ' + d.error); return; }
-    notify(accept ? '✅ Challenge accepté ! Prépare ta lineup…' : '✕ Challenge refusé', { accent: accept ? '#2ecc71' : 'var(--muted)' });
+    notify(accept ? '✅ Challenge accepté !' : '✕ Challenge refusé', { accent: accept ? '#2ecc71' : 'var(--muted)' });
     loadClanChallenges();
   } catch(e) { notify('❌ Erreur réseau'); }
-}
-
-// ── CLAN LINEUP MODAL ──
-let _clanLineupData = null;
-
-
-function openImgLightbox(src) {
-  const lb = document.getElementById('img-lightbox');
-  const img = document.getElementById('img-lightbox-img');
-  if (!lb || !img) return;
-  img.src = src;
-  lb.style.display = 'flex';
-  document.body.style.overflow = 'hidden';
-}
-function closeImgLightbox() {
-  const lb = document.getElementById('img-lightbox');
-  if (lb) lb.style.display = 'none';
-  document.body.style.overflow = '';
-}
-// Close lightbox on Escape key
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeImgLightbox(); });
-
-// ── INTERFACE V2 ──
-const _uiV2 = true; // V2 permanent
-
-function toggleInterface() {
-  // V2 est l'interface permanente
-}
-
-function applyInterface() {
-  document.body.classList.toggle('ui-v2', _uiV2);
-  if (_uiV2) {
-    syncV2State();
-    loadV2LiveRooms();
-    loadV2GlobalChat();
-    v2ShowTab('room');
-  }
-}
-
-function syncV2State() {
-  // Pseudo, avatar, ELO
-  const v2pseudo = document.getElementById('v2-pseudo');
-  const v2elo = document.getElementById('v2-elo');
-  const v2avatar = document.getElementById('v2-avatar');
-  const v2statElo = document.getElementById('v2-stat-elo');
-  const v2welcome = document.getElementById('v2-welcome');
-  if (v2pseudo) v2pseudo.textContent = state.pseudo;
-  if (v2elo) v2elo.textContent = state.elo;
-  if (v2statElo) v2statElo.textContent = state.elo;
-  if (v2welcome) v2welcome.textContent = 'Bonjour, ' + state.pseudo + ' 👋';
-  if (v2avatar) {
-    if (state.avatar) v2avatar.innerHTML = `<img src="${state.avatar}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">`;
-    else v2avatar.textContent = (state.pseudo || '?')[0].toUpperCase();
-  }
-  // Group code
-  const v2code = document.getElementById('v2-group-code');
-  const navCode = document.getElementById('nav-group-code');
-  if (v2code && navCode) v2code.textContent = navCode.textContent;
-  // Admin tab
-  const v2admin = document.getElementById('v2-ntab-admin');
-  if (v2admin) v2admin.style.display = state.isAdmin ? '' : 'none';
-  // Win rate from stats
-  const stats = state.stats || {};
-  let totalW = 0, totalL = 0;
-  ['1v1','2v2','3v3','5v5'].forEach(m => { totalW += stats[m]?.wins || 0; totalL += stats[m]?.losses || 0; });
-  const total = totalW + totalL;
-  const wr = total ? Math.round(totalW / total * 100) : 0;
-  const wrEl = document.getElementById('v2-stat-wr');
-  const matchEl = document.getElementById('v2-stat-matches');
-  if (wrEl) wrEl.textContent = total ? wr + '%' : '—';
-  if (matchEl) matchEl.textContent = total || '—';
-  // Rank + progress bar
-  const maxEloVal = Math.max(...['1v1','2v2','3v3','5v5'].map(m => stats[m]?.elo || 0), 0);
-  const rankEl = document.getElementById('v2-stat-rank');
-  const RANKS = [
-    { name: 'Bronze',   min: 0,   max: 300,  color: '#cd7f32' },
-    { name: 'Silver',   min: 301, max: 450,  color: '#a8a9ad' },
-    { name: 'Gold',     min: 451, max: 600,  color: '#ffd166' },
-    { name: 'Platinum', min: 601, max: 750,  color: '#4da6ff' },
-    { name: 'Diamond',  min: 751, max: 900,  color: '#b44fff' },
-    { name: 'Radiant',  min: 901, max: 9999, color: '#ff4655' },
-  ];
-  const curRank = RANKS.slice().reverse().find(r => maxEloVal >= r.min) || RANKS[0];
-  const nextRank = RANKS[RANKS.indexOf(curRank) + 1] || null;
-  if (rankEl) { rankEl.textContent = curRank.name; rankEl.style.color = curRank.color; }
-  // Sidebar rank bar
-  const barEl = document.getElementById('v2-rank-bar');
-  const nameEl = document.getElementById('v2-rank-name');
-  const nextEl = document.getElementById('v2-rank-next');
-  const eloLbl = document.getElementById('v2-rank-elo-label');
-  if (nameEl) { nameEl.textContent = curRank.name; nameEl.style.color = curRank.color; }
-  if (eloLbl) eloLbl.textContent = maxEloVal;
-  if (barEl && nextRank) {
-    const pct = Math.min(100, Math.round((maxEloVal - curRank.min) / (nextRank.min - curRank.min) * 100));
-    barEl.style.width = pct + '%';
-    barEl.style.background = `linear-gradient(90deg,${curRank.color},${nextRank.color})`;
-    if (nextEl) nextEl.textContent = '→ ' + nextRank.name + ' (' + (nextRank.min - maxEloVal) + ' pts)';
-  } else if (barEl) {
-    barEl.style.width = '100%';
-    if (nextEl) nextEl.textContent = '✦ Rang max';
-  }
-  // find btn state
-  const v2find = document.getElementById('btn-find-room-v2');
-  const origFind = document.getElementById('btn-find-room');
-  if (v2find && origFind) {
-    v2find.disabled = origFind.disabled;
-    v2find.textContent = origFind.textContent;
-  }
-  const v2hint = document.getElementById('room-hint-v2');
-  const origHint = document.getElementById('room-hint');
-  if (v2hint && origHint) v2hint.textContent = origHint.textContent;
-  // Premium badge
-  const v2prem = document.getElementById('premium-queue-badge-v2');
-  if (v2prem) v2prem.style.display = state.isPremium ? '' : 'none';
-  // Live status
-  const liveEl = document.getElementById('v2-live-status');
-  // updated via v2 live rooms
-}
-
-function v2ShowTab(tab) {
-  if (!_uiV2) return;
-  ['room','lb','clans','tournois','boutique','tickets','admin'].forEach(t => {
-    const btn = document.getElementById('v2-ntab-' + t);
-    if (btn) btn.classList.toggle('active', t === tab);
-  });
-  const v2room = document.getElementById('v2-tab-room');
-  const mb = document.getElementById('screen-main')?.querySelector('.main-body');
-  if (tab === 'room') {
-    if (v2room) v2room.style.display = '';
-    if (mb) mb.style.display = 'none';
-    loadV2LiveRooms();
-    loadV2GlobalChat();
-  } else {
-    if (v2room) v2room.style.display = 'none';
-    if (mb) { mb.style.display = 'block'; mb.style.flex = '1'; mb.style.overflow = 'auto'; mb.style.padding = '0'; }
-    showMainTab(tab);
-  }
-}
-
-function loadV2LiveRooms() {
-  fetch('/api/active-rooms').then(r => r.json()).then(rooms => {
-    renderV2LiveRooms(rooms);
-  }).catch(() => {});
-}
-
-function renderV2LiveRooms(rooms) {
-  const container = document.getElementById('live-rooms-list-v2');
-  const countEl = document.getElementById('live-rooms-count-v2');
-  const liveEl = document.getElementById('v2-live-status');
-  if (!container) return;
-  const active = rooms.filter(r => r.status !== 'finished');
-  if (countEl) countEl.textContent = active.length > 0 ? active.length + ' active' + (active.length > 1 ? 's' : '') : '';
-  if (liveEl) liveEl.textContent = active.length + ' match' + (active.length > 1 ? 's' : '') + ' en cours';
-  if (!active.length) {
-    container.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;padding:20px 0;">Aucune room active</div>';
-    return;
-  }
-  const statusColor = s => s === 'waiting' ? 'var(--gold)' : s === 'playing' ? 'var(--green)' : 'var(--blue)';
-  const statusLabel = s => s === 'waiting' ? '⏳' : s === 'playing' ? '⚔️' : '🔫';
-  const modeBadgeColor = m => m === '1v1' ? '#ff4655' : m === '2v2' ? '#4f8ef7' : m === '3v3' ? '#9b59b6' : '#2ecc71';
-  container.innerHTML = active.map(r => `
-    <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:11px 13px;transition:border-color 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-        <span style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:11px;padding:2px 7px;border-radius:5px;background:${modeBadgeColor(r.mode)}20;color:${modeBadgeColor(r.mode)};border:1px solid ${modeBadgeColor(r.mode)}40;">${r.mode}</span>
-        <span style="font-size:11px;color:${statusColor(r.status)};">${statusLabel(r.status)} ${r.status === 'playing' ? 'En jeu' : 'Attente'}</span>
-        <span style="font-size:10px;color:var(--muted);">⏱ ${r.duration}</span>
-      </div>
-      <div style="display:flex;align-items:center;gap:8px;justify-content:center;">
-        <div style="display:flex;gap:3px;">
-          ${r.team1.map(() => `<div style="width:22px;height:22px;border-radius:50%;background:rgba(255,70,85,0.25);border:1px solid rgba(255,70,85,0.4);"></div>`).join('')}
-        </div>
-        <span style="font-size:11px;color:var(--muted);font-weight:700;">vs</span>
-        <div style="display:flex;gap:3px;">
-          ${r.team2.length ? r.team2.map(() => `<div style="width:22px;height:22px;border-radius:50%;background:rgba(79,142,247,0.25);border:1px solid rgba(79,142,247,0.4);"></div>`).join('') : '<span style="color:var(--muted);font-size:11px;">…</span>'}
-        </div>
-        <span style="font-size:10px;color:var(--muted);margin-left:auto;">${r.total}/${r.max}</span>
-      </div>
-    </div>`).join('');
-}
-
-async function loadV2GlobalChat() {
-  try {
-    const r = await fetch('/api/global-chat');
-    const msgs = await r.json();
-    const box = document.getElementById('global-chat-messages-v2');
-    if (!box) return;
-    box.innerHTML = '';
-    msgs.forEach(m => appendV2GlobalMsg(m, false));
-    box.scrollTop = box.scrollHeight;
-  } catch(e) {}
-}
-
-function appendV2GlobalMsg(msg, scroll = true) {
-  const box = document.getElementById('global-chat-messages-v2');
-  if (!box) return;
-  const isMe = msg.pseudo === state.pseudo;
-  const time = new Date(msg.time).toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' });
-  const div = document.createElement('div');
-  div.style.cssText = 'display:flex;flex-direction:column;gap:2px;' + (isMe ? 'align-items:flex-end;' : 'align-items:flex-start;');
-  const border = msg.isPremium ? 'box-shadow:0 0 0 2px #f7c948;' : '';
-  const avatarHtml = msg.avatar
-    ? `<img src="${msg.avatar}" style="width:22px;height:22px;border-radius:50%;object-fit:cover;flex-shrink:0;${border}">`
-    : `<div style="width:22px;height:22px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;flex-shrink:0;${border}">${msg.pseudo[0].toUpperCase()}</div>`;
-  const roleBadge = msg.role === 'admin'
-    ? `<span style="background:rgba(255,70,85,0.2);color:var(--accent);font-size:8px;font-weight:800;border-radius:3px;padding:1px 4px;">ADM</span>`
-    : msg.role === 'content'
-    ? `<span style="background:rgba(145,71,255,0.2);color:#9147ff;font-size:8px;font-weight:800;border-radius:3px;padding:1px 4px;">CNT</span>`
-    : '';
-  const pseudoColor = msg.isPremium ? '#f7c948' : 'var(--text)';
-  div.innerHTML = `
-    <div style="display:flex;align-items:center;gap:4px;${isMe?'flex-direction:row-reverse;':''}">
-      ${avatarHtml}
-      <span style="font-size:12px;font-weight:700;color:${pseudoColor};">${msg.isPremium?'👑 ':''}${isMe?'Toi':msg.pseudo}</span>
-      ${roleBadge}
-      <span style="font-size:9px;color:rgba(255,255,255,0.2);">${time}</span>
-    </div>
-    <div style="max-width:200px;background:${isMe?'var(--accent)':'rgba(255,255,255,0.07)'};color:${isMe?'#fff':'var(--text)'};border-radius:${isMe?'10px 10px 3px 10px':'10px 10px 10px 3px'};padding:6px 10px;font-size:12px;word-break:break-word;">${msg.text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>`;
-  box.appendChild(div);
-  if (scroll) box.scrollTop = box.scrollHeight;
-}
-
-function sendGlobalChatV2() {
-  const input = document.getElementById('global-chat-input-v2');
-  if (!input || !input.value.trim()) return;
-  document.getElementById('global-chat-input').value = input.value;
-  sendGlobalChat();
-  input.value = '';
-}
-
-// Sync V2 when live rooms update
-const _origRenderLiveRooms = renderLiveRooms;
-function renderLiveRooms(rooms) {
-  _origRenderLiveRooms(rooms);
-  if (_uiV2) renderV2LiveRooms(rooms);
-}
-
-// Sync V2 global chat
-const _origAppendGlobalChatMsg = appendGlobalChatMsg;
-function appendGlobalChatMsg(msg, scroll) {
-  _origAppendGlobalChatMsg(msg, scroll);
-  if (_uiV2) appendV2GlobalMsg(msg, scroll);
-}
-
-// Sync V2 ELO / hint updates
-const _origUpdateRoomBtn = typeof updateRoomBtn === 'function' ? updateRoomBtn : null;
-
-// Apply on page load (respect saved preference)
-document.addEventListener('DOMContentLoaded', () => {
-  applyInterface(); // V2 toujours actif
-});
-
-// ── RULES MODAL ──
-function showRulesModal() {
-  const modal = document.getElementById('rules-modal');
-  if (modal) modal.classList.add('show');
-}
-function closeRulesModal() {
-  const modal = document.getElementById('rules-modal');
-  if (modal) modal.classList.remove('show');
-}
-
-function openClanLineupModal({ challengeId, mode, teamSize, teamIdx, myClanName, myClanTag, opponentName, opponentTag, availablePlayers }) {
-  _clanLineupData = { challengeId, teamSize };
-  const modal = document.getElementById('clan-lineup-modal');
-  document.getElementById('clan-lineup-subtitle').textContent = `[${myClanTag}] ${myClanName}  vs  [${opponentTag}] ${opponentName} — Mode ${mode}`;
-  document.getElementById('clan-lineup-needed').textContent = teamSize;
-  document.getElementById('clan-lineup-max').textContent = teamSize;
-  document.getElementById('clan-lineup-count').textContent = '0';
-  document.getElementById('clan-lineup-confirm-btn').disabled = true;
-  const warning = document.getElementById('clan-lineup-warning');
-  warning.style.display = 'none';
-
-  const container = document.getElementById('clan-lineup-players');
-  if (!availablePlayers.length) {
-    container.innerHTML = '<div style="color:var(--muted);font-size:13px;text-align:center;padding:20px;">Aucun membre en ligne dans ton clan</div>';
-    warning.textContent = `Il faut ${teamSize} membre(s) en ligne pour lancer le match.`;
-    warning.style.display = 'block';
-  } else {
-    container.innerHTML = availablePlayers.map(p => `
-      <label style="display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;cursor:pointer;transition:border-color 0.2s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="if(!this.querySelector('input').checked)this.style.borderColor='var(--border)'">
-        <input type="checkbox" value="${p.id}" onchange="updateLineupCount()" style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer;flex-shrink:0;">
-        ${p.avatar ? `<img src="${p.avatar}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;flex-shrink:0;">` : `<div style="width:32px;height:32px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;flex-shrink:0;">${p.pseudo[0].toUpperCase()}</div>`}
-        <div style="flex:1;">
-          <div style="font-size:13px;font-weight:700;">${p.pseudo}</div>
-          <div style="font-size:11px;color:var(--muted);">${p.elo} ELO</div>
-        </div>
-      </label>`).join('');
-  }
-
-  modal.classList.add('show');
-  // Fermer si clic hors du modal
-  modal.onclick = (e) => { if (e.target === modal) closeClanLineupModal(); };
-}
-
-function updateLineupCount() {
-  const checkboxes = document.querySelectorAll('#clan-lineup-players input[type=checkbox]:checked');
-  const count = checkboxes.length;
-  const teamSize = _clanLineupData?.teamSize || 0;
-  document.getElementById('clan-lineup-count').textContent = count;
-  // Update label borders
-  document.querySelectorAll('#clan-lineup-players label').forEach(label => {
-    const cb = label.querySelector('input');
-    label.style.borderColor = cb.checked ? 'var(--accent)' : 'var(--border)';
-    label.style.background = cb.checked ? 'rgba(255,70,85,0.07)' : 'var(--surface2)';
-  });
-  // Disable extra checkboxes if limit reached
-  document.querySelectorAll('#clan-lineup-players input[type=checkbox]').forEach(cb => {
-    if (!cb.checked) cb.disabled = count >= teamSize;
-  });
-  document.getElementById('clan-lineup-confirm-btn').disabled = count !== teamSize;
-}
-
-function closeClanLineupModal() {
-  document.getElementById('clan-lineup-modal').classList.remove('show');
-  _clanLineupData = null;
-}
-
-function submitClanLineup() {
-  if (!_clanLineupData) return;
-  const checkboxes = document.querySelectorAll('#clan-lineup-players input[type=checkbox]:checked');
-  const playerIds = [...checkboxes].map(cb => cb.value);
-  if (playerIds.length !== _clanLineupData.teamSize) {
-    notify(`⚠️ Sélectionne exactement ${_clanLineupData.teamSize} joueur(s)`);
-    return;
-  }
-  socket.emit('clan_submit_lineup', { challengeId: _clanLineupData.challengeId, playerIds });
-  closeClanLineupModal();
-  notify('⏳ Lineup envoyée, en attente de l\'équipe adverse…', { accent: 'var(--gold)', duration: 5000 });
 }
 
 // ── TOURNAMENTS ──
@@ -5675,7 +4990,7 @@ async function loadTournaments() {
   const listEl = document.getElementById('tournaments-list');
   if (!listEl) return;
   const btnCreate = document.getElementById('btn-create-tournament');
-  if (btnCreate) btnCreate.style.display = (state.isPremium || state.isContent) ? '' : 'none';
+  if (btnCreate) btnCreate.style.display = state.isPremium ? '' : 'none';
   const btnSim = document.getElementById('btn-admin-sim-tournament');
   if (btnSim) btnSim.style.display = state.isAdmin ? '' : 'none';
   renderTournamentInvites();
@@ -5686,7 +5001,7 @@ async function loadTournaments() {
       listEl.innerHTML = `<div style="text-align:center;padding:60px 20px;">
         <div style="font-size:40px;margin-bottom:12px;">🏆</div>
         <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:18px;margin-bottom:8px;">Aucun tournoi en cours</div>
-        <div style="color:var(--muted);font-size:13px;">${(state.isPremium || state.isContent) ? 'Crée le premier tournoi !' : 'Un joueur Premium peut créer un tournoi ouvert à tous.'}</div>
+        <div style="color:var(--muted);font-size:13px;">${state.isPremium ? 'Crée le premier tournoi !' : 'Un joueur Premium peut créer un tournoi ouvert à tous.'}</div>
       </div>`;
       return;
     }
@@ -5789,7 +5104,7 @@ async function createTournament() {
     });
     const d = await r.json();
     if (d.error) {
-      if (errEl) errEl.textContent = d.error === 'PREMIUM_REQUIRED' ? '👑 Premium ou rôle Content requis' : d.error;
+      if (errEl) errEl.textContent = d.error === 'PREMIUM_REQUIRED' ? '👑 Premium requis' : d.error;
       return;
     }
     notify('🏆 Tournoi créé !', { accent: 'var(--gold)' });
@@ -6397,7 +5712,9 @@ async function buyPremium() {
   if (!state.userId) return notify("Connecte-toi d'abord", { accent: 'var(--accent)' });
   const planLabel = selectedPlanMonths === 1 ? '1 mois' : selectedPlanMonths === 3 ? '3 mois' : '6 mois';
   const subject = `👑 Achat Premium — ${planLabel} (${selectedPlanPrice}€)`;
-  const message = `Bonjour,\n\nJe souhaite acheter le Premium pour ${planLabel} à ${selectedPlanPrice}€.\n\nPseudo : ${state.pseudo}\nDurée : ${planLabel}\nPrix : ${selectedPlanPrice}€\n\nMode de paiement souhaité : PayPal / Crypto (à préciser)\n\nMerci de m'envoyer les informations de paiement.`;
+  const message = `Bonjour,\n\nJe souhaite acheter le Premium pour ${planLabel} à ${selectedPlanPrice}€.\n\nPseudo : ${state.pseudo}\nDurée : ${planLabel}\nPrix : ${selectedPlanPrice}€\n\nMode de paiement souhaité : PayPal / Crypto (à préciser)
+
+Merci de m'envoyer les informations de paiement.`;
   try {
     const r = await fetch('/api/tickets', {
       method: 'POST',
@@ -6482,21 +5799,16 @@ function declareResult(winner) {
   document.getElementById('declare-section').style.display = 'none';
 }
 
-function addMsg(author, team, text, time, isPremium = false, role = null) {
+function addMsg(author, team, text, time, isPremium = false) {
   const box = document.getElementById('chat-messages');
   const isSystem = team === 'system' || author === 'Système';
   const t = time ? new Date(time) : new Date();
   const ts = t.getHours().toString().padStart(2,'0') + ':' + t.getMinutes().toString().padStart(2,'0');
   const div = document.createElement('div');
   div.className = 'msg' + (isSystem ? ' system-msg' : '');
-  const roleBadge = role === 'admin'
-    ? `<span style="background:rgba(255,70,85,0.2);color:var(--accent);font-size:9px;font-weight:800;border-radius:4px;padding:1px 5px;letter-spacing:0.05em;flex-shrink:0;">ADMIN</span>`
-    : role === 'content'
-    ? `<span style="background:rgba(145,71,255,0.2);color:#9147ff;font-size:9px;font-weight:800;border-radius:4px;padding:1px 5px;letter-spacing:0.05em;flex-shrink:0;">CONTENT</span>`
-    : '';
   const authorHtml = isPremium
-    ? `<span class="msg-author ${team}" style="background:linear-gradient(90deg,#f7c948,#ff9500);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-weight:800;">👑 ${author}</span>${roleBadge}`
-    : `<span class="msg-author ${team}">${author}</span>${roleBadge}`;
+    ? `<span class="msg-author ${team}" style="background:linear-gradient(90deg,#f7c948,#ff9500);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-weight:800;">👑 ${author}</span>`
+    : `<span class="msg-author ${team}">${author}</span>`;
   div.innerHTML = isSystem
     ? `<div class="msg-text">${text}</div>`
     : `<div class="msg-header">${authorHtml}<span class="msg-time">${ts}</span></div><div class="msg-text">${text}</div>`;
@@ -6510,17 +5822,6 @@ function sendChat() {
   if (!val || !socket) return;
   socket.emit('chat_msg', { text: val });
   input.value = '';
-  updateChatCounter();
-}
-
-function updateChatCounter() {
-  const input = document.getElementById('chat-input');
-  const counter = document.getElementById('chat-counter');
-  if (!input || !counter) return;
-  const len = input.value.length;
-  const max = 120;
-  counter.textContent = `${len}/${max}`;
-  counter.style.color = len >= max ? 'var(--accent)' : len >= max * 0.85 ? 'var(--gold)' : 'var(--muted)';
 }
 
 function leaveGroup() {
@@ -6562,7 +5863,6 @@ function requestDecision() {
 
 function adminDecide(winner) {
   if (!socket) return;
-  // roomId peut venir de state.roomId (spectateur) ou du badge dans la barre admin
   const roomId = state.roomId || document.getElementById('admin-spec-room')?.textContent?.replace('ROOM #','')?.trim();
   if (!roomId) { notify('❌ Aucune room sélectionnée', { accent: 'var(--accent)' }); return; }
   state._pendingAdminDecision = true;
@@ -6652,7 +5952,7 @@ function addMsgImg(author, team, img, time) {
   const ts = t.getHours().toString().padStart(2,'0') + ':' + t.getMinutes().toString().padStart(2,'0');
   const div = document.createElement('div');
   div.className = 'msg';
-  div.innerHTML = `<div class="msg-header"><span class="msg-author ${team}">${author}</span><span class="msg-time">${ts}</span></div><img src="${img}" class="chat-msg-img" onclick="openImgLightbox(this.src)">`;
+  div.innerHTML = `<div class="msg-header"><span class="msg-author ${team}">${author}</span><span class="msg-time">${ts}</span></div><img src="${img}" class="chat-msg-img" onclick="v2OpenLightbox(this.src)">`;
   box.appendChild(div);
   box.scrollTop = box.scrollHeight;
 }
@@ -7042,7 +6342,7 @@ async function loadProfileHistory(userId) {
   <div id="group-chat-body" style="display:flex;flex-direction:column;height:320px;border-radius:0 0 16px 16px;overflow:hidden;">
     <div id="group-chat-messages" style="flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:6px;"></div>
     <div style="padding:8px;border-top:1px solid var(--border);display:flex;gap:6px;">
-      <input id="group-chat-input" placeholder="Message au groupe…" maxlength="120"
+      <input id="group-chat-input" placeholder="Message au groupe…" maxlength="200"
         style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:7px 10px;color:var(--text);font-size:12px;outline:none;"
         onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"
         onkeydown="if(event.key==='Enter')sendGroupChat()"/>
@@ -7102,10 +6402,297 @@ async function loadProfileHistory(userId) {
   </div>
 </div>
 
+<script>
+// ════════════════════════════════════════════
+//  INTERFACE V2 — logique principale
+// ════════════════════════════════════════════
+
+// Appliquer V2 dès le chargement
+document.addEventListener('DOMContentLoaded', () => {
+  document.body.classList.add('ui-v2');
+  // main-body hidden by default in V2 (ranked home shown instead)
+  const mb = document.getElementById('main-body-v2-slot');
+  if (mb) mb.style.display = 'none';
+});
+
+// Appelé après login
+function v2Init() {
+  document.body.classList.add('ui-v2');
+  v2SyncState();
+  v2LoadRooms();
+  v2LoadChat();
+  // Show ranked home, hide main-body slot
+  const rh = document.getElementById('v2-ranked-home');
+  const mb = document.getElementById('main-body-v2-slot');
+  if (rh) rh.style.display = '';
+  if (mb) mb.style.display = 'none';
+  // Sidebar active = room
+  v2SetActive('room');
+}
+
+function v2SetActive(tab) {
+  ['room','lb','clans','tournois','boutique','tickets','admin'].forEach(t => {
+    const b = document.getElementById('v2-ntab-' + t);
+    if (b) b.classList.toggle('active', t === tab);
+  });
+}
+
+function v2GoRanked() {
+  v2SetActive('room');
+  const rh = document.getElementById('v2-ranked-home');
+  const mb = document.getElementById('main-body-v2-slot');
+  if (rh) rh.style.display = '';
+  if (mb) mb.style.display = 'none';
+  // Refresh data
+  v2LoadRooms();
+  v2LoadChat();
+  fetchLiveRooms();
+  loadGlobalChat();
+  loadTwitchLive();
+}
+
+function v2ShowTab(tab) {
+  v2SetActive(tab);
+  // Hide ranked home, show main-body slot
+  const rh = document.getElementById('v2-ranked-home');
+  const mb = document.getElementById('main-body-v2-slot');
+  if (rh) rh.style.display = 'none';
+  if (mb) { mb.style.display = 'block'; }
+  // Trigger the original tab logic
+  showMainTab(tab);
+  // Scroll to top
+  if (mb) mb.scrollTop = 0;
+}
+
+function v2JoinGroup() {
+  const inp = document.getElementById('v2-join-code');
+  const real = document.getElementById('join-code-mini');
+  if (inp && real) { real.value = inp.value; joinGroup(); inp.value = ''; }
+}
+
+// ── Sync state → V2 UI ──
+function v2SyncState() {
+  // Pseudo
+  const el = document.getElementById('v2-pseudo');
+  if (el) el.textContent = state.pseudo || '';
+  // Welcome
+  const wel = document.getElementById('v2-welcome');
+  if (wel) wel.textContent = 'Bonjour, ' + (state.pseudo || '') + ' 👋';
+  // Avatar
+  const av = document.getElementById('v2-avatar');
+  if (av) {
+    if (state.avatar) av.innerHTML = '<img src="' + state.avatar + '" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">';
+    else av.textContent = (state.pseudo || '?')[0].toUpperCase();
+  }
+  // ELO
+  const elo = document.getElementById('v2-elo');
+  if (elo) elo.textContent = state.elo || 500;
+  const statElo = document.getElementById('v2-stat-elo');
+  if (statElo) statElo.textContent = state.elo || 500;
+  // Admin tab
+  const adminBtn = document.getElementById('v2-ntab-admin');
+  if (adminBtn) adminBtn.style.display = state.isAdmin ? '' : 'none';
+  // Group code
+  const gc = document.getElementById('v2-group-code');
+  const nc = document.getElementById('nav-group-code');
+  if (gc && nc) gc.textContent = nc.textContent;
+  // Stats
+  const stats = state.stats || {};
+  let totalW = 0, totalL = 0;
+  ['1v1','2v2','3v3','5v5'].forEach(m => { totalW += (stats[m]?.wins || 0); totalL += (stats[m]?.losses || 0); });
+  const total = totalW + totalL;
+  const wr = total ? Math.round(totalW / total * 100) : null;
+  const wrEl = document.getElementById('v2-stat-wr');
+  const matchEl = document.getElementById('v2-stat-matches');
+  if (wrEl) wrEl.textContent = wr !== null ? wr + '%' : '—';
+  if (matchEl) matchEl.textContent = total || '—';
+  // Rank
+  const RANK_TIERS = [
+    { name: 'Bronze',   min: 0,   max: 300,  color: '#cd7f32' },
+    { name: 'Silver',   min: 301, max: 450,  color: '#a8a9ad' },
+    { name: 'Gold',     min: 451, max: 600,  color: '#ffd166' },
+    { name: 'Platinum', min: 601, max: 750,  color: '#4da6ff' },
+    { name: 'Diamond',  min: 751, max: 900,  color: '#b44fff' },
+    { name: 'Radiant',  min: 901, max: 99999, color: '#ff4655' },
+  ];
+  const maxEloVal = Math.max(0, ...['1v1','2v2','3v3','5v5'].map(m => stats[m]?.elo || 0));
+  const curRank = [...RANK_TIERS].reverse().find(r => maxEloVal >= r.min) || RANK_TIERS[0];
+  const rankIdx = RANK_TIERS.indexOf(curRank);
+  const nextRank = RANK_TIERS[rankIdx + 1] || null;
+  // Stat card rank
+  const rankEl = document.getElementById('v2-stat-rank');
+  if (rankEl) { rankEl.textContent = curRank.name; rankEl.style.color = curRank.color; }
+  // Sidebar rank
+  const barEl = document.getElementById('v2-rank-bar');
+  const nameEl = document.getElementById('v2-rank-name');
+  const nextEl = document.getElementById('v2-rank-next');
+  const eloLbl = document.getElementById('v2-rank-elo-label');
+  if (nameEl) { nameEl.textContent = curRank.name; nameEl.style.color = curRank.color; }
+  if (eloLbl) eloLbl.textContent = maxEloVal;
+  if (barEl && nextRank) {
+    const range = nextRank.min - curRank.min;
+    const pct = Math.min(100, Math.round((maxEloVal - curRank.min) / range * 100));
+    barEl.style.width = pct + '%';
+    barEl.style.background = 'linear-gradient(90deg,' + curRank.color + ',' + nextRank.color + ')';
+    if (nextEl) nextEl.textContent = '→ ' + nextRank.name + ' (' + (nextRank.min - maxEloVal) + ' pts)';
+  } else if (barEl) {
+    barEl.style.width = '100%';
+    barEl.style.background = curRank.color;
+    if (nextEl) nextEl.textContent = '✦ Rang max';
+  }
+  // Friends count
+  const fc = document.getElementById('v2-friends-count');
+  const fnc = document.getElementById('friends-online-count');
+  if (fc && fnc) fc.textContent = fnc.textContent;
+  // Premium badge
+  const pb = document.getElementById('premium-queue-badge');
+  if (pb) pb.style.display = state.isPremium ? '' : 'none';
+}
+
+// ── Rooms live (pseudos masqués) ──
+function v2LoadRooms() {
+  fetch('/api/active-rooms').then(r => r.json()).then(v2RenderRooms).catch(() => {});
+}
+
+function v2RenderRooms(rooms) {
+  const container = document.getElementById('v2-rooms-list');
+  const countEl = document.getElementById('v2-rooms-count');
+  if (!container) return;
+  const active = rooms.filter(r => r.status !== 'finished');
+  if (countEl) countEl.textContent = active.length ? active.length + ' active' + (active.length > 1 ? 's' : '') : '';
+  if (!active.length) {
+    container.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;padding:20px 0;">Aucune room active</div>';
+    return;
+  }
+  const modeColor = m => m === '1v1' ? '#ff4655' : m === '2v2' ? '#4f8ef7' : m === '3v3' ? '#9b59b6' : '#2ecc71';
+  const statusLabel = s => s === 'waiting' ? '⏳ Attente' : s === 'playing' ? '⚔️ En jeu' : '🔫 Vote';
+  const statusColor = s => s === 'waiting' ? 'var(--gold)' : s === 'playing' ? 'var(--green)' : 'var(--blue)';
+  container.innerHTML = active.map(r => `
+    <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px 12px;transition:border-color 0.15s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <span style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:11px;padding:2px 7px;border-radius:5px;background:${modeColor(r.mode)}20;color:${modeColor(r.mode)};border:1px solid ${modeColor(r.mode)}40;">${r.mode}</span>
+        <span style="font-size:11px;color:${statusColor(r.status)};">${statusLabel(r.status)}</span>
+        <span style="font-size:10px;color:var(--muted);">⏱ ${r.duration}</span>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:center;gap:10px;">
+        <div style="display:flex;gap:3px;">${r.team1.map(() => '<div style="width:24px;height:24px;border-radius:50%;background:rgba(255,70,85,0.2);border:1px solid rgba(255,70,85,0.4);"></div>').join('')}</div>
+        <span style="font-size:11px;color:var(--muted);font-weight:700;">vs</span>
+        <div style="display:flex;gap:3px;">${r.team2.length ? r.team2.map(() => '<div style="width:24px;height:24px;border-radius:50%;background:rgba(79,142,247,0.2);border:1px solid rgba(79,142,247,0.4);"></div>').join('') : '<span style="color:var(--muted);font-size:11px;">…</span>'}</div>
+        <span style="font-size:10px;color:var(--muted);margin-left:auto;">${r.total}/${r.max}</span>
+      </div>
+    </div>`).join('');
+}
+
+// ── Chat global V2 ──
+async function v2LoadChat() {
+  try {
+    const r = await fetch('/api/global-chat');
+    const msgs = await r.json();
+    const box = document.getElementById('v2-chat-messages');
+    if (!box) return;
+    box.innerHTML = '';
+    msgs.forEach(m => v2AppendMsg(m, false));
+    box.scrollTop = box.scrollHeight;
+  } catch(e) {}
+}
+
+function v2AppendMsg(msg, scroll = true) {
+  const box = document.getElementById('v2-chat-messages');
+  if (!box) return;
+  const isMe = msg.pseudo === state.pseudo;
+  const time = new Date(msg.time).toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' });
+  const div = document.createElement('div');
+  div.style.cssText = 'display:flex;flex-direction:column;gap:2px;' + (isMe ? 'align-items:flex-end;' : 'align-items:flex-start;');
+  const border = msg.isPremium ? 'box-shadow:0 0 0 2px #f7c948;' : '';
+  const avatarHtml = msg.avatar
+    ? `<img src="${msg.avatar}" style="width:22px;height:22px;border-radius:50%;object-fit:cover;flex-shrink:0;${border}">`
+    : `<div style="width:22px;height:22px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;flex-shrink:0;${border}">${(msg.pseudo||'?')[0].toUpperCase()}</div>`;
+  const roleBadge = msg.role === 'admin'
+    ? '<span style="background:rgba(255,70,85,0.2);color:var(--accent);font-size:8px;font-weight:800;border-radius:3px;padding:1px 4px;margin-left:3px;">ADM</span>'
+    : msg.role === 'content'
+    ? '<span style="background:rgba(145,71,255,0.2);color:#9147ff;font-size:8px;font-weight:800;border-radius:3px;padding:1px 4px;margin-left:3px;">CNT</span>'
+    : '';
+  const pseudoColor = msg.isPremium ? '#f7c948' : 'var(--text)';
+  div.innerHTML = `
+    <div style="display:flex;align-items:center;gap:4px;${isMe?'flex-direction:row-reverse;':''}">
+      ${avatarHtml}
+      <span style="font-size:12px;font-weight:700;color:${pseudoColor};">${msg.isPremium?'👑 ':''}${isMe?'Toi':msg.pseudo}</span>${roleBadge}
+      <span style="font-size:9px;color:rgba(255,255,255,0.2);">${time}</span>
+    </div>
+    <div style="max-width:200px;background:${isMe?'var(--accent)':'rgba(255,255,255,0.07)'};color:${isMe?'#fff':'var(--text)'};border-radius:${isMe?'10px 10px 3px 10px':'10px 10px 10px 3px'};padding:6px 10px;font-size:12px;word-break:break-word;line-height:1.4;">${(msg.text||'').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>`;
+  box.appendChild(div);
+  if (scroll) box.scrollTop = box.scrollHeight;
+}
+
+function v2SendGlobalChat() {
+  const input = document.getElementById('v2-chat-input');
+  if (!input || !input.value.trim()) return;
+  // Reuse existing sendGlobalChat by mirroring value
+  const realInput = document.getElementById('global-chat-input');
+  if (realInput) { realInput.value = input.value; sendGlobalChat(); }
+  input.value = '';
+}
+
+// Hook: sync V2 when global chat receives new message
+const _origAppendGlobalChatMsg = window.appendGlobalChatMsg;
+window.appendGlobalChatMsg = function(msg, scroll) {
+  if (typeof _origAppendGlobalChatMsg === 'function') _origAppendGlobalChatMsg(msg, scroll);
+  v2AppendMsg(msg, scroll !== false);
+};
+
+// Hook: sync V2 rooms when active_rooms_update fires
+const _origRenderLiveRooms = window.renderLiveRooms;
+window.renderLiveRooms = function(rooms) {
+  if (typeof _origRenderLiveRooms === 'function') _origRenderLiveRooms(rooms);
+  v2RenderRooms(rooms);
+};
+
+// Hook: sync ELO on update
+document.addEventListener('elo_updated_v2', () => v2SyncState());
+
+// ── Patch enterMain to init V2 ──
+const _origEnterMain = window.enterMain;
+window.enterMain = function() {
+  if (typeof _origEnterMain === 'function') _origEnterMain();
+  setTimeout(() => { v2Init(); }, 150);
+};
+
+// ── Group code sync ──
+// Poll nav-group-code changes to reflect in sidebar
+setInterval(() => {
+  const gc = document.getElementById('v2-group-code');
+  const nc = document.getElementById('nav-group-code');
+  if (gc && nc && gc.textContent !== nc.textContent) gc.textContent = nc.textContent;
+  // Sync friends count
+  const fc = document.getElementById('v2-friends-count');
+  const fnc = document.getElementById('friends-online-count');
+  if (fc && fnc && fc.textContent !== fnc.textContent) fc.textContent = fnc.textContent;
+  // Sync group members
+  const gm = document.getElementById('v2-group-members');
+  const nm = document.getElementById('nav-group-members-inline');
+  if (gm && nm && gm.textContent !== nm.textContent) gm.textContent = nm.textContent;
+}, 500);
+
+</script>
+
+
 <!-- IMAGE LIGHTBOX -->
-<div id="img-lightbox" onclick="closeImgLightbox()" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.92);align-items:center;justify-content:center;cursor:zoom-out;">
-  <img id="img-lightbox-img" src="" style="max-width:90vw;max-height:90vh;border-radius:10px;object-fit:contain;box-shadow:0 8px 40px rgba(0,0,0,0.8);">
-  <button onclick="closeImgLightbox()" style="position:fixed;top:20px;right:24px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;border-radius:50%;width:38px;height:38px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:10000;">✕</button>
+<div id="img-lightbox" onclick="v2CloseLightbox()" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.92);align-items:center;justify-content:center;cursor:zoom-out;">
+  <img id="img-lightbox-img" src="" style="max-width:90vw;max-height:90vh;border-radius:10px;object-fit:contain;">
+  <button onclick="v2CloseLightbox()" style="position:fixed;top:18px;right:22px;background:rgba(255,255,255,0.1);border:none;color:#fff;border-radius:50%;width:36px;height:36px;font-size:18px;cursor:pointer;z-index:10000;">✕</button>
 </div>
+<script>
+function v2OpenLightbox(src) {
+  const lb = document.getElementById('img-lightbox');
+  const img = document.getElementById('img-lightbox-img');
+  if (lb && img) { img.src = src; lb.style.display = 'flex'; document.body.style.overflow = 'hidden'; }
+}
+function v2CloseLightbox() {
+  const lb = document.getElementById('img-lightbox');
+  if (lb) lb.style.display = 'none';
+  document.body.style.overflow = '';
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') v2CloseLightbox(); });
+</script>
 </body>
 </html>
