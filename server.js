@@ -2244,6 +2244,8 @@ app.get('/api/content/dashboard/:userId', (req, res) => {
         isPremium: !!u.isPremium,
         premiumUntil: u.premiumUntil || null,
         premiumPaidAmount: u.premiumPaidAmount || 0,
+        // Pour estimer le plan si premiumPaidAmount absent
+        _premiumUntilRaw: u.premiumUntil || null,
       }));
 
     // Compter les filleuls premium (avec montant réel payé)
@@ -2253,10 +2255,19 @@ app.get('/api/content/dashboard/:userId', (req, res) => {
     const nextPalier = CONTENT_PALIERS.find(p => p.min > palier.min) || null;
 
     // Calculer le portefeuille sur le montant RÉEL payé par chaque filleul
-    // On récupère premiumPaidAmount stocké sur chaque user
     const portefeuille = referrals.reduce((total, r) => {
       if (!r.isPremium) return total;
-      const paidAmt = r.premiumPaidAmount || PREMIUM_PRICES[1]; // fallback 7.99€ si inconnu
+      let paidAmt = r.premiumPaidAmount;
+      // Si pas stocké, estimer depuis premiumUntil (durée restante → plan le plus proche)
+      if (!paidAmt && r.premiumUntil) {
+        const msLeft = r.premiumUntil - Date.now();
+        const monthsLeft = msLeft / (30 * 24 * 60 * 60 * 1000);
+        if (monthsLeft >= 10) paidAmt = PREMIUM_PRICES[12];
+        else if (monthsLeft >= 5) paidAmt = PREMIUM_PRICES[6];
+        else if (monthsLeft >= 2) paidAmt = PREMIUM_PRICES[3];
+        else paidAmt = PREMIUM_PRICES[1];
+      }
+      if (!paidAmt) paidAmt = PREMIUM_PRICES[1];
       return total + (paidAmt * palier.pct / 100);
     }, 0);
 
