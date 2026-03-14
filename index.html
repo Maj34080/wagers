@@ -465,7 +465,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
         <div class="v2-stat-card"><div class="v2-stat-label">Rang</div><div class="v2-stat-value" id="v2-stat-rank" style="font-size:20px;color:var(--accent);">—</div></div>
       </div>
       <!-- 3 colonnes : matchmaking | chat global | rooms live -->
-      <div style="display:grid;grid-template-columns:360px 380px 1fr;gap:16px;align-items:start;">
+      <div style="display:grid;grid-template-columns:420px 380px 1fr;gap:16px;align-items:start;">
 
         <!-- Matchmaking -->
         <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px 14px;text-align:center;position:relative;overflow:hidden;">
@@ -4367,33 +4367,28 @@ async function loadGlobalChat() {
     if (!box) return;
     box.innerHTML = '';
     msgs.forEach(m => appendGlobalChatMsg(m, false));
-    // Vider la file d'attente (events reçus avant que le chat était prêt)
-    if (window._activityQueue && window._activityQueue.length > 0) {
-      const queue = [...window._activityQueue];
-      window._activityQueue = [];
-      queue.forEach(q => appendActivityMsg(q.type, q.data, q.time));
+    // Ré-afficher les events d'activité stockés (sans les re-stocker)
+    if (window._activityEvents && window._activityEvents.length > 0) {
+      window._activityEvents.forEach(e => _renderActivityMsg(box, e.type, e.data, e.time));
     }
     box.scrollTop = box.scrollHeight;
   } catch(e) {}
 }
 
-// File d'attente pour les messages d'activité reçus avant que le chat soit chargé
-window._activityQueue = window._activityQueue || [];
+// Stockage permanent des events (persistent entre onglets, dédup par clé)
+window._activityEvents = window._activityEvents || [];
+window._activityEventKeys = window._activityEventKeys || new Set();
 
 function appendActivityMsg(type, data, time) {
+  // Dédup : ignorer si déjà reçu
+  const key = type + '|' + (data.pseudo||'') + '|' + (time||Date.now());
+  if (window._activityEventKeys.has(key)) return;
+  window._activityEventKeys.add(key);
+  window._activityEvents.push({ type, data, time });
+  if (window._activityEvents.length > 50) window._activityEvents.shift();
+  // Afficher immédiatement si le chat est visible
   const box = document.getElementById('global-chat-messages');
-  if (!box) {
-    // Stocker pour affichage ultérieur (max 20)
-    window._activityQueue.push({ type, data, time });
-    if (window._activityQueue.length > 20) window._activityQueue.shift();
-    return;
-  }
-  // Vider la file en attente d'abord
-  while (window._activityQueue && window._activityQueue.length > 0) {
-    const q = window._activityQueue.shift();
-    _appendActivityMsgToBox(box, q.type, q.data, q.time);
-  }
-  _appendActivityMsgToBox(box, type, data, time);
+  if (box) _renderActivityMsg(box, type, data, time);
 }
 
 // Rendu pur sans sauvegarde (utilisé pour la réinjection depuis l'historique)
