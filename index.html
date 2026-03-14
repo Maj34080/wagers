@@ -465,7 +465,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
         <div class="v2-stat-card"><div class="v2-stat-label">Rang</div><div class="v2-stat-value" id="v2-stat-rank" style="font-size:20px;color:var(--accent);">—</div></div>
       </div>
       <!-- 3 colonnes : matchmaking | chat global | rooms live -->
-      <div style="display:grid;grid-template-columns:420px 380px 1fr;gap:16px;align-items:start;">
+      <div style="display:grid;grid-template-columns:480px 380px 1fr;gap:16px;align-items:start;">
 
         <!-- Matchmaking -->
         <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px 14px;text-align:center;position:relative;overflow:hidden;">
@@ -4366,11 +4366,14 @@ async function loadGlobalChat() {
     const box = document.getElementById('global-chat-messages');
     if (!box) return;
     box.innerHTML = '';
-    msgs.forEach(m => appendGlobalChatMsg(m, false));
-    // Ré-afficher les events d'activité stockés (sans les re-stocker)
-    if (window._activityEvents && window._activityEvents.length > 0) {
-      window._activityEvents.forEach(e => _renderActivityMsg(box, e.type, e.data, e.time));
-    }
+    // Fusionner messages et events d'activité, trier par timestamp
+    const msgItems = msgs.map(m => ({ kind: 'msg', t: new Date(m.time).getTime(), data: m }));
+    const evtItems = (window._activityEvents || []).map(e => ({ kind: 'evt', t: e.time || 0, data: e }));
+    const all = [...msgItems, ...evtItems].sort((a, b) => a.t - b.t);
+    all.forEach(item => {
+      if (item.kind === 'msg') appendGlobalChatMsg(item.data, false);
+      else _renderActivityMsg(box, item.data.type, item.data.data, item.data.time);
+    });
     box.scrollTop = box.scrollHeight;
   } catch(e) {}
 }
