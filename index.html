@@ -15,7 +15,7 @@
 }
 *{margin:0;padding:0;box-sizing:border-box;}
 body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;height:100vh;overflow:hidden;}
-.screen{display:none;height:100vh;overflow:clip;}
+.screen{display:none;height:100vh;overflow:hidden;}
 .screen.active{display:flex;}
 
 /* AUTH */
@@ -73,8 +73,6 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
 /* MAIN */
 #screen-main{flex-direction:row;overflow:hidden;height:100vh;padding-bottom:0;align-items:stretch;}
 .main-body{flex:1;padding:24px 28px;max-width:none;margin:0;min-width:0;overflow-y:auto;height:100%;min-height:0;}
-.room-tab-content{display:none;}
-.room-tab-content.active{display:block;}
 
 /* MODE SELECTOR */
 .mode-selector{display:flex;gap:8px;margin-bottom:20px;}
@@ -5112,7 +5110,20 @@ async function loadTournaments() {
 function toggleTournamentCreate() {
   const form = document.getElementById('tournament-create-form');
   if (!form) return;
-  form.style.display = form.style.display === 'none' ? '' : 'none';
+  const isOpening = form.style.display === 'none';
+  form.style.display = isOpening ? '' : 'none';
+  if (isOpening) {
+    // Définir min (+24h) et max (+7j) sur l'input date
+    const dateInput = document.getElementById('t-date');
+    if (dateInput) {
+      const now = new Date();
+      const min = new Date(now.getTime() + 24*60*60*1000);
+      const max = new Date(now.getTime() + 7*24*60*60*1000);
+      const toLocal = d => new Date(d.getTime() - d.getTimezoneOffset()*60000).toISOString().slice(0,16);
+      dateInput.min = toLocal(min);
+      dateInput.max = toLocal(max);
+    }
+  }
 }
 
 async function createTournament() {
@@ -5127,6 +5138,7 @@ async function createTournament() {
   if (!dateVal) { if (errEl) errEl.textContent = 'Date requise (minimum 24h)'; return; }
   const scheduledAt = new Date(dateVal).getTime();
   if (scheduledAt < Date.now() + 24*60*60*1000) { if (errEl) errEl.textContent = 'La date doit être au minimum 24h dans le futur'; return; }
+  if (scheduledAt > Date.now() + 7*24*60*60*1000) { if (errEl) errEl.textContent = 'La date ne peut pas dépasser 7 jours'; return; }
   try {
     const r = await fetch('/api/tournaments/create', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },

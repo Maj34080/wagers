@@ -2804,10 +2804,13 @@ app.post('/api/tournaments/create', express.json(), (req, res) => {
         return res.status(400).json({ error: `Prochain tournoi disponible dans ${remaining}h` });
       }
     }
-    // Scheduled date: minimum 24h from now
+    // Scheduled date: minimum 24h from now, maximum 7 days
     const scheduled = scheduledAt ? new Date(scheduledAt).getTime() : 0;
     if (!scheduled || scheduled < Date.now() + 24 * 60 * 60 * 1000) {
       return res.status(400).json({ error: 'La date doit être au minimum 24h dans le futur' });
+    }
+    if (scheduled > Date.now() + 7 * 24 * 60 * 60 * 1000) {
+      return res.status(400).json({ error: 'La date ne peut pas dépasser 7 jours' });
     }
     // 1 active tournament per user at a time
     const hasActive = Object.values(tournaments).find(t => t.creatorId === userId && t.status !== 'finished' && t.status !== 'cancelled');
