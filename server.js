@@ -733,13 +733,20 @@ io.on('connection', (socket) => {
       socket.userId = user.id;
       socket.pseudo = user.pseudo;
       socket.isAdmin = ADMIN_PSEUDOS.includes(pseudo);
+      socket.isContent = CONTENT_PSEUDOS.includes(pseudo);
+      socket.isMuted = false;
+      socket.isPremium = false;
+      const stats = user.stats || db.defaultStats();
       socket.emit('auth_ok', {
         pseudo: user.pseudo,
-        elo: user.stats['2v2'].elo,
-        stats: user.stats,
+        elo: stats['2v2']?.elo || 500,
+        stats,
         isAdmin: socket.isAdmin,
+        isContent: socket.isContent || false,
         avatar: user.avatar || null,
         userId: user.id,
+        isPremium: false,
+        premiumUntil: null,
         referralCode: user.referralCode || null
       });
     } catch(e) { socket.emit('auth_error', 'Erreur: ' + e.message); }
