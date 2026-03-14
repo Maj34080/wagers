@@ -100,18 +100,20 @@ function getIpAccounts(ip) {
 }
 
 function computeEloChange(myElo, opponentAvgElo, won) {
-  const diff = myElo - opponentAvgElo;
+  // Base: +15 win, -10 lose à ELO égal
+  // Gagner contre plus fort = plus de gain. Perdre contre plus fort = moins de perte.
+  // Gagner contre plus faible = moins de gain. Perdre contre plus faible = plus de perte.
+  const diff = myElo - opponentAvgElo; // positif = je suis favori
   const steps = Math.floor(Math.abs(diff) / 50);
-  let base = 15;
   if (won) {
-    // Favori gagne -> moins d'ELO ; underdog gagne -> plus d'ELO
-    if (diff > 0) base = Math.max(3, base - steps * 3);
-    else base = Math.min(30, base + steps * 3);
+    let base = 15;
+    if (diff > 0) base = Math.max(4, base - steps * 3);  // favori gagne: moins
+    else          base = Math.min(28, base + steps * 3); // underdog gagne: plus
     return base;
   } else {
-    // Favori perd -> plus de perte ; underdog perd -> moins de perte
-    if (diff > 0) base = Math.min(30, base + steps * 3);
-    else base = Math.max(3, base - steps * 3);
+    let base = 10;
+    if (diff > 0) base = Math.max(3, base - steps * 2);  // favori perd: perd moins
+    else          base = Math.min(22, base + steps * 2); // underdog perd: perd plus
     return -base;
   }
 }
