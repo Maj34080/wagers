@@ -406,7 +406,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
     <!-- Rank progress -->
     <div style="padding:12px 16px 10px;border-bottom:1px solid var(--border);">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-        <span id="v2-rank-name" style="font-size:13px;font-weight:900;color:var(--accent);text-transform:uppercase;letter-spacing:0.06em;">—</span>
+        <span id="v2-rank-name">—</span>
         <span id="v2-rank-next" style="font-size:11px;color:var(--text);text-align:right;opacity:0.8;font-weight:600;">—</span>
       </div>
       <div style="background:var(--surface2);border-radius:6px;height:8px;overflow:hidden;">
@@ -2092,13 +2092,22 @@ function getRank(elo) {
 
 function getRankBadge(elo, radiantPosition) {
   const rank = getRank(elo);
-  const label = rank.name === 'Radiant' && radiantPosition ? rank.icon + ' #' + radiantPosition : rank.icon + ' ' + rank.name;
-  if (rank.name === 'Non Ranké') return '<span style="font-size:11px;color:#888;font-weight:600;">— Non Ranké</span>';
-  if (rank.name === 'Radiant') {
-    const pos = radiantPosition ? ' #' + radiantPosition : '';
-    return '<span style="font-size:11px;font-weight:800;background:linear-gradient(90deg,#ff4655,#f7c948);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">⚡ Radiant' + pos + '</span>';
-  }
-  return '<span style="font-size:11px;font-weight:800;color:' + rank.color + ';">' + label + '</span>';
+  if (rank.name === 'Non Ranké') return '<span style="font-size:10px;color:#666;font-weight:600;padding:1px 7px;border-radius:10px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);">— Non Ranké</span>';
+  const icon = rank.name === 'Radiant' ? '⚡' : '◆';
+  const pos = (rank.name === 'Radiant' && radiantPosition) ? ' #' + radiantPosition : '';
+  const bg = rank.name === 'Radiant'
+    ? 'rgba(255,70,85,.12)' : rank.name === 'Diamond'
+    ? 'rgba(180,79,255,.12)' : rank.name === 'Platine'
+    ? 'rgba(77,166,255,.10)' : rank.name === 'Gold'
+    ? 'rgba(255,209,102,.10)' : rank.name === 'Silver'
+    ? 'rgba(168,169,173,.10)' : 'rgba(205,127,50,.10)';
+  const border = rank.name === 'Radiant'
+    ? 'rgba(255,70,85,.3)' : rank.name === 'Diamond'
+    ? 'rgba(180,79,255,.28)' : rank.name === 'Platine'
+    ? 'rgba(77,166,255,.25)' : rank.name === 'Gold'
+    ? 'rgba(255,209,102,.25)' : rank.name === 'Silver'
+    ? 'rgba(168,169,173,.25)' : 'rgba(205,127,50,.25)';
+  return '<span style="display:inline-flex;align-items:center;gap:4px;padding:1px 8px;border-radius:10px;background:' + bg + ';border:1px solid ' + border + ';font-size:10px;font-weight:700;color:' + rank.color + ';letter-spacing:.3px;">' + icon + ' ' + rank.name + pos + '</span>';
 }
 
 function initSocket() {
@@ -4757,7 +4766,7 @@ function renderMyClanPanel(clan) {
           ${isMe ? '<span style="font-size:10px;background:rgba(255,70,85,0.12);color:var(--accent);border-radius:4px;padding:1px 6px;font-weight:700;">VOUS</span>' : ''}
           ${isReady ? '<span style="font-size:10px;background:rgba(46,204,113,0.15);color:#2ecc71;border-radius:4px;padding:1px 6px;font-weight:700;">✓ PRÊT BO3</span>' : ''}
         </div>
-        <div style="font-size:11px;color:var(--muted);">${m.maxElo} ELO max</div>
+        <div style="font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px;">${m.maxElo} ELO ${getRankBadge(m.maxElo)}</div>
       </div>
       <div style="display:flex;gap:6px;align-items:center;">
         ${isMe ? `<button onclick="toggleBo3Ready(${isReady})" id="my-bo3-ready-btn" style="background:${isReady ? 'rgba(46,204,113,0.15)' : 'rgba(255,255,255,0.06)'};border:1px solid ${isReady ? '#2ecc71' : 'var(--border)'};color:${isReady ? '#2ecc71' : 'var(--muted)'};border-radius:7px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;">${isReady ? '✓ Prêt' : 'Prêt BO3'}</button>` : ''}
@@ -6920,14 +6929,14 @@ function v2SyncState() {
   const idx  = TIERS.indexOf(cur);
   const next = TIERS[idx+1] || null;
 
-  if (seRnk) { seRnk.textContent = cur.name; seRnk.style.color = cur.color; }
+  if (seRnk) { seRnk.innerHTML = getRankBadge(maxElo, state.radiantPos || null); seRnk.style.cssText = 'display:flex;'; }
 
   // Progress bar
   const bar  = document.getElementById('v2-rank-bar');
   const rnm  = document.getElementById('v2-rank-name');
   const rnxt = document.getElementById('v2-rank-next');
   const relo = document.getElementById('v2-rank-elo');
-  if (rnm)  { rnm.textContent = cur.name; rnm.style.color = cur.color; }
+  if (rnm)  { rnm.innerHTML = getRankBadge(maxElo, state.radiantPos || null); rnm.style.color = ''; }
   if (relo) relo.textContent = maxElo;
   if (bar && next) {
     const pct = Math.min(100, Math.round((maxElo - cur.min) / (next.min - cur.min) * 100));
