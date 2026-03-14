@@ -1016,9 +1016,6 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
           <button onclick="showAdminSection('smurfs')" id="admin-sec-smurfs" style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px 8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;transition:all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.07)'" onmouseout="this.style.background='var(--surface2)'">
             <span style="font-size:20px;">🕵️</span><span style="font-size:11px;font-weight:700;color:#f97316;">Smurfs</span>
           </button>
-          <button onclick="showAdminSection('premium')" id="admin-sec-premium" style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px 8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;transition:all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.07)'" onmouseout="this.style.background='var(--surface2)'">
-            <span style="font-size:20px;">👑</span><span style="font-size:11px;font-weight:700;color:var(--gold);">Premium</span>
-          </button>
           <button onclick="showAdminSection('staff')" id="admin-sec-staff" style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px 8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;transition:all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.07)'" onmouseout="this.style.background='var(--surface2)'">
             <span style="font-size:20px;">🛡️</span><span style="font-size:11px;font-weight:700;color:#4fd1c5;">Staff</span>
           </button>
@@ -1031,14 +1028,8 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
           <button onclick="showAdminSection('seasons')" id="admin-sec-seasons" style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px 8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;transition:all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.07)'" onmouseout="this.style.background='var(--surface2)'">
             <span style="font-size:20px;">🏆</span><span style="font-size:11px;font-weight:700;color:#34d399;">Saisons</span>
           </button>
-          <button onclick="showAdminSection('content')" id="admin-sec-content" style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px 8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;transition:all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.07)'" onmouseout="this.style.background='var(--surface2)'">
-            <span style="font-size:20px;">🎬</span><span style="font-size:11px;font-weight:700;color:#9147ff;">Content</span>
-          </button>
           <button onclick="showAdminSection('fakerooms')" id="admin-sec-fakerooms" style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px 8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;transition:all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.07)'" onmouseout="this.style.background='var(--surface2)'">
             <span style="font-size:20px;">🎭</span><span style="font-size:11px;font-weight:700;color:#60a5fa;">Fakes</span>
-          </button>
-          <button onclick="showAdminSection('backup')" id="admin-sec-backup" style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px 8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;transition:all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.07)'" onmouseout="this.style.background='var(--surface2)'">
-            <span style="font-size:20px;">💾</span><span style="font-size:11px;font-weight:700;color:#34d399;">Backup</span>
           </button>
         </div>
 
@@ -1137,6 +1128,20 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
           <div id="admin-staff-list" style="display:flex;flex-direction:column;gap:10px;">
             <div style="color:var(--muted);text-align:center;padding:40px;">Chargement…</div>
           </div>
+          <!-- Backup dans staff -->
+          <div style="background:var(--surface);border:1px solid rgba(52,211,153,0.25);border-radius:12px;padding:14px 16px;margin-top:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+            <div>
+              <div style="font-weight:700;font-size:13px;color:#34d399;">💾 Backup Discord</div>
+              <div style="font-size:11px;color:var(--muted);">Envoi auto toutes les heures.</div>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+              <button onclick="triggerManualBackup()" id="backup-btn" style="background:rgba(52,211,153,0.12);border:1px solid rgba(52,211,153,0.3);color:#34d399;border-radius:8px;padding:7px 14px;font-weight:700;font-size:12px;cursor:pointer;">📤 Backup maintenant</button>
+              <label style="background:rgba(167,139,250,0.1);border:1px solid rgba(167,139,250,0.3);color:#a78bfa;border-radius:8px;padding:7px 14px;font-weight:700;font-size:12px;cursor:pointer;">
+                📂 Restaurer DB
+                <input type="file" accept=".json" onchange="restoreDBFromFile(this)" style="display:none;">
+              </label>
+            </div>
+          </div>
         </div>
 
         <!-- LOOKUP JOUEUR -->
@@ -1163,6 +1168,31 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
             </div>
             <div id="elo-adj-result" style="margin-top:8px;font-size:12px;min-height:16px;"></div>
           </div>
+
+          <!-- PREMIUM + CONTENT -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;">
+            <div style="background:var(--surface);border:1px solid rgba(247,201,72,0.35);border-radius:14px;padding:16px;">
+              <div style="font-weight:800;font-size:13px;color:var(--gold);margin-bottom:10px;">👑 Premium</div>
+              <div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">
+                <input id="premium-pseudo-input" placeholder="Pseudo" style="flex:1;min-width:100px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:7px 10px;color:var(--text);font-size:12px;outline:none;">
+                <select id="premium-months-input" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:7px 9px;color:var(--text);font-size:12px;outline:none;">
+                  <option value="1">1 mois</option><option value="3">3 mois</option><option value="6">6 mois</option><option value="12">1 an</option>
+                </select>
+                <button onclick="grantPremium()" style="background:linear-gradient(135deg,#f7c948,#ff9500);color:#000;border:none;border-radius:8px;padding:7px 13px;font-weight:800;font-size:12px;cursor:pointer;">Activer</button>
+              </div>
+              <div id="admin-premium-list" style="display:flex;flex-direction:column;gap:6px;max-height:120px;overflow-y:auto;"></div>
+            </div>
+            <div style="background:var(--surface);border:1px solid rgba(145,71,255,0.35);border-radius:14px;padding:16px;">
+              <div style="font-weight:800;font-size:13px;color:#9147ff;margin-bottom:10px;">🎬 Content</div>
+              <div style="display:flex;gap:7px;align-items:center;margin-bottom:8px;">
+                <input id="content-pseudo-input" placeholder="Pseudo" style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:7px 10px;color:var(--text);font-size:12px;outline:none;">
+                <button onclick="adminSetContent()" style="background:#9147ff;color:#fff;border:none;border-radius:8px;padding:7px 13px;font-weight:800;font-size:12px;cursor:pointer;">Donner</button>
+              </div>
+              <div id="admin-content-list" style="display:flex;flex-direction:column;gap:6px;max-height:120px;overflow-y:auto;"></div>
+            </div>
+          </div>
+
+          <!-- BACKUP dans staff -->
         </div>
 
         <!-- LOGS ADMIN -->
@@ -1188,49 +1218,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
           <div id="admin-season-archives" style="display:flex;flex-direction:column;gap:12px;"></div>
         </div>
 
-        <div id="admin-section-premium" style="display:none;">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-            <div style="font-weight:700;font-size:14px;">👑 Gestion Premium</div>
-            <button onclick="loadPremiumAdmin()" class="btn-mini">🔄 Actualiser</button>
-          </div>
-          <!-- Give premium -->
-          <div style="background:var(--surface);border:1px solid var(--gold);border-radius:14px;padding:20px;margin-bottom:16px;">
-            <div style="font-weight:700;font-size:13px;color:var(--gold);margin-bottom:12px;">✨ Activer le premium</div>
-            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-              <input id="premium-pseudo-input" placeholder="Pseudo du joueur" style="flex:1;min-width:160px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:9px 14px;color:var(--text);font-size:13px;">
-              <select id="premium-months-input" style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:9px 14px;color:var(--text);font-size:13px;">
-                <option value="1">1 mois</option>
-                <option value="3">3 mois</option>
-                <option value="6">6 mois</option>
-                <option value="12">1 an</option>
-              </select>
-              <button onclick="grantPremium()" style="background:linear-gradient(135deg,#f7c948,#ff9500);color:#000;border:none;border-radius:10px;padding:9px 18px;font-weight:800;font-size:13px;cursor:pointer;">👑 Activer</button>
-            </div>
-          </div>
-          <!-- Premium users list -->
-          <div id="admin-premium-list" style="display:flex;flex-direction:column;gap:8px;">
-            <div style="color:var(--muted);text-align:center;padding:30px;">Chargement…</div>
-          </div>
-        </div>
 
-        <!-- RÔLE CONTENT -->
-        <div id="admin-section-content" style="display:none;">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-            <div style="font-weight:700;font-size:14px;">🎬 Rôle Content</div>
-            <button onclick="loadContentList()" class="btn-mini">🔄 Actualiser</button>
-          </div>
-          <div style="background:var(--surface);border:1px solid rgba(145,71,255,0.4);border-radius:14px;padding:20px;margin-bottom:16px;">
-            <div style="font-weight:700;font-size:13px;color:#9147ff;margin-bottom:12px;">✨ Donner le rôle Content</div>
-            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-              <input id="content-pseudo-input" placeholder="Pseudo du joueur" style="flex:1;min-width:160px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:9px 14px;color:var(--text);font-size:13px;outline:none;">
-              <button onclick="adminSetContent()" style="background:#9147ff;color:#fff;border:none;border-radius:10px;padding:9px 18px;font-weight:800;font-size:13px;cursor:pointer;">🎬 Donner</button>
-            </div>
-          </div>
-          <div style="font-weight:700;font-size:13px;margin-bottom:10px;color:var(--muted);">Membres Content actuels</div>
-          <div id="admin-content-list" style="display:flex;flex-direction:column;gap:8px;">
-            <div style="color:var(--muted);text-align:center;padding:30px;">Chargement…</div>
-          </div>
-        </div>
 
 
         <!-- FAKE ROOMS -->
@@ -1266,24 +1254,6 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
           </div>
         </div>
 
-
-        <!-- BACKUP DISCORD -->
-        <div id="admin-section-backup" style="display:none;">
-          <div style="font-weight:700;font-size:14px;margin-bottom:16px;">💾 Backup & Restauration</div>
-          <div style="background:var(--surface);border:1px solid rgba(52,211,153,0.3);border-radius:14px;padding:20px;margin-bottom:14px;">
-            <div style="font-weight:700;font-size:13px;color:#34d399;margin-bottom:6px;">📤 Backup Discord</div>
-            <div style="font-size:12px;color:var(--muted);margin-bottom:14px;">Envoi automatique toutes les heures sur le webhook Discord configuré.</div>
-            <button onclick="triggerManualBackup()" id="backup-btn" style="background:rgba(52,211,153,0.12);border:1px solid rgba(52,211,153,0.3);color:#34d399;border-radius:10px;padding:10px 20px;font-weight:800;font-size:13px;cursor:pointer;">📤 Forcer un backup maintenant</button>
-          </div>
-          <div style="background:var(--surface);border:1px solid rgba(167,139,250,0.3);border-radius:14px;padding:20px;">
-            <div style="font-weight:700;font-size:13px;color:#a78bfa;margin-bottom:6px;">📂 Restaurer la base de données</div>
-            <div style="font-size:12px;color:var(--muted);margin-bottom:14px;">Importe un fichier db.json pour écraser la BDD actuelle. ⚠️ Action irréversible.</div>
-            <label style="background:rgba(167,139,250,0.12);border:1px solid rgba(167,139,250,0.3);color:#a78bfa;border-radius:10px;padding:10px 20px;font-weight:800;font-size:13px;cursor:pointer;display:inline-block;">
-              📂 Choisir un fichier db.json
-              <input type="file" accept=".json" onchange="restoreDBFromFile(this)" style="display:none;">
-            </label>
-          </div>
-        </div>
 
       </div>
     </div>
@@ -3721,9 +3691,9 @@ function scrollAdminTop() {
 }
 
 function showAdminSection(sec) {
-  const colors = { stats:'255,70,85', rooms:'240,240,248', tickets:'240,240,248', banned:'240,240,248', smurfs:'249,115,22', premium:'255,209,102', staff:'79,209,197', lookup:'167,139,250', logs:'244,114,182', seasons:'52,211,153', content:'145,71,255', fakerooms:'96,165,250', backup:'52,211,153' };
-  const textColors = { stats:'var(--accent)', rooms:'var(--text)', tickets:'var(--text)', banned:'var(--text)', smurfs:'#f97316', premium:'var(--gold)', staff:'#4fd1c5', lookup:'#a78bfa', logs:'#f472b6', seasons:'#34d399', content:'#9147ff', fakerooms:'#60a5fa', backup:'#34d399' };
-  ['rooms','tickets','banned','stats','premium','smurfs','staff','lookup','logs','seasons','content','fakerooms','backup'].forEach(s => {
+  const colors = { stats:'255,70,85', rooms:'240,240,248', tickets:'240,240,248', banned:'240,240,248', smurfs:'249,115,22', staff:'79,209,197', lookup:'167,139,250', logs:'244,114,182', seasons:'52,211,153', fakerooms:'96,165,250' };
+  const textColors = { stats:'var(--accent)', rooms:'var(--text)', tickets:'var(--text)', banned:'var(--text)', smurfs:'#f97316', staff:'#4fd1c5', lookup:'#a78bfa', logs:'#f472b6', seasons:'#34d399', fakerooms:'#60a5fa' };
+  ['rooms','tickets','banned','stats','smurfs','staff','lookup','logs','seasons','fakerooms'].forEach(s => {
     const el = document.getElementById('admin-section-' + s);
     const btn = document.getElementById('admin-sec-' + s);
     if (el) el.style.display = s === sec ? '' : 'none';
@@ -3740,11 +3710,10 @@ function showAdminSection(sec) {
   if (sec === 'tickets') refreshAdminTickets();
   if (sec === 'rooms') refreshAdminLogs();
   if (sec === 'stats') loadAdminStats();
-  if (sec === 'premium') loadPremiumAdmin();
   if (sec === 'smurfs') loadSmurfDetection();
   if (sec === 'staff') loadStaffStatus();
-  if (sec === 'content') loadContentList();
   if (sec === 'fakerooms') loadFakeRoomsList();
+  if (sec === 'lookup') { loadPremiumAdmin(); loadContentList(); }
   if (sec === 'logs') loadAdminActionLogs();
   if (sec === 'seasons') loadSeasonsAdmin();
   requestAnimationFrame(() => {
@@ -4406,7 +4375,7 @@ function appendActivityMsg(type, data, time) {
   const box = document.getElementById('global-chat-messages');
   if (!box) return;
   const div = document.createElement('div');
-  div.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:10px;margin:4px 0;font-size:12px;font-weight:600;';
+  div.style.cssText = 'display:flex;align-items:center;gap:6px;padding:4px 8px;border-radius:8px;margin:2px 0;font-size:11px;font-weight:600;';
 
   const RANK_COLORS = {
     Bronze:'#cd7f32', Silver:'#a8a9ad', Gold:'#ffd166',
@@ -4417,16 +4386,33 @@ function appendActivityMsg(type, data, time) {
     const col = RANK_COLORS[data.newRank] || 'var(--gold)';
     div.style.background = col + '15';
     div.style.border = '1px solid ' + col + '40';
-    div.innerHTML = `<span style="font-size:16px;">⬆️</span><span style="color:${col};font-weight:800;">${data.pseudo}</span><span style="color:var(--muted);">vient d'atteindre</span><span style="color:${col};font-weight:900;">${data.newRank}</span><span style="color:var(--muted);">en ${data.mode} — ${data.newElo} ELO</span>`;
+    div.innerHTML = `<span style="font-size:13px;">⬆️</span><span style="color:${col};font-weight:800;">${data.pseudo}</span><span style="color:var(--muted);">vient d'atteindre</span><span style="color:${col};font-weight:900;">${data.newRank}</span><span style="color:var(--muted);">en ${data.mode} — ${data.newElo} ELO</span>`;
   } else if (type === 'milestone') {
     div.style.background = 'rgba(58,255,160,0.07)';
     div.style.border = '1px solid rgba(58,255,160,0.2)';
     const label = data.wins === 1 ? '1ère victoire' : data.wins + ' victoires';
-    div.innerHTML = `<span style="font-size:16px;">🏅</span><span style="color:var(--green);font-weight:800;">${data.pseudo}</span><span style="color:var(--muted);">vient d'atteindre</span><span style="color:var(--green);font-weight:800;">${label}</span>`;
+    div.innerHTML = `<span style="font-size:13px;">🏅</span><span style="color:var(--green);font-weight:800;">${data.pseudo}</span><span style="color:var(--muted);">vient d'atteindre</span><span style="color:var(--green);font-weight:800;">${label}</span>`;
   } else if (type === 'tournament_win') {
     div.style.background = 'rgba(247,201,72,0.08)';
     div.style.border = '1px solid rgba(247,201,72,0.25)';
-    div.innerHTML = `<span style="font-size:16px;">🏆</span><span style="color:var(--gold);font-weight:800;">${data.pseudo}</span><span style="color:var(--muted);">a remporté le tournoi</span><span style="color:var(--gold);font-weight:800;">${data.tournamentName}</span>`;
+    div.innerHTML = `<span style="font-size:13px;">🏆</span><span style="color:var(--gold);font-weight:800;">${data.pseudo}</span><span style="color:var(--muted);">a remporté le tournoi</span><span style="color:var(--gold);font-weight:800;">${data.tournamentName}</span>`;
+  } else if (type === 'clan_created') {
+    div.style.background = 'rgba(79,142,247,0.07)';
+    div.style.border = '1px solid rgba(79,142,247,0.2)';
+    div.innerHTML = `<span style="font-size:13px;">🛡️</span><span style="color:var(--blue);font-weight:800;">${data.pseudo}</span><span style="color:var(--muted);">a créé le clan</span><span style="color:var(--blue);font-weight:800;">[${data.tag}] ${data.clanName}</span>`;
+  } else if (type === 'tournament_created') {
+    div.style.background = 'rgba(247,201,72,0.06)';
+    div.style.border = '1px solid rgba(247,201,72,0.18)';
+    div.innerHTML = `<span style="font-size:13px;">🎯</span><span style="color:var(--gold);font-weight:800;">${data.pseudo}</span><span style="color:var(--muted);">a créé le tournoi</span><span style="color:var(--gold);font-weight:800;">${data.tournamentName}</span><span style="color:var(--muted);">(${data.mode})</span>`;
+  } else if (type === 'premium_granted') {
+    div.style.background = 'rgba(247,201,72,0.08)';
+    div.style.border = '1px solid rgba(247,201,72,0.25)';
+    const dur = data.months >= 12 ? '1 an' : data.months + ' mois';
+    div.innerHTML = `<span style="font-size:13px;">👑</span><span style="color:var(--gold);font-weight:800;">${data.pseudo}</span><span style="color:var(--muted);">est maintenant</span><span style="color:var(--gold);font-weight:800;">Premium</span><span style="color:var(--muted);">(${dur})</span>`;
+  } else if (type === 'new_player') {
+    div.style.background = 'rgba(58,255,160,0.05)';
+    div.style.border = '1px solid rgba(58,255,160,0.15)';
+    div.innerHTML = `<span style="font-size:13px;">🆕</span><span style="color:var(--green);font-weight:800;">${data.pseudo}</span><span style="color:var(--muted);">vient de rejoindre Revenge !</span>`;
   } else {
     return;
   }
@@ -4457,7 +4443,7 @@ function appendGlobalChatMsg(msg, scroll = true) {
       ${avatarHtml}${pseudoHtml}
       <span style="font-size:10px;color:rgba(255,255,255,0.2);">${time}</span>
     </div>
-    <div style="max-width:210px;background:${isMe?'var(--accent)':'rgba(255,255,255,0.07)'};color:${isMe?'#fff':'var(--text)'};border-radius:${isMe?'12px 12px 4px 12px':'12px 12px 12px 4px'};padding:7px 11px;font-size:13px;word-break:break-word;line-height:1.4;">${msg.text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>`;
+    <div style="max-width:210px;background:${isMe?'var(--accent)':'rgba(255,255,255,0.07)'};color:${isMe?'#fff':'var(--text)'};border-radius:${isMe?'12px 12px 4px 12px':'12px 12px 12px 4px'};padding:5px 9px;font-size:12px;word-break:break-word;line-height:1.4;">${msg.text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>`;
   box.appendChild(div);
   if (scroll) box.scrollTop = box.scrollHeight;
 }

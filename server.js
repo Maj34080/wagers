@@ -274,7 +274,11 @@ app.post('/api/admin/premium', (req, res) => {
   const pu = db.getUserById(userId);
   db.addAdminLog(req.headers['x-admin-pseudo'] || 'Admin', 'PREMIUM', pu?.pseudo || userId, `${months || 1} mois`);
   io.sockets.sockets.forEach(s => {
-    if (s.userId === userId) s.emit('premium_granted', { months: months || 1 });
+    if (s.userId === userId) {
+      s.emit('premium_granted', { months: months || 1 });
+      const pu = db.getUserById(userId);
+      if (pu) emitActivity('premium_granted', { pseudo: pu.pseudo, months: months || 1 });
+    }
   });
   res.json({ success: true });
 });
@@ -737,6 +741,7 @@ io.on('connection', (socket) => {
       socket.isMuted = false;
       socket.isPremium = false;
       const stats = user.stats || db.defaultStats();
+            emitActivity('new_player', { pseudo });
       socket.emit('auth_ok', {
         pseudo: user.pseudo,
         elo: stats['2v2']?.elo || 500,
@@ -2431,6 +2436,7 @@ app.post('/api/clans/create', express.json(), (req, res) => {
     data.clans.push(clan);
     user.clanId = clan.id;
     writeDB(data);
+    emitActivity('clan_created', { pseudo: user.pseudo, clanName: name, tag: tagUp });
     res.json({ ok: true, clan });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -2912,6 +2918,7 @@ app.post('/api/tournaments/create', express.json(), (req, res) => {
     user.lastTournamentAt = Date.now();
     writeDB(data);
     io.emit('tournament_created', { id, name: tournaments[id].name, mode: validMode, creatorPseudo: user.pseudo, scheduledAt: scheduled });
+    emitActivity('tournament_created', { pseudo: user.pseudo, tournamentName: tournaments[id].name, mode: validMode });
     res.json({ ok: true, id });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
