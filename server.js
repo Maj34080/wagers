@@ -267,7 +267,14 @@ app.get('/api/admin/find-user', (req, res) => {
     clanId: user.clanId || null,
     referralCode: user.referralCode || null,
     referredBy: user.referredBy || null,
-    referrals: (user.referrals || []).map(r => { const ru = data.users.find(u => u.id === r.userId); return { ...r, pseudo: ru?.pseudo || r.pseudo }; })
+    referrals: data.users
+      .filter(u => u.referredBy === user.id)
+      .map(u => ({
+        id: u.id, pseudo: u.pseudo, avatar: u.avatar || null,
+        createdAt: u.createdAt,
+        gamesPlayed: Object.values(u.stats || {}).reduce((t, m) => t + (m.wins||0) + (m.losses||0), 0),
+        isPremium: !!u.isPremium,
+      }))
   });
 });
 
@@ -2278,6 +2285,21 @@ app.post('/api/admin/content/mark-paid', (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+
+
+// Admin : annuler un paiement enregistré (par index)
+app.post('/api/admin/content/undo-paid', (req, res) => {
+  if (!isAdminReq(req)) return res.status(403).json({ error: 'Interdit' });
+  const { userId, amount } = req.body;
+  try {
+    const data = db.loadDB();
+    const user = data.users.find(u => u.id === userId);
+    if (!user) return res.status(404).json({ error: 'Introuvable' });
+    user.contentPaid = Math.max(0, (user.contentPaid || 0) - (amount || 0));
+    db.saveDB(data);
+    res.json({ ok: true, totalPaid: user.contentPaid });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
 
 // Friends API (request-based)
 const DBFILE = () => process.env.NODE_ENV === 'production' ? '/tmp/db.json' : path.join(__dirname, 'db.json');

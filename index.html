@@ -4116,6 +4116,28 @@ async function adminLookupPlayer() {
           <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);letter-spacing:0.05em;margin-bottom:8px;">🕹️ Historique complet (${(d.matchHistory||[]).length} parties)</div>
           <div style="max-height:260px;overflow-y:auto;">${histRows}</div>
         </div>
+        <!-- Parrainages -->
+        ${(d.referrals && d.referrals.length > 0) ? `
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px;">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted);letter-spacing:0.05em;margin-bottom:8px;">
+            🤝 Parrainages · code : ${d.referralCode || '—'}
+            <span style="font-weight:400;margin-left:6px;">${d.referrals.length} filleul${d.referrals.length > 1 ? 's' : ''} · ${d.referrals.filter(r=>r.gamesPlayed>=3).length} actifs (3+ parties) · ${d.referrals.filter(r=>r.isPremium).length} premium</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px;max-height:140px;overflow-y:auto;">
+            ${d.referrals.map(r => {
+              const active = r.gamesPlayed >= 3;
+              return `<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;background:var(--bg);border-radius:8px;font-size:12px;">
+                <span style="flex:1;font-weight:600;">${r.pseudo}</span>
+                <span style="color:var(--muted);font-size:11px;">${r.gamesPlayed} partie${r.gamesPlayed>1?'s':''}</span>
+                ${active ? '<span style="font-size:10px;background:rgba(58,255,160,.1);border:1px solid rgba(58,255,160,.25);color:var(--green);border-radius:4px;padding:1px 6px;">✓ Actif</span>' : '<span style="font-size:10px;color:var(--muted);">Inactif</span>'}
+                ${r.isPremium ? '<span style="font-size:10px;background:rgba(255,209,102,.1);border:1px solid rgba(255,209,102,.25);color:var(--gold);border-radius:4px;padding:1px 6px;">👑</span>' : ''}
+              </div>`;
+            }).join('')}
+          </div>
+          ${d.referrals.filter(r=>r.gamesPlayed>=3).length >= 3 && !d.isPremium ? `
+          <button onclick="grantPremiumWeek('${d.id}')" style="margin-top:8px;width:100%;background:rgba(58,255,160,.1);border:1px solid rgba(58,255,160,.3);color:var(--green);border-radius:8px;padding:7px;font-size:12px;font-weight:700;cursor:pointer;">🎁 Offrir 1 semaine Premium (3 filleuls actifs)</button>
+          ` : ''}
+        </div>` : ''}
         <!-- Actions rapides -->
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
           <button onclick="adminBanFromLookup('${d.id}')" style="background:rgba(255,70,85,0.12);border:1px solid rgba(255,70,85,0.3);color:var(--accent);border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;">🚫 Bannir</button>
@@ -4153,6 +4175,12 @@ async function adminMuteFromLookup(userId) {
   const r = await fetch('/api/admin/mute', { method:'POST', headers:{'Content-Type':'application/json','x-admin-key':'revenge_admin_secret'}, body: JSON.stringify({ userId, duration: 60 }) });
   if (r.ok) notify('🔇 Joueur mute 1h', { accent: 'orange' });
 }
+async function grantPremiumWeek(userId) {
+  const r = await fetch('/api/admin/premium', { method:'POST', headers:{'Content-Type':'application/json','x-admin-key':'revenge_admin_secret'}, body: JSON.stringify({ userId, months: 0.25 }) });
+  if (r.ok) notify('🎁 1 semaine Premium offerte pour 3 filleuls actifs !', { accent: 'var(--green)', duration: 5000 });
+  else notify('❌ Erreur');
+}
+
 async function grantPremiumById(userId) {
   const r = await fetch('/api/admin/premium', { method:'POST', headers:{'Content-Type':'application/json','x-admin-key':'revenge_admin_secret'}, body: JSON.stringify({ userId, months: 1 }) });
   if (r.ok) notify('👑 Premium activé', { accent: 'var(--gold)' });
@@ -4364,7 +4392,21 @@ async function adminMarkContentPaid() {
         const date = new Date().toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', year:'2-digit' });
         const entry = document.createElement('div');
         entry.style.cssText = 'display:flex;align-items:center;gap:8px;font-size:11px;padding:4px 8px;background:rgba(58,255,160,.05);border-radius:6px;';
-        entry.innerHTML = '<span style="color:var(--green);font-weight:700;">+' + amount.toFixed(2) + '€</span><span style="color:var(--muted);flex:1;">' + date + (note ? ' · ' + note : '') + '</span><button onclick="this.parentElement.remove()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;line-height:1;padding:0 2px;opacity:.7;" title="Supprimer">✕</button>';
+        const entryAmount = amount;
+        entry.innerHTML = '<span style="color:var(--green);font-weight:700;">+' + amount.toFixed(2) + '€</span><span style="color:var(--muted);flex:1;">' + date + (note ? ' · ' + note : '') + '</span><button style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;line-height:1;padding:0 2px;opacity:.7;" title="Annuler ce paiement">✕</button>';
+        entry.querySelector('button').addEventListener('click', async () => {
+          if (!confirm('Annuler ce paiement de ' + entryAmount.toFixed(2) + '€ ?')) return;
+          try {
+            await fetch('/api/admin/content/undo-paid', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'x-admin-key': ADMIN_KEY },
+              body: JSON.stringify({ userId: _adminContentCurrentUserId, amount: entryAmount })
+            });
+            entry.remove();
+            adminViewContentDashboard(_adminContentCurrentUserId, document.getElementById('acd-pseudo').textContent);
+            loadStaffStatus();
+          } catch(e) { notify('❌ Erreur réseau'); }
+        });
         hist.prepend(entry);
       }
       adminViewContentDashboard(_adminContentCurrentUserId, document.getElementById('acd-pseudo').textContent);
