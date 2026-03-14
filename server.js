@@ -1274,6 +1274,21 @@ function avgTeamElo(team, mode) {
   return Math.round(players.reduce((sum, p) => sum + (p.stats?.[mode]?.elo || p.elo || 500), 0) / players.length);
 }
 
+
+// Rang depuis ELO (pour le fil d'activité)
+function getRankNameFromElo(elo) {
+  if (elo >= 901) return 'Radiant';
+  if (elo >= 751) return 'Diamond';
+  if (elo >= 601) return 'Platine';
+  if (elo >= 451) return 'Gold';
+  if (elo >= 301) return 'Silver';
+  return 'Bronze';
+}
+
+// Émettre un événement dans le fil d'activité global
+function emitActivity(type, data) {
+  io.emit('activity_feed', { type, data, time: Date.now() });
+}
 function applyEloResult(winTeam, loseTeam, mode) {
   // Always read ELO from DB (fresh, not stale group data)
   const getElo = (p) => {
@@ -1292,10 +1307,24 @@ function applyEloResult(winTeam, loseTeam, mode) {
     const myElo = getElo(p);
     const change = db.computeEloChange(myElo, loseAvg, true);
     eloChanges[p.id] = change;
+    const oldElo = getElo(p);
     db.updateUserElo(p.id, change, true, mode, loseTeam, winTeam, false);
     const newElo = getElo(p);
     const ps = [...io.sockets.sockets.values()].find(s => s.userId === p.id);
     if (ps) ps.emit('elo_update', { mode, newElo, change });
+    // Rank up detection
+    const oldRank = getRankNameFromElo(oldElo);
+    const newRankName = getRankNameFromElo(newElo);
+    if (oldRank !== newRankName) {
+      if (ps) ps.emit('rank_up', { oldRank, newRank: newRankName, newElo, mode });
+      emitActivity('rank_up', { pseudo: p.pseudo, oldRank, newRank: newRankName, newElo, mode });
+    }
+    // Win activity (every 5th win or first win)
+    const freshUser = db.getUserById(p.id);
+    const totalWins = Object.values(freshUser?.stats || {}).reduce((a,m) => a + (m.wins||0), 0);
+    if (totalWins === 1 || totalWins % 10 === 0) {
+      emitActivity('milestone', { pseudo: p.pseudo, wins: totalWins });
+    }
     // Check referral reward
     const ref = db.checkReferralReward(p.id);
     if (ref && ref.rewardGiven) {
@@ -3121,6 +3150,7 @@ function advanceBracket(t) {
     t.status = 'finished';
     t.champion = currentRound[0].winner;
     io.emit('tournament_finished', { id: t.id, name: t.name, champion: t.champion });
+    emitActivity('tournament_win', { pseudo: t.champion, tournamentName: t.name });
     return;
   }
 

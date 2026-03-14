@@ -339,6 +339,19 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
 .room-tab-content.active{display:block;width:100%;animation:tabFadeIn 0.2s ease forwards;}
 #tab-content-admin{overflow:visible;}
 @keyframes tabFadeIn{from{opacity:0;transform:translateY(5px);}to{opacity:1;transform:translateY(0);}}
+
+/* ── RANK UP OVERLAY ── */
+#rankup-overlay.show { display: flex; }
+@keyframes rankUpEntrance {
+  from { opacity: 0; transform: scale(0.5) translateY(40px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes rankGlow {
+  0%,100% { text-shadow: 0 0 20px currentColor, 0 0 60px currentColor; }
+  50%      { text-shadow: 0 0 40px currentColor, 0 0 100px currentColor, 0 0 160px currentColor; }
+}
+#rankup-rank-name { animation: rankGlow 1.5s ease-in-out infinite; }
+
 </style>
 </head>
 <body>
@@ -2447,6 +2460,15 @@ function initSocket() {
   }, 1000);
   socket.on('global_chat_msg', (msg) => appendGlobalChatMsg(msg));
 
+  socket.on('activity_feed', ({ type, data, time }) => {
+    appendActivityMsg(type, data, time);
+  });
+
+  socket.on('rank_up', ({ oldRank, newRank, newElo, mode }) => {
+    // Stocker pour l'animation au retour au lobby
+    state._pendingRankUp = { oldRank, newRank, newElo, mode };
+  });
+
   socket.on('clan_join_request', ({ pseudo, userId }) => {
     playSound('friend_request');
     notify(`⚔️ <b>${pseudo}</b> veut rejoindre ton clan !`, { accent: '#ffd166', duration: 6000, onClick: () => { showMainTab('clans'); } });
@@ -4378,6 +4400,39 @@ async function loadGlobalChat() {
     msgs.forEach(m => appendGlobalChatMsg(m, false));
     box.scrollTop = box.scrollHeight;
   } catch(e) {}
+}
+
+function appendActivityMsg(type, data, time) {
+  const box = document.getElementById('global-chat-messages');
+  if (!box) return;
+  const div = document.createElement('div');
+  div.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:10px;margin:4px 0;font-size:12px;font-weight:600;';
+
+  const RANK_COLORS = {
+    Bronze:'#cd7f32', Silver:'#a8a9ad', Gold:'#ffd166',
+    Platine:'#4da6ff', Diamond:'#b44fff', Radiant:'#ff4655'
+  };
+
+  if (type === 'rank_up') {
+    const col = RANK_COLORS[data.newRank] || 'var(--gold)';
+    div.style.background = col + '15';
+    div.style.border = '1px solid ' + col + '40';
+    div.innerHTML = `<span style="font-size:16px;">⬆️</span><span style="color:${col};font-weight:800;">${data.pseudo}</span><span style="color:var(--muted);">vient d'atteindre</span><span style="color:${col};font-weight:900;">${data.newRank}</span><span style="color:var(--muted);">en ${data.mode} — ${data.newElo} ELO</span>`;
+  } else if (type === 'milestone') {
+    div.style.background = 'rgba(58,255,160,0.07)';
+    div.style.border = '1px solid rgba(58,255,160,0.2)';
+    const label = data.wins === 1 ? '1ère victoire' : data.wins + ' victoires';
+    div.innerHTML = `<span style="font-size:16px;">🏅</span><span style="color:var(--green);font-weight:800;">${data.pseudo}</span><span style="color:var(--muted);">vient d'atteindre</span><span style="color:var(--green);font-weight:800;">${label}</span>`;
+  } else if (type === 'tournament_win') {
+    div.style.background = 'rgba(247,201,72,0.08)';
+    div.style.border = '1px solid rgba(247,201,72,0.25)';
+    div.innerHTML = `<span style="font-size:16px;">🏆</span><span style="color:var(--gold);font-weight:800;">${data.pseudo}</span><span style="color:var(--muted);">a remporté le tournoi</span><span style="color:var(--gold);font-weight:800;">${data.tournamentName}</span>`;
+  } else {
+    return;
+  }
+
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
 }
 
 function appendGlobalChatMsg(msg, scroll = true) {
@@ -6360,10 +6415,17 @@ async function backToLobby() {
   const roomScreen = document.getElementById('room-screen');
   if (roomScreen) delete roomScreen.dataset.tournamentId;
   try { localStorage.removeItem('rv_room'); } catch(e) {} // room quittée proprement
+  // Récupérer le rank up en attente avant de changer d'écran
+  const pendingRankUp = state._pendingRankUp || null;
+  state._pendingRankUp = null;
   showScreen('main');
   // Attendre que le browser ait rendu screen-main, puis sync les stats
   requestAnimationFrame(() => {
     v2SyncState();
+    // Lancer l'animation rank up si applicable
+    if (pendingRankUp) {
+      setTimeout(() => showRankUpOverlay(pendingRankUp.oldRank, pendingRankUp.newRank, pendingRankUp.newElo), 400);
+    }
     // Re-fetch depuis le serveur pour avoir les vraies valeurs BDD
     if (state.pseudo) {
       fetch('/api/profile/' + encodeURIComponent(state.pseudo))
@@ -6626,6 +6688,152 @@ async function loadProfileHistory(userId) {
 </div>
 
 <script>
+
+// ── RANK UP OVERLAY ──
+const RANK_META = {
+  Bronze:  { icon: '🥉', color: '#cd7f32', bg: 'radial-gradient(ellipse at center, #3d2000 0%, #0a0a0f 70%)' },
+  Silver:  { icon: '🥈', color: '#a8a9ad', bg: 'radial-gradient(ellipse at center, #1a1a1a 0%, #0a0a0f 70%)' },
+  Gold:    { icon: '🥇', color: '#ffd166', bg: 'radial-gradient(ellipse at center, #2d2000 0%, #0a0a0f 70%)' },
+  Platine: { icon: '💎', color: '#4da6ff', bg: 'radial-gradient(ellipse at center, #001a3d 0%, #0a0a0f 70%)' },
+  Diamond: { icon: '👑', color: '#b44fff', bg: 'radial-gradient(ellipse at center, #1a0040 0%, #0a0a0f 70%)' },
+  Radiant: { icon: '⚡', color: '#ff4655', bg: 'radial-gradient(ellipse at center, #3d0010 0%, #0a0a0f 70%)' },
+};
+
+function showRankUpOverlay(oldRank, newRank, newElo) {
+  const meta = RANK_META[newRank] || RANK_META.Gold;
+  const overlay = document.getElementById('rankup-overlay');
+  if (!overlay) return;
+
+  // Setup
+  document.getElementById('rankup-old-rank').textContent = oldRank;
+  document.getElementById('rankup-badge').textContent = meta.icon;
+  document.getElementById('rankup-rank-name').textContent = newRank.toUpperCase();
+  document.getElementById('rankup-rank-name').style.color = meta.color;
+  document.getElementById('rankup-elo').textContent = newElo + ' ELO';
+  overlay.style.background = 'rgba(0,0,0,0.9)';
+
+  // Reset card animation
+  const card = document.getElementById('rankup-card');
+  card.style.animation = 'none';
+  card.offsetHeight; // reflow
+  card.style.animation = 'rankUpEntrance 0.6s cubic-bezier(0.34,1.56,0.64,1) forwards';
+
+  overlay.classList.add('show');
+  overlay.style.display = 'flex';
+
+  // Son epic
+  playEpicRankUpSound(meta.color);
+
+  // Confettis
+  startConfetti(meta.color);
+
+  // Auto-fermer après 6s
+  clearTimeout(window._rankUpAutoClose);
+  window._rankUpAutoClose = setTimeout(closeRankUpOverlay, 6000);
+}
+
+function closeRankUpOverlay() {
+  const overlay = document.getElementById('rankup-overlay');
+  if (overlay) { overlay.style.display = 'none'; overlay.classList.remove('show'); }
+  stopConfetti();
+  clearTimeout(window._rankUpAutoClose);
+}
+
+function playEpicRankUpSound(color) {
+  try {
+    const ctx = getAudioCtx();
+    // Fanfare épique
+    const notes = [
+      { freq: 392, t: 0,    dur: 0.12, vol: 0.3 },
+      { freq: 494, t: 0.10, dur: 0.12, vol: 0.3 },
+      { freq: 587, t: 0.20, dur: 0.12, vol: 0.3 },
+      { freq: 784, t: 0.30, dur: 0.5,  vol: 0.35 },
+      { freq: 988, t: 0.38, dur: 0.6,  vol: 0.35 },
+      { freq: 1175,t: 0.48, dur: 0.7,  vol: 0.4 },
+      { freq: 1568,t: 0.60, dur: 1.2,  vol: 0.45 },
+    ];
+    notes.forEach(({ freq, t, dur, vol }) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type = 'triangle';
+      osc.frequency.value = freq;
+      const start = ctx.currentTime + t;
+      gain.gain.setValueAtTime(0, start);
+      gain.gain.linearRampToValueAtTime(vol, start + 0.03);
+      gain.gain.exponentialRampToValueAtTime(0.001, start + dur);
+      osc.start(start); osc.stop(start + dur + 0.1);
+    });
+    // Sweep montant
+    const sweep = ctx.createOscillator();
+    const sweepGain = ctx.createGain();
+    sweep.connect(sweepGain); sweepGain.connect(ctx.destination);
+    sweep.type = 'sine';
+    sweep.frequency.setValueAtTime(200, ctx.currentTime + 0.55);
+    sweep.frequency.exponentialRampToValueAtTime(2000, ctx.currentTime + 1.8);
+    sweepGain.gain.setValueAtTime(0, ctx.currentTime + 0.55);
+    sweepGain.gain.linearRampToValueAtTime(0.15, ctx.currentTime + 0.7);
+    sweepGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.9);
+    sweep.start(ctx.currentTime + 0.55);
+    sweep.stop(ctx.currentTime + 2);
+  } catch(e) {}
+}
+
+// ── CONFETTIS ──
+let _confettiAnim = null;
+let _confettiParticles = [];
+
+function startConfetti(accentColor) {
+  const canvas = document.getElementById('rankup-confetti');
+  if (!canvas) return;
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  const ctx2 = canvas.getContext('2d');
+  const colors = [accentColor, '#ffffff', '#ffd166', '#ff4655', '#4da6ff', '#3affa0', accentColor];
+  _confettiParticles = Array.from({ length: 140 }, () => ({
+    x: Math.random() * canvas.width,
+    y: Math.random() * canvas.height - canvas.height,
+    w: 6 + Math.random() * 8,
+    h: 3 + Math.random() * 5,
+    color: colors[Math.floor(Math.random() * colors.length)],
+    speed: 2.5 + Math.random() * 3.5,
+    angle: Math.random() * Math.PI * 2,
+    spin: (Math.random() - 0.5) * 0.15,
+    drift: (Math.random() - 0.5) * 1.2,
+    opacity: 0.8 + Math.random() * 0.2,
+  }));
+
+  function draw() {
+    ctx2.clearRect(0, 0, canvas.width, canvas.height);
+    _confettiParticles.forEach(p => {
+      ctx2.save();
+      ctx2.globalAlpha = p.opacity;
+      ctx2.translate(p.x + p.w / 2, p.y + p.h / 2);
+      ctx2.rotate(p.angle);
+      ctx2.fillStyle = p.color;
+      ctx2.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+      ctx2.restore();
+      p.y += p.speed;
+      p.x += p.drift;
+      p.angle += p.spin;
+      if (p.y > canvas.height) {
+        p.y = -20;
+        p.x = Math.random() * canvas.width;
+      }
+    });
+    _confettiAnim = requestAnimationFrame(draw);
+  }
+  stopConfetti();
+  draw();
+}
+
+function stopConfetti() {
+  if (_confettiAnim) { cancelAnimationFrame(_confettiAnim); _confettiAnim = null; }
+  const canvas = document.getElementById('rankup-confetti');
+  if (canvas) canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+  _confettiParticles = [];
+}
+
 // ── LIGHTBOX ──
 function imgLightbox(src){const lb=document.getElementById('img-lightbox');const img=document.getElementById('img-lightbox-img');if(lb&&img){img.src=src;lb.style.display='flex';document.body.style.overflow='hidden';}}
 function imgLightboxClose(){const lb=document.getElementById('img-lightbox');if(lb)lb.style.display='none';document.body.style.overflow='';}
@@ -6734,5 +6942,20 @@ setInterval(() => {
   if (adminNav2) adminNav2.style.display = state.isAdmin ? '' : 'none';
 }, 800);
 </script>
+
+<!-- RANK UP OVERLAY -->
+<div id="rankup-overlay" style="display:none;position:fixed;inset:0;z-index:10000;align-items:center;justify-content:center;flex-direction:column;background:rgba(0,0,0,0.88);">
+  <canvas id="rankup-confetti" style="position:fixed;inset:0;pointer-events:none;z-index:10001;"></canvas>
+  <div id="rankup-card" style="position:relative;z-index:10002;text-align:center;animation:rankUpEntrance 0.6s cubic-bezier(0.34,1.56,0.64,1) forwards;">
+    <div id="rankup-old-rank" style="font-size:14px;color:rgba(255,255,255,0.4);font-weight:600;margin-bottom:8px;letter-spacing:2px;text-transform:uppercase;"></div>
+    <div style="font-size:18px;color:rgba(255,255,255,0.4);margin-bottom:16px;">→</div>
+    <div id="rankup-badge" style="font-size:80px;margin-bottom:16px;"></div>
+    <div id="rankup-label" style="font-size:14px;font-weight:800;letter-spacing:4px;text-transform:uppercase;color:rgba(255,255,255,0.6);margin-bottom:8px;">RANK UP</div>
+    <div id="rankup-rank-name" style="font-family:'Syne',sans-serif;font-size:56px;font-weight:900;letter-spacing:-2px;margin-bottom:8px;"></div>
+    <div id="rankup-elo" style="font-size:18px;font-weight:700;color:rgba(255,255,255,0.5);margin-bottom:32px;"></div>
+    <button onclick="closeRankUpOverlay()" style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;border-radius:12px;padding:12px 32px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Space Grotesk',sans-serif;transition:all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'">Continuer</button>
+  </div>
+</div>
+
 </body>
 </html>
