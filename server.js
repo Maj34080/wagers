@@ -12,10 +12,39 @@ const io = new Server(server, {
   transports: ['polling', 'websocket']
 });
 
-// Fil d'activité global — disponible partout dans le fichier
-function emitActivity(type, data) {
-  io.emit('activity_feed', { type, data, time: Date.now() });
+// Fil d'activité global — persistant 5h dans db.json
+const ACTIVITY_TTL = 5 * 60 * 60 * 1000;
+
+function loadActivityFromDB() {
+  try {
+    const data = db.loadDB();
+    if (!data.activityFeed) data.activityFeed = [];
+    const cutoff = Date.now() - ACTIVITY_TTL;
+    data.activityFeed = data.activityFeed.filter(e => e.time > cutoff);
+    db.saveDB(data);
+    return data.activityFeed;
+  } catch(e) { return []; }
 }
+
+let activityFeed = loadActivityFromDB();
+
+function emitActivity(type, data) {
+  const event = { type, data, time: Date.now() };
+  activityFeed.push(event);
+  if (activityFeed.length > 200) activityFeed.shift();
+  try {
+    const dbData = db.loadDB();
+    dbData.activityFeed = activityFeed;
+    db.saveDB(dbData);
+  } catch(e) {}
+  io.emit('activity_feed', event);
+}
+
+// Route pour récupérer les events au chargement du chat
+app.get('/api/activity-feed', (req, res) => {
+  const cutoff = Date.now() - ACTIVITY_TTL;
+  res.json(activityFeed.filter(e => e.time > cutoff).slice(-100));
+});
 
 const PORT = process.env.PORT || 3000;
 const MAPS = ['Ascent', 'Bind', 'Haven', 'Icebox', 'Lotus', 'Pearl', 'Split'];

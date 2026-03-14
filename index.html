@@ -2347,13 +2347,22 @@ function initSocket() {
     const myTeamTmp = team1.some(p => p.pseudo === state.pseudo) ? 1 : 2;
     state.isCaptain = captains && captains[myTeamTmp - 1] === state.pseudo;
 
-    // Cas : mise à jour team2 quand adversaire rejoint notre room en attente
+    // Cas : adversaire rejoint notre room en attente → on entre dans la room
     if (!waiting && state.roomId === roomId) {
-      const t2el = document.getElementById('team2-players');
-      if (t2el) t2el.innerHTML = team2.map(p => makePlayerCard(p, 't2')).join('');
-      const total = getTeamSize(mode) * 2;
-      document.getElementById('room-players-count').textContent = `${total} / ${total} joueur${total > 1 ? 's' : ''}`;
-      document.getElementById('room-cancel-btn').style.display = 'none';
+      sendBrowserNotif('⚔️ Adversaire trouvé !', 'Ta room ' + mode + ' est prête !');
+      playRoomFoundSound();
+      stopEloWindowTimer();
+      document.getElementById('searching-box').classList.remove('show');
+      document.getElementById('btn-find-room').disabled = false;
+      document.getElementById('btn-find-room').style.display = '';
+      // Bref affichage "Match trouvé !" avant d'entrer
+      const sm = document.getElementById('searching-mode');
+      if (sm) sm.textContent = '✅ Match trouvé !';
+      setTimeout(() => {
+        setupRoom(roomId, mode, team1, team2, false);
+        showScreen('room');
+        playRoomEntrySound();
+      }, 700);
       return;
     }
 
@@ -2459,7 +2468,7 @@ function initSocket() {
     document.getElementById('btn-find-room').disabled = false;
   });
 
-  socket.on('chat_msg', (msg) => addMsg(msg.author, msg.team || 'system', msg.text, msg.time, msg.isPremium));
+  socket.on('chat_msg', (msg) => addMsg(msg.author, msg.team || 'system', msg.text, msg.time, msg.isPremium, msg.role));
 
   socket.on('chat_img', ({ author, team, img, time }) => addMsgImg(author, team, img, time));
 
@@ -2946,6 +2955,8 @@ function initSocket() {
       document.getElementById('result-elo').textContent = 'Équipe ' + winner + ' gagne — ELO mis à jour';
       document.getElementById('result-elo').className = 'result-elo';
       document.getElementById('result-map').textContent = 'Mode ' + mode + ' — Gagnants : ' + winTeam.join(', ');
+      // Admin retourne au lobby automatiquement après 3s
+      setTimeout(() => { backToLobby(); }, 3000);
     } else {
       const iWon = winTeam.includes(state.pseudo);
       document.getElementById('result-title').textContent = iWon ? 'GAGNÉ' : 'PERDU';
@@ -4655,14 +4666,29 @@ async function loadCotd() {
 // ── GLOBAL CHAT ──
 async function loadGlobalChat() {
   try {
-    const r = await fetch('/api/global-chat');
-    const msgs = await r.json();
+    // Charger messages ET events d'activité depuis le serveur
+    const [rMsgs, rEvts] = await Promise.all([
+      fetch('/api/global-chat'),
+      fetch('/api/activity-feed')
+    ]);
+    const msgs = await rMsgs.json();
+    const serverEvts = rEvts.ok ? await rEvts.json() : [];
+    // Fusionner avec les events locaux (pour ne pas perdre ceux reçus en live)
+    const localEvts = window._activityEvents || [];
+    const allEvtKeys = new Set();
+    const mergedEvts = [...serverEvts, ...localEvts].filter(e => {
+      const k = e.type + '|' + (e.data?.pseudo||'') + '|' + e.time;
+      if (allEvtKeys.has(k)) return false;
+      allEvtKeys.add(k);
+      return true;
+    });
+    window._activityEvents = mergedEvts;
+    window._activityEventKeys = new Set(mergedEvts.map(e => e.type + '|' + (e.data?.pseudo||'') + '|' + e.time));
     const box = document.getElementById('global-chat-messages');
     if (!box) return;
     box.innerHTML = '';
-    // Fusionner messages et events d'activité, trier par timestamp
     const msgItems = msgs.map(m => ({ kind: 'msg', t: new Date(m.time).getTime(), data: m }));
-    const evtItems = (window._activityEvents || []).map(e => ({ kind: 'evt', t: e.time || 0, data: e }));
+    const evtItems = mergedEvts.map(e => ({ kind: 'evt', t: e.time || 0, data: e }));
     const all = [...msgItems, ...evtItems].sort((a, b) => a.t - b.t);
     all.forEach(item => {
       if (item.kind === 'msg') appendGlobalChatMsg(item.data, false);
@@ -4755,9 +4781,25 @@ function appendGlobalChatMsg(msg, scroll = true) {
     ? `<img src="${msg.avatar}" style="width:20px;height:20px;border-radius:50%;object-fit:cover;flex-shrink:0;${gcPremBorder}">`
     : `<div style="width:20px;height:20px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;flex-shrink:0;${gcPremBorder}">${msg.pseudo[0].toUpperCase()}</div>`;
 
+  // Badge couleur selon rôle
+  const roleColor = msg.role === 'admin' ? '#ff4655' : msg.role === 'content' ? '#9147ff' : msg.isPremium ? '#f7c948' : 'var(--muted)';
+  const roleBadge = msg.role === 'admin'
+    ? '<span style="font-size:9px;font-weight:800;background:rgba(255,70,85,.15);color:#ff4655;border-radius:3px;padding:1px 4px;margin-right:3px;">ADMIN</span>'
+    : msg.role === 'content'
+    ? '<span style="font-size:9px;font-weight:800;background:rgba(145,71,255,.15);color:#9147ff;border-radius:3px;padding:1px 4px;margin-right:3px;">CONTENT</span>'
+    : msg.isPremium
+    ? '<span style="font-size:9px;font-weight:800;background:rgba(247,201,72,.15);color:#f7c948;border-radius:3px;padding:1px 4px;margin-right:3px;">PREMIUM</span>'
+    : '';
+  const meRoleBadge = state.isAdmin
+    ? '<span style="font-size:9px;font-weight:800;background:rgba(255,70,85,.15);color:#ff4655;border-radius:3px;padding:1px 4px;margin-right:3px;">ADMIN</span>'
+    : state.isContent
+    ? '<span style="font-size:9px;font-weight:800;background:rgba(145,71,255,.15);color:#9147ff;border-radius:3px;padding:1px 4px;margin-right:3px;">CONTENT</span>'
+    : state.isPremium
+    ? '<span style="font-size:9px;font-weight:800;background:rgba(247,201,72,.15);color:#f7c948;border-radius:3px;padding:1px 4px;margin-right:3px;">PREMIUM</span>'
+    : '';
   const pseudoHtml = isMe
-    ? `<span style="font-size:11px;font-weight:700;color:var(--accent);">Toi ${state.isPremium ? '👑' : ''}</span>`
-    : `<span onclick="openGlobalChatProfile('${msg.pseudo.replace(/'/g,"\'")}',event)" style="font-size:11px;font-weight:700;color:${msg.isPremium ? '#f7c948' : 'var(--muted)'};cursor:pointer;">${msg.isPremium ? '👑 ' : ''}${msg.pseudo}</span>`;
+    ? `<span style="font-size:11px;font-weight:700;color:var(--accent);display:flex;align-items:center;gap:2px;">${meRoleBadge}Toi</span>`
+    : `<span onclick="openGlobalChatProfile('${msg.pseudo.replace(/'/g,"\'")}',event)" style="font-size:11px;font-weight:700;color:${roleColor};cursor:pointer;display:flex;align-items:center;gap:2px;">${roleBadge}${msg.pseudo}</span>`;
 
   div.innerHTML = `
     <div style="display:flex;align-items:center;gap:5px;${isMe?'flex-direction:row-reverse;':''}">
@@ -6482,9 +6524,17 @@ function addMsg(author, team, text, time, isPremium = false) {
   const ts = t.getHours().toString().padStart(2,'0') + ':' + t.getMinutes().toString().padStart(2,'0');
   const div = document.createElement('div');
   div.className = 'msg' + (isSystem ? ' system-msg' : '');
-  const authorHtml = isPremium
-    ? `<span class="msg-author ${team}" style="background:linear-gradient(90deg,#f7c948,#ff9500);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-weight:800;">👑 ${author}</span>`
-    : `<span class="msg-author ${team}">${author}</span>`;
+  // role peut être passé en 6ème arg
+  const isAdmin = arguments[5] === 'admin';
+  const isContent = arguments[5] === 'content';
+  const roleBadgeRoom = isAdmin
+    ? '<span style="font-size:8px;font-weight:800;background:rgba(255,70,85,.15);color:#ff4655;border-radius:3px;padding:1px 4px;margin-right:3px;">ADMIN</span>'
+    : isContent
+    ? '<span style="font-size:8px;font-weight:800;background:rgba(145,71,255,.15);color:#9147ff;border-radius:3px;padding:1px 4px;margin-right:3px;">CONTENT</span>'
+    : isPremium
+    ? '<span style="font-size:8px;font-weight:800;background:rgba(247,201,72,.15);color:#f7c948;border-radius:3px;padding:1px 4px;margin-right:3px;">PREMIUM</span>'
+    : '';
+  const authorHtml = `<span class="msg-author ${team}" style="${isAdmin ? 'color:#ff4655;' : isContent ? 'color:#9147ff;' : isPremium ? 'background:linear-gradient(90deg,#f7c948,#ff9500);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-weight:800;' : ''}">${roleBadgeRoom}${author}</span>`;
   div.innerHTML = isSystem
     ? `<div class="msg-text">${text}</div>`
     : `<div class="msg-header">${authorHtml}<span class="msg-time">${ts}</span></div><div class="msg-text">${text}</div>`;
