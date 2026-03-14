@@ -2192,6 +2192,90 @@ app.post('/api/admin/fake-rooms/clear', (req, res) => {
 // Démarrer avec 0 fake rooms (contrôle admin uniquement)
 fakeRooms = [];
 
+
+// ── CONTENT CREATOR DASHBOARD ──
+const CONTENT_PALIERS = [
+  { min: 0,   max: 9,   pct: 20, label: 'Débutant' },
+  { min: 10,  max: 29,  pct: 35, label: 'Actif' },
+  { min: 30,  max: 49,  pct: 45, label: 'Influenceur' },
+  { min: 50,  max: 99,  pct: 55, label: 'Expert' },
+  { min: 100, max: 9999,pct: 75, label: 'Elite' },
+];
+const PREMIUM_PRICES = { 1: 7.99, 3: 14.99, 6: 24.99, 12: 39.99 };
+
+function getContentPalier(premiumCount) {
+  for (let i = CONTENT_PALIERS.length - 1; i >= 0; i--) {
+    if (premiumCount >= CONTENT_PALIERS[i].min) return CONTENT_PALIERS[i];
+  }
+  return CONTENT_PALIERS[0];
+}
+
+app.get('/api/content/dashboard/:userId', (req, res) => {
+  try {
+    const data = db.loadDB();
+    const user = data.users.find(u => u.id === req.params.userId);
+    if (!user) return res.status(404).json({ error: 'Introuvable' });
+    if (!CONTENT_PSEUDOS.includes(user.pseudo)) return res.status(403).json({ error: 'Non autorisé' });
+
+    // Tous les filleuls via code parrainage
+    const referrals = data.users
+      .filter(u => u.referredBy === user.id || (user.referralCode && u.referralCode && u.referredBy === user.id))
+      .map(u => ({
+        id: u.id,
+        pseudo: u.pseudo,
+        avatar: u.avatar || null,
+        createdAt: u.createdAt,
+        isPremium: !!u.isPremium,
+        premiumUntil: u.premiumUntil || null,
+        premiumMonths: u.totalPremiumMonths || 0,
+      }));
+
+    // Compter les filleuls premium
+    const premiumReferrals = referrals.filter(r => r.isPremium);
+    const premiumCount = premiumReferrals.length;
+    const palier = getContentPalier(premiumCount);
+    const nextPalier = CONTENT_PALIERS.find(p => p.min > palier.min) || null;
+
+    // Calculer le portefeuille (gains sur les achats premium des filleuls)
+    // On estime 7.99€/mois × % palier pour chaque filleul premium actif
+    const gainParFilleul = 7.99 * (palier.pct / 100);
+    const portefeuille = premiumCount * gainParFilleul;
+
+    // Gains déjà payés (stocké en BDD)
+    const paid = user.contentPaid || 0;
+    const pending = Math.max(0, portefeuille - paid);
+
+    res.json({
+      referralCode: user.referralCode || 'N/A',
+      referrals,
+      totalReferrals: referrals.length,
+      premiumCount,
+      palier,
+      nextPalier,
+      pct: palier.pct,
+      portefeuille: Math.round(portefeuille * 100) / 100,
+      paid: Math.round(paid * 100) / 100,
+      pending: Math.round(pending * 100) / 100,
+      paliers: CONTENT_PALIERS,
+    });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Admin : marquer un paiement effectué
+app.post('/api/admin/content/mark-paid', (req, res) => {
+  if (!isAdminReq(req)) return res.status(403).json({ error: 'Interdit' });
+  const { userId, amount } = req.body;
+  try {
+    const data = db.loadDB();
+    const user = data.users.find(u => u.id === userId);
+    if (!user) return res.status(404).json({ error: 'Introuvable' });
+    user.contentPaid = (user.contentPaid || 0) + (amount || 0);
+    db.saveDB(data);
+    res.json({ ok: true, totalPaid: user.contentPaid });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+
 // Friends API (request-based)
 const DBFILE = () => process.env.NODE_ENV === 'production' ? '/tmp/db.json' : path.join(__dirname, 'db.json');
 const readDB = () => JSON.parse(require('fs').readFileSync(DBFILE(), 'utf8'));

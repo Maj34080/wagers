@@ -422,6 +422,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
       <button class="v2-nav-item" id="v2-nav-tournois" onclick="v2Go('tournois')">🎯 Tournois</button>
       <button class="v2-nav-item" id="v2-nav-boutique" onclick="v2Go('boutique')">🛒 Boutique</button>
       <button class="v2-nav-item" id="v2-nav-tickets" onclick="v2Go('tickets')">🎫 Support</button>
+      <button class="v2-nav-item" id="v2-nav-content" onclick="v2Go('content')" style="display:none;color:#9147ff;">🎬 Espace Content</button>
       <button class="v2-nav-item" id="v2-nav-admin" onclick="v2Go('admin')" style="display:none;color:var(--gold);">🔐 Admin</button>
     </div>
     <!-- Groupe -->
@@ -995,6 +996,77 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
     </div>
 
     <!-- ADMIN TAB -->
+    <!-- CONTENT CREATOR TAB -->
+    <div class="room-tab-content" id="tab-content-content">
+      <div style="max-width:860px;margin:0 auto;" id="content-dashboard-wrap">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px;">
+          <div>
+            <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:22px;">🎬 Espace Content</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:3px;">Suivi de tes parrainages et gains en temps réel</div>
+          </div>
+          <div style="background:var(--surface);border:1px solid rgba(145,71,255,.3);border-radius:10px;padding:10px 16px;text-align:center;">
+            <div style="font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:4px;">Ton code</div>
+            <div id="cd-code" style="font-family:'Space Grotesk',sans-serif;font-size:20px;font-weight:900;color:#9147ff;letter-spacing:3px;">—</div>
+          </div>
+        </div>
+
+        <!-- PALIER + PORTEFEUILLE -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px;">
+          <!-- Palier actuel -->
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px;">
+            <div style="font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;">Palier actuel</div>
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+              <div id="cd-palier-badge" style="padding:4px 14px;border-radius:10px;font-size:13px;font-weight:800;background:rgba(145,71,255,.12);border:1px solid rgba(145,71,255,.3);color:#9147ff;">—</div>
+              <div id="cd-palier-pct" style="font-size:26px;font-weight:900;font-family:'Space Grotesk',sans-serif;color:#9147ff;">—%</div>
+            </div>
+            <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">de commission sur chaque filleul premium</div>
+            <!-- Barre progression vers prochain palier -->
+            <div id="cd-progress-wrap">
+              <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:4px;">
+                <span id="cd-progress-label">— filleuls premium</span>
+                <span id="cd-progress-next">Prochain palier : —</span>
+              </div>
+              <div style="background:var(--surface2);border-radius:6px;height:8px;overflow:hidden;">
+                <div id="cd-progress-bar" style="height:8px;border-radius:6px;width:0%;background:#9147ff;transition:width .5s;"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Portefeuille -->
+          <div style="background:var(--surface);border:1px solid rgba(58,255,160,.2);border-radius:14px;padding:18px 20px;">
+            <div style="font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;">Portefeuille</div>
+            <div style="font-family:'Space Grotesk',sans-serif;font-size:34px;font-weight:900;color:var(--green);margin-bottom:4px;"><span id="cd-pending">0.00</span>€</div>
+            <div style="font-size:11px;color:var(--muted);margin-bottom:12px;">en attente de paiement</div>
+            <div style="background:rgba(58,255,160,.06);border:1px solid rgba(58,255,160,.15);border-radius:8px;padding:8px 12px;">
+              <div style="font-size:11px;color:var(--green);font-weight:600;">💸 Paiement chaque semaine</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:2px;">Déjà perçu : <span id="cd-paid">0.00</span>€ · Total généré : <span id="cd-total">0.00</span>€</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- PALIERS TABLEAU -->
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px;margin-bottom:20px;">
+          <div style="font-size:13px;font-weight:700;margin-bottom:14px;">📊 Grille des paliers</div>
+          <div id="cd-paliers-grid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;"></div>
+        </div>
+
+        <!-- LISTE FILLEULS -->
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+            <div style="font-size:13px;font-weight:700;">👥 Mes filleuls <span id="cd-count-badge" style="font-size:11px;color:var(--muted);font-weight:600;"></span></div>
+            <div style="display:flex;gap:8px;">
+              <span id="cd-stat-total" style="font-size:12px;color:var(--muted);">—</span>
+              <span style="color:var(--border)">·</span>
+              <span id="cd-stat-premium" style="font-size:12px;color:var(--green);">— premium</span>
+            </div>
+          </div>
+          <div id="cd-referrals-list" style="display:flex;flex-direction:column;gap:6px;">
+            <div style="color:var(--muted);text-align:center;padding:30px;">Chargement…</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="room-tab-content" id="tab-content-admin">
       <div style="max-width:900px;margin:0 auto;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
@@ -1673,7 +1745,7 @@ const ADMIN_KEY = 'revenge_admin_secret';
 
 function showMainTab(tab) {
   requestAnimationFrame(() => { const ms = document.getElementById('screen-main'); if (ms) ms.scrollTop = 0; });
-  ['room','lb','admin','tournois','tickets','clans','boutique'].forEach(t => {
+  ['room','lb','admin','tournois','tickets','clans','boutique','content'].forEach(t => {
     const btn = document.getElementById('ntab-' + t);
     const content = document.getElementById('tab-content-' + t);
     if (btn) btn.classList.toggle('active', tab === t);
@@ -1688,6 +1760,7 @@ function showMainTab(tab) {
   if (tab === 'admin') { refreshAdminLogs(); refreshAdminTickets(); loadAdminStats(); loadPremiumAdmin(); loadStaffStatus(); showAdminSection('stats'); }
   if (tab === 'tickets') loadMyTickets();
   if (tab === 'boutique') initBoutique();
+  if (tab === 'content') loadContentDashboard();
   if (tab === 'clans') initClanTab();
   if (tab === 'tournois') loadTournaments();
 }
@@ -6031,6 +6104,102 @@ async function loadFakeRoomsList() {
   } catch(e) {}
 }
 
+async function loadContentDashboard() {
+  if (!state.userId || !state.isContent) return;
+  try {
+    const r = await fetch('/api/content/dashboard/' + state.userId);
+    const d = await r.json();
+    if (d.error) return;
+
+    // Code
+    const codeEl = document.getElementById('cd-code');
+    if (codeEl) codeEl.textContent = d.referralCode || '—';
+
+    // Palier
+    const badgeEl = document.getElementById('cd-palier-badge');
+    const pctEl = document.getElementById('cd-palier-pct');
+    if (badgeEl) badgeEl.textContent = d.palier.label;
+    if (pctEl) pctEl.textContent = d.palier.pct + '%';
+
+    // Barre de progression vers prochain palier
+    const bar = document.getElementById('cd-progress-bar');
+    const labelEl = document.getElementById('cd-progress-label');
+    const nextEl = document.getElementById('cd-progress-next');
+    if (d.nextPalier) {
+      const range = d.nextPalier.min - d.palier.min;
+      const progress = d.premiumCount - d.palier.min;
+      const pct = Math.min(100, Math.round((progress / range) * 100));
+      if (bar) bar.style.width = pct + '%';
+      if (labelEl) labelEl.textContent = d.premiumCount + ' filleul' + (d.premiumCount > 1 ? 's' : '') + ' premium';
+      if (nextEl) nextEl.textContent = 'Prochain : ' + d.nextPalier.label + ' (' + d.nextPalier.min + ') → ' + d.nextPalier.pct + '%';
+    } else {
+      if (bar) bar.style.width = '100%';
+      if (labelEl) labelEl.textContent = d.premiumCount + ' filleuls premium';
+      if (nextEl) nextEl.textContent = '✦ Palier maximum atteint';
+    }
+
+    // Portefeuille
+    const pendingEl = document.getElementById('cd-pending');
+    const paidEl = document.getElementById('cd-paid');
+    const totalEl = document.getElementById('cd-total');
+    if (pendingEl) pendingEl.textContent = d.pending.toFixed(2);
+    if (paidEl) paidEl.textContent = d.paid.toFixed(2);
+    if (totalEl) totalEl.textContent = d.portefeuille.toFixed(2);
+
+    // Stats
+    const countBadge = document.getElementById('cd-count-badge');
+    const statTotal = document.getElementById('cd-stat-total');
+    const statPrem = document.getElementById('cd-stat-premium');
+    if (countBadge) countBadge.textContent = '(' + d.totalReferrals + ')';
+    if (statTotal) statTotal.textContent = d.totalReferrals + ' au total';
+    if (statPrem) statPrem.textContent = d.premiumCount + ' premium';
+
+    // Grille paliers
+    const grid = document.getElementById('cd-paliers-grid');
+    if (grid) {
+      grid.innerHTML = d.paliers.map(p => {
+        const isActive = d.palier.min === p.min;
+        const isDone = d.premiumCount >= p.min;
+        return `<div style="background:${isActive ? 'rgba(145,71,255,.15)' : isDone ? 'rgba(58,255,160,.06)' : 'var(--surface2)'};border:1px solid ${isActive ? 'rgba(145,71,255,.5)' : isDone ? 'rgba(58,255,160,.2)' : 'var(--border)'};border-radius:10px;padding:10px;text-align:center;">
+          <div style="font-size:10px;color:var(--muted);font-weight:600;margin-bottom:4px;">${p.min === 0 ? '0-9' : p.min === 100 ? '100+' : p.min + '-' + (p.max)}</div>
+          <div style="font-size:20px;font-weight:900;font-family:'Space Grotesk',sans-serif;color:${isActive ? '#9147ff' : isDone ? 'var(--green)' : 'var(--muted)'};">${p.pct}%</div>
+          <div style="font-size:10px;font-weight:700;color:${isActive ? '#9147ff' : isDone ? 'var(--green)' : 'var(--muted)'};">${p.label}</div>
+          ${isActive ? '<div style="font-size:9px;color:#9147ff;margin-top:3px;font-weight:700;">◆ ACTUEL</div>' : isDone ? '<div style="font-size:9px;color:var(--green);margin-top:3px;">✓ DÉPASSÉ</div>' : ''}
+        </div>`;
+      }).join('');
+    }
+
+    // Liste filleuls
+    const list = document.getElementById('cd-referrals-list');
+    if (list) {
+      if (!d.referrals.length) {
+        list.innerHTML = '<div style="color:var(--muted);text-align:center;padding:30px;">Aucun filleul pour l\'instant — partage ton code ' + (d.referralCode || '') + ' !</div>';
+      } else {
+        const sorted = [...d.referrals].sort((a, b) => (b.isPremium ? 1 : 0) - (a.isPremium ? 1 : 0));
+        list.innerHTML = sorted.map(u => {
+          const av = u.avatar
+            ? `<img src="${u.avatar}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;flex-shrink:0;">`
+            : `<div style="width:32px;height:32px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex-shrink:0;">${u.pseudo[0].toUpperCase()}</div>`;
+          const date = u.createdAt ? new Date(u.createdAt).toLocaleDateString('fr-FR') : '—';
+          const premBadge = u.isPremium
+            ? `<span style="font-size:10px;font-weight:700;background:rgba(255,209,102,.1);border:1px solid rgba(255,209,102,.3);color:var(--gold);border-radius:6px;padding:2px 8px;">👑 PREMIUM</span>`
+            : `<span style="font-size:10px;font-weight:700;background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:2px 8px;">Gratuit</span>`;
+          const gain = u.isPremium ? `<span style="font-size:11px;color:var(--green);font-weight:700;">+${(7.99 * d.pct / 100).toFixed(2)}€</span>` : `<span style="font-size:11px;color:var(--muted);">0.00€</span>`;
+          return `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:${u.isPremium ? 'rgba(255,209,102,.03)' : 'var(--bg)'};border-radius:10px;border:1px solid ${u.isPremium ? 'rgba(255,209,102,.15)' : 'transparent'};">
+            ${av}
+            <div style="flex:1;min-width:0;">
+              <div style="font-weight:700;font-size:13px;">${u.pseudo}</div>
+              <div style="font-size:10px;color:var(--muted);">Inscrit le ${date}</div>
+            </div>
+            ${premBadge}
+            ${gain}
+          </div>`;
+        }).join('');
+      }
+    }
+  } catch(e) { console.error(e); }
+}
+
 async function loadPremiumAdmin() {
   const list = document.getElementById('admin-premium-list');
   if (!list) return;
@@ -6920,6 +7089,8 @@ function v2SyncState() {
   // Admin nav item
   const adminNav = document.getElementById('v2-nav-admin');
   if (adminNav) adminNav.style.display = state.isAdmin ? '' : 'none';
+  const contentNav = document.getElementById('v2-nav-content');
+  if (contentNav) contentNav.style.display = state.isContent ? '' : 'none';
 
   // Stat cards
   const stats = state.stats || {};
@@ -6962,7 +7133,7 @@ function v2SyncState() {
     const pct = Math.min(100, Math.round((maxElo - cur.min) / (next.min - cur.min) * 100));
     bar.style.width = pct + '%';
     bar.style.background = 'linear-gradient(90deg,' + cur.color + ',' + next.color + ')';
-    if (rnxt) rnxt.innerHTML = getRankBadge(next.min, null).replace('font-size:10px', 'font-size:9px').replace('padding:1px 8px', 'padding:1px 6px') + '<span style="font-size:11px;color:rgba(240,240,248,.7);font-weight:600;margin-left:4px;">(' + (next.min - maxElo) + ' pts)</span>';
+    if (rnxt) rnxt.innerHTML = getRankBadge(next.min, null).replace('font-size:10px', 'font-size:8px').replace('padding:1px 8px', 'padding:1px 5px') + '<span style="font-size:11px;color:rgba(240,240,248,.7);font-weight:600;margin-left:4px;">(' + (next.min - maxElo) + ' pts)</span>';
   } else if (bar) {
     bar.style.width = '100%';
     bar.style.background = cur.color;
