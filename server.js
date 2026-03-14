@@ -534,10 +534,42 @@ app.get('/api/cotd', (req, res) => {
   res.json({ data: cotdData, nextReset });
 });
 
-// ── GLOBAL CHAT ──
-const globalChat = []; // { pseudo, text, time, avatar }
-const GLOBAL_CHAT_MAX = 100;
-app.get('/api/global-chat', (req, res) => res.json(globalChat.slice(-50)));
+// ── GLOBAL CHAT (persistant, suppression auto après 5h) ──
+const GLOBAL_CHAT_MAX = 200;
+const GLOBAL_CHAT_TTL = 5 * 60 * 60 * 1000; // 5 heures
+
+function loadGlobalChatFromDB() {
+  try {
+    const data = db.loadDB();
+    if (!data.globalChat) data.globalChat = [];
+    // Purger les messages > 5h
+    const cutoff = Date.now() - GLOBAL_CHAT_TTL;
+    data.globalChat = data.globalChat.filter(m => m.time > cutoff);
+    db.saveDB(data);
+    return data.globalChat;
+  } catch(e) { return []; }
+}
+
+function saveGlobalChatToDB(msgs) {
+  try {
+    const data = db.loadDB();
+    data.globalChat = msgs;
+    db.saveDB(data);
+  } catch(e) {}
+}
+
+// Initialiser depuis la DB au démarrage
+let globalChat = loadGlobalChatFromDB();
+
+// Purge auto toutes les heures
+setInterval(() => {
+  const cutoff = Date.now() - GLOBAL_CHAT_TTL;
+  const before = globalChat.length;
+  globalChat = globalChat.filter(m => m.time > cutoff);
+  if (globalChat.length !== before) saveGlobalChatToDB(globalChat);
+}, 60 * 60 * 1000);
+
+app.get('/api/global-chat', (req, res) => res.json(globalChat.slice(-100)));
 app.post('/api/global-chat', (req, res) => {
   const { userId, pseudo, text } = req.body;
   if (!userId || !pseudo || !text || text.length > 120) return res.status(400).json({ error: 'Invalide' });
@@ -550,6 +582,7 @@ app.post('/api/global-chat', (req, res) => {
   const msg = { pseudo, text: text.trim(), time: Date.now(), avatar: user.avatar||null, isPremium: !!user.isPremium, role };
   globalChat.push(msg);
   if (globalChat.length > GLOBAL_CHAT_MAX) globalChat.shift();
+  saveGlobalChatToDB(globalChat);
   io.emit('global_chat_msg', msg);
   res.json({ ok: true });
 });

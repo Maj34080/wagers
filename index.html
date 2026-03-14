@@ -3113,6 +3113,8 @@ function initSocket() {
     document.getElementById('profile-modal').classList.add('show');
     switchProfileTab('stats');
     loadProfileHistory(data.id);
+    // Pré-charger le tab parrainage en arrière-plan pour que la barre soit prête
+    loadReferralTab();
   });
 
   socket.on('ban_error', (msg) => notify('❌ ' + msg));
