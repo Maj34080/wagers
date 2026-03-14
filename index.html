@@ -4352,7 +4352,7 @@ async function adminMarkContentPaid() {
         const date = new Date().toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', year:'2-digit' });
         const entry = document.createElement('div');
         entry.style.cssText = 'display:flex;align-items:center;gap:8px;font-size:11px;padding:4px 8px;background:rgba(58,255,160,.05);border-radius:6px;';
-        entry.innerHTML = '<span style="color:var(--green);font-weight:700;">+' + amount.toFixed(2) + '€</span><span style="color:var(--muted);">' + date + (note ? ' · ' + note : '') + '</span>';
+        entry.innerHTML = '<span style="color:var(--green);font-weight:700;">+' + amount.toFixed(2) + '€</span><span style="color:var(--muted);flex:1;">' + date + (note ? ' · ' + note : '') + '</span><button onclick="this.parentElement.remove()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;line-height:1;padding:0 2px;opacity:.7;" title="Supprimer">✕</button>';
         hist.prepend(entry);
       }
       adminViewContentDashboard(_adminContentCurrentUserId, document.getElementById('acd-pseudo').textContent);
