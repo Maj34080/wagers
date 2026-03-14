@@ -2296,6 +2296,11 @@ app.post('/api/admin/content/undo-paid', (req, res) => {
     const user = data.users.find(u => u.id === userId);
     if (!user) return res.status(404).json({ error: 'Introuvable' });
     user.contentPaid = Math.max(0, (user.contentPaid || 0) - (amount || 0));
+    // Supprimer la dernière entrée correspondant au montant
+    if (user.contentPayments && user.contentPayments.length > 0) {
+      const idx = user.contentPayments.map(p => p.amount).lastIndexOf(amount);
+      if (idx !== -1) user.contentPayments.splice(idx, 1);
+    }
     db.saveDB(data);
     res.json({ ok: true, totalPaid: user.contentPaid });
   } catch(e) { res.status(500).json({ error: e.message }); }
