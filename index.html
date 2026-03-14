@@ -1090,7 +1090,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
             <span style="font-size:20px;">🕵️</span><span style="font-size:11px;font-weight:700;color:#f97316;">Smurfs</span>
           </button>
           <button onclick="showAdminSection('staff')" id="admin-sec-staff" style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px 8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;transition:all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.07)'" onmouseout="this.style.background='var(--surface2)'">
-            <span style="font-size:20px;">🛡️</span><span style="font-size:11px;font-weight:700;color:#4fd1c5;">Staff</span>
+            <span style="font-size:20px;">🎬</span><span style="font-size:11px;font-weight:700;color:#9147ff;">Content</span>
           </button>
           <button onclick="showAdminSection('lookup')" id="admin-sec-lookup" style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px 8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;transition:all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.07)'" onmouseout="this.style.background='var(--surface2)'">
             <span style="font-size:20px;">🔍</span><span style="font-size:11px;font-weight:700;color:#a78bfa;">Joueur</span>
@@ -1195,13 +1195,56 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
 
         <div id="admin-section-staff" style="display:none;">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-            <div style="font-weight:700;font-size:14px;">🛡️ Équipe Staff</div>
+            <div style="font-weight:700;font-size:14px;">🎬 Créateurs Content</div>
             <button onclick="loadStaffStatus()" class="btn-mini">🔄 Actualiser</button>
           </div>
+          <!-- Liste des creators -->
           <div id="admin-staff-list" style="display:flex;flex-direction:column;gap:10px;">
             <div style="color:var(--muted);text-align:center;padding:40px;">Chargement…</div>
           </div>
-          <!-- Backup dans staff -->
+          <!-- Dashboard d'un creator (panel expandable) -->
+          <div id="admin-content-detail" style="display:none;background:var(--surface);border:1px solid rgba(145,71,255,.3);border-radius:14px;padding:18px;margin-top:16px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+              <div style="font-weight:800;font-size:14px;color:#9147ff;">🎬 Dashboard de <span id="acd-pseudo">—</span></div>
+              <button onclick="document.getElementById('admin-content-detail').style.display='none'" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;">✕</button>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
+              <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px;">
+                <div style="font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:6px;">Code parrainage</div>
+                <div id="acd-code" style="font-size:18px;font-weight:900;color:#9147ff;letter-spacing:3px;">—</div>
+              </div>
+              <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px;">
+                <div style="font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:6px;">Palier actuel</div>
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <span id="acd-palier" style="font-size:13px;font-weight:800;color:#9147ff;">—</span>
+                  <span id="acd-pct" style="font-size:22px;font-weight:900;color:#9147ff;">—%</span>
+                </div>
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px;">
+              <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center;">
+                <div style="font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Filleuls total</div>
+                <div id="acd-total" style="font-size:22px;font-weight:900;color:var(--text);">—</div>
+              </div>
+              <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center;">
+                <div style="font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Filleuls premium</div>
+                <div id="acd-premium-count" style="font-size:22px;font-weight:900;color:var(--gold);">—</div>
+              </div>
+              <div style="background:rgba(58,255,160,.05);border:1px solid rgba(58,255,160,.2);border-radius:10px;padding:12px;text-align:center;">
+                <div style="font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">À payer</div>
+                <div id="acd-pending" style="font-size:22px;font-weight:900;color:var(--green);">—€</div>
+              </div>
+            </div>
+            <!-- Liste filleuls -->
+            <div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:8px;letter-spacing:1px;text-transform:uppercase;">Filleuls</div>
+            <div id="acd-referrals" style="display:flex;flex-direction:column;gap:5px;max-height:260px;overflow-y:auto;"></div>
+            <!-- Bouton marquer payé -->
+            <div style="display:flex;align-items:center;gap:10px;margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">
+              <div style="font-size:12px;color:var(--muted);flex:1;">Marquer le solde en attente comme payé cette semaine</div>
+              <button onclick="adminMarkContentPaid()" style="background:rgba(58,255,160,.12);border:1px solid rgba(58,255,160,.3);color:var(--green);border-radius:8px;padding:8px 16px;font-size:12px;font-weight:700;cursor:pointer;">💸 Marquer payé</button>
+            </div>
+          </div>
+          <!-- Backup -->
           <div style="background:var(--surface);border:1px solid rgba(52,211,153,0.25);border-radius:12px;padding:14px 16px;margin-top:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
             <div>
               <div style="font-weight:700;font-size:13px;color:#34d399;">💾 Backup Discord</div>
@@ -4185,34 +4228,120 @@ async function loadSeasonsAdmin() {
   } catch(e) { cur.innerHTML = `<div style="color:var(--accent);">Erreur: ${e.message}</div>`; }
 }
 
+let _adminContentCurrentUserId = null;
+
 async function loadStaffStatus() {
   const list = document.getElementById('admin-staff-list');
   if (!list) return;
   list.innerHTML = '<div style="color:var(--muted);text-align:center;padding:20px;">Chargement…</div>';
   try {
-    const r = await fetch('/api/admin/staff', { headers: { 'x-admin-key': ADMIN_KEY } });
+    const r = await fetch('/api/admin/content-list', { headers: { 'x-admin-key': ADMIN_KEY, 'x-admin-pseudo': state.pseudo } });
     const d = await r.json();
-    if (!d.staff || !d.staff.length) { list.innerHTML = '<div style="color:var(--muted);text-align:center;padding:20px;">Aucun staff configuré</div>'; return; }
-    list.innerHTML = d.staff.map(s => {
-      const dot = s.online
-        ? `<span style="width:10px;height:10px;border-radius:50%;background:var(--green);display:inline-block;box-shadow:0 0 6px var(--green);"></span>`
-        : `<span style="width:10px;height:10px;border-radius:50%;background:var(--muted);display:inline-block;"></span>`;
-      const status = s.online
-        ? `<span style="color:var(--green);font-size:12px;font-weight:700;">En ligne</span>`
-        : `<span style="color:var(--muted);font-size:12px;">Hors ligne${s.lastSeen ? ' · ' + timeSince(s.lastSeen) : ''}</span>`;
-      const avatar = s.avatar
-        ? `<img src="${s.avatar}" style="width:42px;height:42px;border-radius:50%;object-fit:cover;border:2px solid ${s.online ? 'var(--green)' : 'var(--border)'}">`
-        : `<div style="width:42px;height:42px;border-radius:50%;background:var(--surface2);border:2px solid ${s.online ? 'var(--green)' : 'var(--border)'};display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;">${s.pseudo[0].toUpperCase()}</div>`;
-      return `<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:12px;">
-        <div style="position:relative;">${avatar}<span style="position:absolute;bottom:1px;right:1px;">${dot}</span></div>
-        <div style="flex:1;">
-          <div style="font-weight:800;font-size:14px;font-family:'Space Grotesk',sans-serif;">🛡️ ${s.pseudo}</div>
-          ${status}
+    if (!d.contentPseudos || !d.contentPseudos.length) {
+      list.innerHTML = '<div style="color:var(--muted);text-align:center;padding:30px;">Aucun créateur Content pour l'instant</div>';
+      return;
+    }
+    // Pour chaque creator, fetch son dashboard
+    const dashboards = await Promise.all(d.contentPseudos.map(async pseudo => {
+      try {
+        // On cherche l'userId via find-user
+        const ru = await fetch('/api/admin/find-user?pseudo=' + encodeURIComponent(pseudo), { headers: { 'x-admin-key': ADMIN_KEY, 'x-admin-pseudo': state.pseudo } });
+        if (!ru.ok) return { pseudo, error: true };
+        const user = await ru.json();
+        const rd = await fetch('/api/content/dashboard/' + user.id);
+        if (!rd.ok) return { pseudo, userId: user.id, error: true };
+        const dash = await rd.json();
+        return { pseudo, userId: user.id, avatar: user.avatar, ...dash };
+      } catch(e) { return { pseudo, error: true }; }
+    }));
+    list.innerHTML = dashboards.map(d => {
+      if (d.error) return `<div style="padding:10px;color:var(--muted);font-size:12px;">❌ ${d.pseudo} — données indisponibles</div>`;
+      const av = d.avatar
+        ? `<img src="${d.avatar}" style="width:38px;height:38px;border-radius:50%;object-fit:cover;border:2px solid #9147ff;">`
+        : `<div style="width:38px;height:38px;border-radius:50%;background:rgba(145,71,255,.2);border:2px solid #9147ff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;color:#9147ff;">${d.pseudo[0].toUpperCase()}</div>`;
+      return `<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--surface);border:1px solid rgba(145,71,255,.2);border-radius:12px;cursor:pointer;transition:border-color .15s;" onmouseover="this.style.borderColor='rgba(145,71,255,.5)'" onmouseout="this.style.borderColor='rgba(145,71,255,.2)'" onclick="adminViewContentDashboard('${d.userId}','${d.pseudo}')">
+        ${av}
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:800;font-size:14px;color:#9147ff;">🎬 ${d.pseudo}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px;">
+            ${d.totalReferrals || 0} filleuls · ${d.premiumCount || 0} premium · ${(d.pending || 0).toFixed(2)}€ à payer
+          </div>
         </div>
-        <div style="font-size:11px;color:var(--gold);font-weight:700;">Admin</div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
+          <span style="font-size:10px;font-weight:700;background:rgba(145,71,255,.12);border:1px solid rgba(145,71,255,.3);color:#9147ff;border-radius:6px;padding:2px 8px;">${d.palier?.label || '—'} · ${d.pct || 0}%</span>
+          <span style="font-size:10px;color:var(--muted);">Code : ${d.referralCode || '—'}</span>
+        </div>
       </div>`;
     }).join('');
   } catch(e) { list.innerHTML = '<div style="color:var(--accent);text-align:center;padding:20px;">Erreur</div>'; }
+}
+
+async function adminViewContentDashboard(userId, pseudo) {
+  _adminContentCurrentUserId = userId;
+  const detail = document.getElementById('admin-content-detail');
+  if (!detail) return;
+  detail.style.display = '';
+  document.getElementById('acd-pseudo').textContent = pseudo;
+  document.getElementById('acd-code').textContent = '…';
+  document.getElementById('acd-palier').textContent = '…';
+  document.getElementById('acd-pct').textContent = '…%';
+  document.getElementById('acd-total').textContent = '…';
+  document.getElementById('acd-premium-count').textContent = '…';
+  document.getElementById('acd-pending').textContent = '…€';
+  document.getElementById('acd-referrals').innerHTML = '<div style="color:var(--muted);font-size:12px;padding:10px;">Chargement…</div>';
+  detail.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  try {
+    const r = await fetch('/api/content/dashboard/' + userId);
+    const d = await r.json();
+    if (d.error) return;
+    document.getElementById('acd-code').textContent = d.referralCode || '—';
+    document.getElementById('acd-palier').textContent = d.palier?.label || '—';
+    document.getElementById('acd-pct').textContent = (d.pct || 0) + '%';
+    document.getElementById('acd-total').textContent = d.totalReferrals || 0;
+    document.getElementById('acd-premium-count').textContent = d.premiumCount || 0;
+    document.getElementById('acd-pending').textContent = (d.pending || 0).toFixed(2) + '€';
+    const refList = document.getElementById('acd-referrals');
+    if (!d.referrals?.length) {
+      refList.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:10px;">Aucun filleul</div>';
+    } else {
+      const sorted = [...d.referrals].sort((a,b) => (b.isPremium?1:0)-(a.isPremium?1:0));
+      refList.innerHTML = sorted.map(u => {
+        const av = u.avatar
+          ? `<img src="${u.avatar}" style="width:26px;height:26px;border-radius:50%;object-fit:cover;">`
+          : `<div style="width:26px;height:26px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;">${u.pseudo[0].toUpperCase()}</div>`;
+        const prem = u.isPremium
+          ? `<span style="font-size:9px;font-weight:700;background:rgba(255,209,102,.1);border:1px solid rgba(255,209,102,.3);color:var(--gold);border-radius:4px;padding:1px 6px;">👑 PREMIUM</span>`
+          : `<span style="font-size:9px;color:var(--muted);">Gratuit</span>`;
+        const gain = u.isPremium ? `<span style="font-size:11px;color:var(--green);font-weight:700;">+${(7.99*(d.pct/100)).toFixed(2)}€</span>` : '';
+        return `<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--bg);border-radius:8px;">
+          ${av}
+          <span style="flex:1;font-size:12px;font-weight:600;">${u.pseudo}</span>
+          ${prem} ${gain}
+        </div>`;
+      }).join('');
+    }
+  } catch(e) {}
+}
+
+async function adminMarkContentPaid() {
+  if (!_adminContentCurrentUserId) return;
+  const pendingEl = document.getElementById('acd-pending');
+  const amount = parseFloat(pendingEl?.textContent) || 0;
+  if (!amount) { notify('Aucun montant à payer'); return; }
+  if (!confirm('Marquer ' + amount.toFixed(2) + '€ comme payé pour ce créateur ?')) return;
+  try {
+    const r = await fetch('/api/admin/content/mark-paid', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-key': ADMIN_KEY },
+      body: JSON.stringify({ userId: _adminContentCurrentUserId, amount })
+    });
+    const d = await r.json();
+    if (d.ok) {
+      notify('✅ Paiement enregistré — ' + amount.toFixed(2) + '€');
+      adminViewContentDashboard(_adminContentCurrentUserId, document.getElementById('acd-pseudo').textContent);
+      loadStaffStatus();
+    }
+  } catch(e) { notify('❌ Erreur réseau'); }
 }
 
 function timeSince(dateStr) {
