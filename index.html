@@ -271,11 +271,14 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
 /* RESULT */
 .result-overlay{display:none;position:fixed;inset:0;z-index:200;background:rgba(10,10,15,0.85);backdrop-filter:blur(8px);align-items:center;justify-content:center;}
 .result-overlay.show{display:flex;}
-.result-card{background:var(--surface);border:1px solid var(--border);border-radius:24px;padding:48px 40px;text-align:center;width:440px;animation:scaleIn 0.4s cubic-bezier(0.34,1.56,0.64,1);}
-.result-title{font-family:'Syne',sans-serif;font-size:40px;font-weight:800;margin-bottom:8px;}
-.result-title.win{color:var(--green);}.result-title.lose{color:var(--accent);}
-.result-elo{font-family:'Syne',sans-serif;font-size:18px;font-weight:700;color:var(--gold);margin-bottom:6px;}
-.result-map{font-size:12px;color:var(--muted);margin-bottom:16px;}
+.result-card{background:var(--surface);border:1px solid var(--border);border-radius:28px;padding:52px 44px;text-align:center;width:460px;animation:scaleIn 0.4s cubic-bezier(0.34,1.56,0.64,1);position:relative;overflow:hidden;}
+.result-title{font-family:'Syne',sans-serif;font-size:52px;font-weight:900;margin-bottom:4px;letter-spacing:-1px;}
+.result-title.win{color:var(--green);text-shadow:0 0 40px rgba(58,255,160,0.3);}
+.result-title.lose{color:var(--accent);text-shadow:0 0 40px rgba(255,70,85,0.3);}
+.result-elo{font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:800;margin-bottom:6px;}
+.result-elo.elo-gain{color:var(--green);}
+.result-elo.elo-loss{color:var(--accent);}
+.result-map{font-size:12px;color:var(--muted);margin-bottom:18px;}
 .result-btn{background:var(--accent);color:white;border:none;border-radius:12px;padding:12px 28px;font-family:'Syne',sans-serif;font-weight:700;font-size:14px;cursor:pointer;transition:all 0.2s;}
 .result-btn:hover{background:var(--accent2);}
 .result-btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:12px;padding:11px 20px;font-family:'Syne',sans-serif;font-weight:700;font-size:13px;cursor:pointer;transition:all 0.2s;}
@@ -336,6 +339,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
 /* Room tab content animation */
 .room-tab-content{display:none;opacity:0;width:100%;}
 .room-tab-content.active{display:block;width:100%;animation:tabFadeIn 0.2s ease forwards;}
+#tab-content-admin{overflow:visible;}
 @keyframes tabFadeIn{from{opacity:0;transform:translateY(5px);}to{opacity:1;transform:translateY(0);}}
 </style>
 </head>
@@ -378,7 +382,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
   <div id="v2-sidebar">
     <!-- Logo + User -->
     <div style="padding:18px 14px 12px;border-bottom:1px solid var(--border);flex-shrink:0;">
-      <div style="font-family:'Syne',sans-serif;font-weight:900;font-size:18px;cursor:pointer;" onclick="v2Go('room')">REVENGE<span style="color:var(--accent);">.</span></div>
+      <div style="font-family:'Syne',sans-serif;font-weight:900;font-size:24px;cursor:pointer;letter-spacing:-0.5px;" onclick="v2Go('room')">REVENGE<span style="color:var(--accent);">.</span></div>
       <div style="margin-top:12px;display:flex;align-items:center;gap:10px;">
         <div id="v2-avatar" style="width:36px;height:36px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;flex-shrink:0;cursor:pointer;" onclick="openProfile()"></div>
         <div style="min-width:0;flex:1;">
@@ -1561,7 +1565,7 @@ const MAP_IMGS = {
 })();
 
 let socket = null;
-let state = { pseudo:'', elo:500, stats:{}, isAdmin:false, isSpectator:false, avatar:null, userId:null, groupCode:null, roomId:null, myTeam:null, mode:'2v2', lbMode:'1v1', groupSize:0, clanId:null, isCaptain:false, isPremium:false, premiumUntil:null };
+let state = { pseudo:'', elo:500, stats:{}, isAdmin:false, isContent:false, isSpectator:false, avatar:null, userId:null, groupCode:null, roomId:null, myTeam:null, mode:'2v2', lbMode:'1v1', groupSize:0, clanId:null, isCaptain:false, isPremium:false, premiumUntil:null };
 // ── Variables globales (déclarées ici pour éviter la temporal dead zone) ──
 let _lastMatchData = null;
 let _groupChatOpen = true;
@@ -2072,6 +2076,7 @@ function initSocket() {
     state.pseudo = pseudo;
     state.stats = stats || {};
     state.isAdmin = isAdmin || false;
+    state.isContent = isContent || false;
     state.avatar = avatar || null;
     state.userId = userId || null;
     state.isPremium = !!isPremium;
@@ -2631,6 +2636,19 @@ function initSocket() {
     if (lockEl) lockEl.style.display = 'flex';
   });
 
+  socket.on('content_granted', () => {
+    state.isContent = true;
+    notify('🎬 Rôle Content activé !', { accent: '#9147ff' });
+    loadTournaments();
+    updateNavPremium();
+  });
+  socket.on('content_revoked', () => {
+    state.isContent = false;
+    notify('Rôle Content retiré');
+    loadTournaments();
+    updateNavPremium();
+  });
+
   socket.on('elo_window_start', ({ avgElo, createdAt }) => {
     state._eloWindowAvg = avgElo;
     state._eloWindowStart = createdAt;
@@ -2692,17 +2710,19 @@ function initSocket() {
       document.getElementById('result-title').textContent = 'ÉGALITÉ';
       document.getElementById('result-title').className = 'result-title';
       document.getElementById('result-title').style.color = 'var(--gold)';
-      document.getElementById('result-elo').textContent = '±0 ELO — Aucun changement';
+      document.getElementById('result-elo').textContent = '±0 ELO — Match nul';
+      document.getElementById('result-elo').className = 'result-elo';
       document.getElementById('result-map').textContent = 'Mode ' + mode + ' — Décision admin : Égalité';
     } else if (isSpectatorAdmin) {
-      document.getElementById('result-title').textContent = '⚖️ DÉCISION RENDUE';
+      document.getElementById('result-title').textContent = '⚖️ DÉCISION';
       document.getElementById('result-title').className = 'result-title';
       document.getElementById('result-title').style.color = 'var(--gold)';
-      document.getElementById('result-elo').textContent = `Équipe ${winner} gagne — ELO mis à jour`;
+      document.getElementById('result-elo').textContent = 'Équipe ' + winner + ' gagne — ELO mis à jour';
+      document.getElementById('result-elo').className = 'result-elo';
       document.getElementById('result-map').textContent = 'Mode ' + mode + ' — Gagnants : ' + winTeam.join(', ');
     } else {
       const iWon = winTeam.includes(state.pseudo);
-      document.getElementById('result-title').textContent = iWon ? 'VICTOIRE' : 'DÉFAITE';
+      document.getElementById('result-title').textContent = iWon ? 'GAGNÉ' : 'PERDU';
       document.getElementById('result-title').className = 'result-title ' + (iWon ? 'win' : 'lose');
       if (isTournamentRoom) {
         // Tournament: no ELO change, show result only
@@ -2721,7 +2741,9 @@ function initSocket() {
         else state.stats[mode].losses = (state.stats[mode].losses || 0) + 1;
         setTimeout(v2SyncState, 100); // refresh sidebar stats
         const eloChangeDisplay = myEloChange > 0 ? '+' + myEloChange : String(myEloChange);
-        document.getElementById('result-elo').textContent = eloChangeDisplay + ' ELO → ' + state.elo;
+        const eloEl = document.getElementById('result-elo');
+        eloEl.textContent = eloChangeDisplay + ' ELO  ·  ' + state.elo + ' total';
+        eloEl.className = 'result-elo ' + (myEloChange > 0 ? 'elo-gain' : 'elo-loss');
         document.getElementById('result-map').textContent = 'Mode ' + mode + ' — Gagnants : ' + winTeam.join(', ');
         document.getElementById('nav-elo').textContent = state.elo;
         updateNavRank();
@@ -3045,11 +3067,13 @@ function updateNavPremium() {
   const navPseudo = document.getElementById('nav-pseudo');
   if (navAvatar) navAvatar.classList.toggle('premium-border', !!state.isPremium);
   if (navPseudo) navPseudo.classList.toggle('premium-pseudo', !!state.isPremium);
-  // V2 sidebar avatar
+  // V2 sidebar avatar — gold ring (premium) ou violet (content)
   const v2av = document.getElementById('v2-avatar');
   if (v2av) {
     if (state.isPremium) {
       v2av.style.boxShadow = '0 0 0 2.5px #f7c948, 0 0 10px rgba(247,201,72,0.5)';
+    } else if (state.isContent) {
+      v2av.style.boxShadow = '0 0 0 2.5px #9147ff, 0 0 10px rgba(145,71,255,0.5)';
     } else {
       v2av.style.boxShadow = '';
     }
@@ -4964,7 +4988,7 @@ async function loadTournaments() {
   const listEl = document.getElementById('tournaments-list');
   if (!listEl) return;
   const btnCreate = document.getElementById('btn-create-tournament');
-  if (btnCreate) btnCreate.style.display = state.isPremium ? '' : 'none';
+  if (btnCreate) btnCreate.style.display = (state.isPremium || state.isContent) ? '' : 'none';
   const btnSim = document.getElementById('btn-admin-sim-tournament');
   if (btnSim) btnSim.style.display = state.isAdmin ? '' : 'none';
   renderTournamentInvites();
