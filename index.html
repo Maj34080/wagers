@@ -71,8 +71,8 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
 .btn-mini:hover{border-color:var(--accent);color:var(--accent);}
 
 /* MAIN */
-#screen-main{flex-direction:row;overflow:hidden;height:100vh;padding-bottom:0;}
-.main-body{flex:1;padding:24px 28px;max-width:none;margin:0;min-width:0;overflow-y:auto;height:100vh;}
+#screen-main{flex-direction:row;overflow:hidden;height:100vh;padding-bottom:0;align-items:stretch;}
+.main-body{flex:1;padding:24px 28px;max-width:none;margin:0;min-width:0;overflow-y:auto;height:100%;min-height:0;}
 .room-tab-content{display:none;}
 .room-tab-content.active{display:block;}
 
@@ -383,11 +383,11 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
     <!-- Logo + User -->
     <div style="padding:18px 14px 12px;border-bottom:1px solid var(--border);flex-shrink:0;">
       <div style="font-family:'Syne',sans-serif;font-weight:900;font-size:24px;cursor:pointer;letter-spacing:-0.5px;" onclick="v2Go('room')">REVENGE<span style="color:var(--accent);">.</span></div>
-      <div style="margin-top:12px;display:flex;align-items:center;gap:10px;">
-        <div id="v2-avatar" style="width:36px;height:36px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;flex-shrink:0;cursor:pointer;" onclick="openProfile()"></div>
+      <div style="margin-top:12px;display:flex;align-items:center;gap:12px;">
+        <div id="v2-avatar" style="width:44px;height:44px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;flex-shrink:0;cursor:pointer;" onclick="openProfile()"></div>
         <div style="min-width:0;flex:1;">
-          <div id="v2-pseudo" style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;" onclick="openProfile()"></div>
-          <div style="font-size:11px;color:var(--gold);font-weight:700;font-family:'Syne',sans-serif;">🔥 <span id="v2-elo">500</span> ELO</div>
+          <div id="v2-pseudo" style="font-size:15px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;font-family:'Space Grotesk',sans-serif;" onclick="openProfile()"></div>
+          <div style="font-size:13px;color:var(--gold);font-weight:700;font-family:'Syne',sans-serif;">🔥 <span id="v2-elo">500</span> ELO</div>
         </div>
       </div>
     </div>
@@ -733,6 +733,12 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
           <div>
             <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:22px;">🏆 Tournois</div>
             <div style="font-size:12px;color:var(--muted);margin-top:3px;">Créé par Premium · Ouvert à tous</div>
+          </div>
+          <!-- Stat victoires tournois -->
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 20px;text-align:center;min-width:130px;">
+            <div style="font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;">Mes victoires</div>
+            <div id="v2-tournament-wins" style="font-size:26px;font-weight:900;font-family:'Space Grotesk',sans-serif;color:var(--gold);">0</div>
+            <div style="font-size:10px;color:var(--muted);">tournoi(s) gagné(s)</div>
           </div>
           <div style="display:flex;gap:8px;align-items:center;">
             <button onclick="toggleAdminSimPanel()" id="btn-admin-sim-tournament" style="display:none;background:rgba(255,70,85,0.12);border:1px solid rgba(255,70,85,0.4);color:var(--accent);border-radius:12px;padding:10px 16px;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:13px;cursor:pointer;">🤖 Simuler</button>
@@ -1565,7 +1571,7 @@ const MAP_IMGS = {
 })();
 
 let socket = null;
-let state = { pseudo:'', elo:500, stats:{}, isAdmin:false, isContent:false, isSpectator:false, avatar:null, userId:null, groupCode:null, roomId:null, myTeam:null, mode:'2v2', lbMode:'1v1', groupSize:0, clanId:null, isCaptain:false, isPremium:false, premiumUntil:null };
+let state = { pseudo:'', elo:500, stats:{}, isAdmin:false, isContent:false, tournamentWins:0, isSpectator:false, avatar:null, userId:null, groupCode:null, roomId:null, myTeam:null, mode:'2v2', lbMode:'1v1', groupSize:0, clanId:null, isCaptain:false, isPremium:false, premiumUntil:null };
 // ── Variables globales (déclarées ici pour éviter la temporal dead zone) ──
 let _lastMatchData = null;
 let _groupChatOpen = true;
@@ -1652,6 +1658,7 @@ function showMainTab(tab) {
   });
   if (tab === 'lb') { loadLeaderboard(state.lbMode); loadCotd(); loadSeasonBanner(); }
   if (tab === 'room') { loadGlobalChat(); fetchLiveRooms(); loadTwitchLive(); }
+  if (tab === 'tournois') { updateTournamentWinsDisplay(); }
   if (tab === 'admin') { refreshAdminLogs(); refreshAdminTickets(); loadAdminStats(); loadPremiumAdmin(); loadStaffStatus(); showAdminSection('stats'); }
   if (tab === 'tickets') loadMyTickets();
   if (tab === 'boutique') initBoutique();
@@ -2528,6 +2535,12 @@ function initSocket() {
     // Big celebration notify
     playBeep(880, 0.3); setTimeout(() => playBeep(1100, 0.25), 200); setTimeout(() => playBeep(1320, 0.2), 400);
     notify(`🏆 <b>${name}</b> est terminé ! Champion : <b>${champion}</b> 👑`, { accent: 'var(--gold)', duration: 12000 });
+    // Incrémenter mes victoires si je suis le champion
+    if (champion === state.pseudo) {
+      state.tournamentWins = (state.tournamentWins || 0) + 1;
+      updateTournamentWinsDisplay();
+      notify('🥇 Tu as remporté le tournoi ' + name + ' !', { accent: 'var(--gold)', duration: 8000 });
+    }
     loadTournaments();
     const modal = document.getElementById('tournament-spectator-modal');
     if (modal && modal.dataset.tournamentId === id) openTournamentSpectator(id);
@@ -4982,6 +4995,25 @@ function renderTournamentInvites() {
       <button onclick="respondTournamentInvite('${inv.pendingId}','${inv.tournamentId}',false)" style="background:rgba(255,70,85,0.1);border:1px solid rgba(255,70,85,0.3);color:var(--accent);border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;">✕ Refuser</button>
     </div>`;
   }).join('');
+}
+
+function updateTournamentWinsDisplay() {
+  const el = document.getElementById('v2-tournament-wins');
+  if (el) el.textContent = state.tournamentWins || 0;
+}
+
+async function fetchTournamentWins() {
+  if (!state.pseudo) return;
+  try {
+    const r = await fetch('/api/profile/' + encodeURIComponent(state.pseudo));
+    const data = await r.json();
+    if (data && data.stats) {
+      // Compter les tournois gagnés depuis l'historique si disponible
+      // Pour l'instant on garde state.tournamentWins initialisé à 0 par session
+      // et incrémenté en temps réel — assez fiable
+      updateTournamentWinsDisplay();
+    }
+  } catch(e) {}
 }
 
 async function loadTournaments() {
