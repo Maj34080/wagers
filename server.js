@@ -823,8 +823,8 @@ io.on('connection', (socket) => {
     socket.emit('room_ready', {
       roomId,
       mode: room.mode,
-      team1: room.teams[0].map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null, stats: p.stats || null, isPremium: !!p.isPremium })),
-      team2: room.teams[1].map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null, stats: p.stats || null, isPremium: !!p.isPremium })),
+      team1: room.teams[0].map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null, stats: p.stats || null, isPremium: !!p.isPremium, isContent: !!p.isContent })),
+      team2: room.teams[1].map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null, stats: p.stats || null, isPremium: !!p.isPremium, isContent: !!p.isContent })),
       captains: capPseudos,
       waiting: room.status === 'waiting' && room.teams[1].length === 0
     });
@@ -1050,8 +1050,8 @@ io.on('connection', (socket) => {
         });
         const payload = {
           roomId, mode: room.mode,
-          team1: team1Players.map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null, stats: p.stats || null, isPremium: !!p.isPremium })),
-          team2: team2Players.map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null, stats: p.stats || null, isPremium: !!p.isPremium })),
+          team1: team1Players.map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null, stats: p.stats || null, isPremium: !!p.isPremium, isContent: !!p.isContent })),
+          team2: team2Players.map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null, stats: p.stats || null, isPremium: !!p.isPremium, isContent: !!p.isContent })),
           captains: [cap1.pseudo, cap2.pseudo], waiting: false
         };
         io.to('room_' + roomId).emit('room_ready', payload);

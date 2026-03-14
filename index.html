@@ -73,6 +73,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
 /* MAIN */
 #screen-main{flex-direction:row;overflow:hidden;height:100vh;padding-bottom:0;align-items:stretch;}
 .main-body{flex:1;padding:24px 28px;max-width:none;margin:0;min-width:0;overflow-y:auto;height:100%;min-height:0;}
+#tab-content-room{overflow:hidden;height:100%;}
 
 /* MODE SELECTOR */
 .mode-selector{display:flex;gap:8px;margin-bottom:20px;}
@@ -403,15 +404,15 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
       </div>
     </div>
     <!-- Rank progress -->
-    <div style="padding:10px 14px 8px;border-bottom:1px solid var(--border);">
-      <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
-        <span id="v2-rank-name" style="font-size:11px;font-weight:800;color:var(--accent);text-transform:uppercase;letter-spacing:0.05em;">—</span>
-        <span id="v2-rank-next" style="font-size:10px;color:var(--text);text-align:right;opacity:0.75;">—</span>
+    <div style="padding:12px 16px 10px;border-bottom:1px solid var(--border);">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <span id="v2-rank-name" style="font-size:13px;font-weight:900;color:var(--accent);text-transform:uppercase;letter-spacing:0.06em;">—</span>
+        <span id="v2-rank-next" style="font-size:11px;color:var(--text);text-align:right;opacity:0.8;font-weight:600;">—</span>
       </div>
-      <div style="background:var(--surface2);border-radius:4px;height:5px;overflow:hidden;">
-        <div id="v2-rank-bar" style="height:5px;border-radius:4px;width:0%;transition:width 0.5s ease;background:var(--accent);"></div>
+      <div style="background:var(--surface2);border-radius:6px;height:8px;overflow:hidden;">
+        <div id="v2-rank-bar" style="height:8px;border-radius:6px;width:0%;transition:width 0.5s ease;background:var(--accent);box-shadow:0 0 8px rgba(255,70,85,0.4);"></div>
       </div>
-      <div style="font-size:10px;color:var(--text);opacity:0.75;margin-top:3px;"><span id="v2-rank-elo">500</span> ELO</div>
+      <div style="font-size:12px;color:var(--text);opacity:0.8;margin-top:5px;font-weight:600;"><span id="v2-rank-elo">500</span> ELO</div>
     </div>
     <!-- Nav -->
     <div style="padding:8px 0;flex:1;">
@@ -465,7 +466,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
         <div class="v2-stat-card"><div class="v2-stat-label">Rang</div><div class="v2-stat-value" id="v2-stat-rank" style="font-size:20px;color:var(--accent);">—</div></div>
       </div>
       <!-- 3 colonnes : matchmaking | chat global | rooms live -->
-      <div style="display:grid;grid-template-columns:480px 380px 1fr;gap:16px;align-items:start;">
+      <div style="display:grid;grid-template-columns:540px 380px 1fr;gap:16px;align-items:start;">
 
         <!-- Matchmaking -->
         <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px 14px;text-align:center;position:relative;overflow:hidden;">
@@ -5722,15 +5723,21 @@ function setupRoom(roomId, mode, team1, team2, waiting) {
 }
 
 function makePlayerCard(p, teamClass) {
-  const avContent = p.avatar
-    ? `<img src="${p.avatar}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">`
-    : p.pseudo[0].toUpperCase();
   const playerMaxElo = getMaxElo(p.stats);
   const displayElo = (p.stats && state.mode && p.stats[state.mode]) ? p.stats[state.mode].elo : p.elo;
   const premiumBadge = p.isPremium ? '<span class="premium-badge">👑 PREMIUM</span>' : '';
   const pseudoClass = p.isPremium ? 'pname premium-pseudo' : 'pname';
-  const avatarStyle = p.isPremium ? 'box-shadow:0 0 0 2px #f7c948,0 0 10px rgba(247,201,72,0.4);' : '';
-  return `<div class="player-card"><div class="pav ${teamClass}" style="${avatarStyle}">${avContent}</div><div><div class="${pseudoClass}">${p.pseudo} ${premiumBadge}</div><div class="pelo">${displayElo} ELO</div><div style="margin-top:2px;">${getRankBadge(playerMaxElo)}</div></div></div>`;
+  // Ring : doré premium > violet content > rien
+  let ring = '';
+  if (p.isPremium) ring = '0 0 0 3px #f7c948, 0 0 10px rgba(247,201,72,0.5)';
+  else if (p.isContent) ring = '0 0 0 3px #9147ff, 0 0 10px rgba(145,71,255,0.5)';
+  const ringStyle = ring ? `box-shadow:${ring};` : '';
+  // Avatar : photo ou initiale
+  const avInner = p.avatar
+    ? `<img src="${p.avatar}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">`
+    : `<span style="font-family:'Syne',sans-serif;font-weight:800;font-size:13px;">${p.pseudo[0].toUpperCase()}</span>`;
+  const avHtml = `<div class="pav ${teamClass}" style="overflow:hidden;${ringStyle}">${avInner}</div>`;
+  return `<div class="player-card">${avHtml}<div><div class="${pseudoClass}">${p.pseudo} ${premiumBadge}</div><div class="pelo">${displayElo} ELO</div><div style="margin-top:2px;">${getRankBadge(playerMaxElo)}</div></div></div>`;
 }
 
 function renderMapGrids() {
