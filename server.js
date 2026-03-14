@@ -1295,10 +1295,12 @@ function applyEloResult(winTeam, loseTeam, mode) {
     // Check if both captains voted
     const cap1 = room.captains[0], cap2 = room.captains[1];
     if (cap1 && cap2 && room.votes[cap1] !== undefined && room.votes[cap2] !== undefined) {
-      const cap1Won = room.votes[cap1]; // cap1 thinks team1 won
-      const cap2Won = room.votes[cap2]; // cap2 thinks team2 won
-      // Agreement: cap1 says his team won AND cap2 says his team lost (cap2Won=false means team2 lost)
-      // OR cap1 says his team lost AND cap2 says his team won
+      // cap1Won: true = cap1 thinks team1 won; false = cap1 thinks team1 lost
+      // cap2Won: true = cap2 thinks team2 won; false = cap2 thinks team2 lost
+      // Agreement: cap1 says team1 won (true) AND cap2 says team2 lost (false)
+      //         OR cap1 says team1 lost (false) AND cap2 says team2 won (true)
+      const cap1Won = room.votes[cap1] === true;
+      const cap2Won = room.votes[cap2] === true;
       const agreed = (cap1Won === true && cap2Won === false) || (cap1Won === false && cap2Won === true);
       if (agreed) {
         const winner = cap1Won ? 1 : 2;
