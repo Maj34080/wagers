@@ -7165,6 +7165,9 @@ setInterval(() => {
   // Admin tab visibility
   const adminNav2 = document.getElementById('v2-nav-admin');
   if (adminNav2) adminNav2.style.display = state.isAdmin ? '' : 'none';
+  // Content tab visibility
+  const contentNav2 = document.getElementById('v2-nav-content');
+  if (contentNav2) contentNav2.style.display = state.isContent ? '' : 'none';
 }, 800);
 </script>
 
