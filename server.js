@@ -776,6 +776,51 @@ io.on('connection', (socket) => {
     } catch(e) { socket.emit('auth_error', 'Erreur: ' + e.message); }
   });
 
+  // ── REJOIN ROOM (reconnexion F5) ──
+  socket.on('rejoin_room', ({ roomId, userId }) => {
+    if (!roomId || !userId) return;
+    // Vérifier que la room existe et est active
+    const room = rooms[roomId];
+    if (!room || room.status === 'finished') {
+      socket.emit('rejoin_failed', { reason: 'Room terminée ou introuvable' });
+      return;
+    }
+    // Vérifier que le joueur est bien dans cette room
+    const allPlayers = [...(room.teams[0] || []), ...(room.teams[1] || [])];
+    const player = allPlayers.find(p => p.id === userId);
+    if (!player) {
+      socket.emit('rejoin_failed', { reason: "Tu n'es pas dans cette room" });
+      return;
+    }
+    // Mettre à jour le socketId du joueur
+    player.socketId = socket.id;
+    socket.userId = userId;
+    socket.pseudo = player.pseudo;
+    socket.roomId = roomId;
+    socket.join('room_' + roomId);
+    // Reconstituer le payload
+    const cap1 = room.captains ? room.captains[0] : null;
+    const cap2 = room.captains ? room.captains[1] : null;
+    const capPseudos = [
+      cap1 ? (allPlayers.find(p => p.id === cap1)?.pseudo || null) : null,
+      cap2 ? (allPlayers.find(p => p.id === cap2)?.pseudo || null) : null
+    ];
+    socket.emit('room_ready', {
+      roomId,
+      mode: room.mode,
+      team1: room.teams[0].map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null, stats: p.stats || null, isPremium: !!p.isPremium })),
+      team2: room.teams[1].map(p => ({ pseudo: p.pseudo, elo: p.elo, avatar: p.avatar || null, stats: p.stats || null, isPremium: !!p.isPremium })),
+      captains: capPseudos,
+      waiting: room.status === 'waiting' && room.teams[1].length === 0
+    });
+    // Renvoyer l'historique du chat
+    if (room.chat && room.chat.length > 0) {
+      socket.emit('rejoin_chat', { history: room.chat.slice(-30) });
+    }
+    // Notifier la room
+    io.to('room_' + roomId).emit('chat_msg', { author: 'Système', team: 'system', text: `🔄 ${player.pseudo} a rejoint la room.` });
+  });
+
   // ── PROFILE ──
   socket.on('get_profile', ({ pseudo }) => {
     const user = db.getUserByPseudo(pseudo);

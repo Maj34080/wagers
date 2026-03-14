@@ -447,7 +447,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
         <div class="v2-stat-card"><div class="v2-stat-label">Mon ELO</div><div class="v2-stat-value" id="v2-stat-elo" style="color:var(--gold);">500</div></div>
         <div class="v2-stat-card"><div class="v2-stat-label">Win rate</div><div class="v2-stat-value" id="v2-stat-wr" style="color:var(--green);">—</div></div>
         <div class="v2-stat-card"><div class="v2-stat-label">Matchs</div><div class="v2-stat-value" id="v2-stat-matches">—</div></div>
-        <div class="v2-stat-card"><div class="v2-stat-label">Rang</div><div class="v2-stat-value" id="v2-stat-rank" style="font-size:15px;color:var(--accent);">—</div></div>
+        <div class="v2-stat-card"><div class="v2-stat-label">Rang</div><div class="v2-stat-value" id="v2-stat-rank" style="font-size:20px;color:var(--accent);">—</div></div>
       </div>
       <!-- 3 colonnes : matchmaking | chat global | rooms live -->
       <div style="display:grid;grid-template-columns:1fr 300px 1fr;gap:16px;align-items:start;">
@@ -2057,6 +2057,8 @@ function initSocket() {
     // Always use ELO from server stats for the current mode
     state.elo = state.stats[state.mode]?.elo ?? (typeof elo === 'number' ? elo : 500);
     try { localStorage.setItem('rv_mode', state.mode); } catch(e) {}
+    // Sauvegarder userId pour reconnexion F5
+    try { localStorage.setItem('rv_user', JSON.stringify({ userId, pseudo })); } catch(e) {}
     // Save credentials if "remember me" checked
     try {
       const rememberMe = document.getElementById('remember-me');
@@ -2080,6 +2082,15 @@ function initSocket() {
     setTimeout(() => {
       if (lockEl) lockEl.style.display = state.isPremium ? 'none' : 'flex';
     }, 100);
+    // Tenter de rejoindre une room en cours si le joueur a F5
+    try {
+      const savedRoom = JSON.parse(localStorage.getItem('rv_room') || 'null');
+      if (savedRoom && savedRoom.roomId && savedRoom.userId === userId) {
+        setTimeout(() => {
+          socket.emit('rejoin_room', { roomId: savedRoom.roomId, userId: savedRoom.userId });
+        }, 600);
+      }
+    } catch(e) {}
   });
 
   socket.on('auth_error', (msg) => {
@@ -2110,11 +2121,11 @@ function initSocket() {
   socket.on('group_error', (msg) => notify('❌ ' + msg));
 
   socket.on('room_ready', ({ roomId, mode, team1, team2, waiting, captains }) => {
-    // Check if this player is a captain
     const myTeamTmp = team1.some(p => p.pseudo === state.pseudo) ? 1 : 2;
     state.isCaptain = captains && captains[myTeamTmp - 1] === state.pseudo;
+
+    // Cas : mise à jour team2 quand adversaire rejoint notre room en attente
     if (!waiting && state.roomId === roomId) {
-      // Mise à jour équipe 2 qui vient de rejoindre
       const t2el = document.getElementById('team2-players');
       if (t2el) t2el.innerHTML = team2.map(p => makePlayerCard(p, 't2')).join('');
       const total = getTeamSize(mode) * 2;
@@ -2122,8 +2133,40 @@ function initSocket() {
       document.getElementById('room-cancel-btn').style.display = 'none';
       return;
     }
+
     state.roomId = roomId;
-    sendBrowserNotif('⚔️ Match trouvé !', 'Ta room ' + mode + ' est prête — clique pour rejoindre !');
+    // Sauvegarder pour reconnexion (F5)
+    try { localStorage.setItem('rv_room', JSON.stringify({ roomId, userId: state.userId, pseudo: state.pseudo })); } catch(e) {}
+
+    // ── CAS : ROOM EN ATTENTE (pas encore d'adversaire) ──
+    // On reste dans le lobby et on affiche la recherche, exactement comme les autres modes
+    if (waiting) {
+      const searchingBox = document.getElementById('searching-box');
+      const searchingMode = document.getElementById('searching-mode');
+      const windowEl = document.getElementById('elo-window-display');
+      if (searchingBox) searchingBox.classList.add('show');
+      if (searchingMode) searchingMode.textContent = "\u23F3 Recherche d'adversaire \u2014 Mode " + mode.toUpperCase();
+      document.getElementById('btn-find-room').disabled = true;
+      // Démarrer le timer ELO dans le lobby (fenêtre expansive)
+      if (windowEl) {
+        windowEl.style.display = '';
+        let elapsed = 0;
+        stopEloWindowTimer();
+        const avgElo = team1[0]?.elo || state.elo || 500;
+        const updateLobbyWindow = () => {
+          const win = Math.min(500, 100 + Math.floor(elapsed / 60) * 50);
+          const nextExpand = win < 500 ? (60 - (elapsed % 60)) : null;
+          const expandLabel = nextExpand ? ` · +50 dans ${nextExpand}s` : ' · max atteint';
+          windowEl.textContent = `🎯 Fenêtre ELO : ${avgElo - win} — ${avgElo + win}${expandLabel}`;
+        };
+        updateLobbyWindow();
+        window._eloWindowTimer = setInterval(() => { elapsed++; updateLobbyWindow(); }, 1000);
+      }
+      return; // rester dans le lobby
+    }
+
+    // ── CAS : MATCH TROUVÉ IMMÉDIATEMENT (waiting:false, nouvelle room) ──
+    sendBrowserNotif('⚔️ Match trouvé !', 'Ta room ' + mode + ' est prête !');
     playRoomFoundSound();
     stopEloWindowTimer();
 
@@ -2131,16 +2174,14 @@ function initSocket() {
       document.getElementById('searching-box').classList.remove('show');
       document.getElementById('btn-find-room').disabled = false;
       document.getElementById('btn-find-room').style.display = '';
-      setupRoom(roomId, mode, team1, team2, waiting);
+      setupRoom(roomId, mode, team1, team2, false);
       showScreen('room');
       playRoomEntrySound();
     };
 
-    // Pour le 1v1 instant (room trouvée immédiatement), on laisse
-    // le joueur voir le "Match trouvé !" dans le searching-box pendant 700ms
-    const isInstant1v1 = mode === '1v1' && !waiting;
+    // Montrer brièvement "Match trouvé !" si le searching-box est visible
     const searchingBox = document.getElementById('searching-box');
-    if (isInstant1v1 && searchingBox && searchingBox.classList.contains('show')) {
+    if (searchingBox && searchingBox.classList.contains('show')) {
       document.getElementById('searching-mode').textContent = '✅ Match trouvé !';
       setTimeout(doEnterRoom, 700);
     } else {
@@ -2570,6 +2611,20 @@ function initSocket() {
     state._eloWindowAvg = avgElo;
     state._eloWindowStart = createdAt;
     startRoomEloWindow(avgElo, createdAt);
+  });
+
+  socket.on('rejoin_failed', ({ reason }) => {
+    // Room plus disponible — nettoyer le localStorage
+    try { localStorage.removeItem('rv_room'); } catch(e) {}
+    notify('⚠️ ' + (reason || 'Room introuvable'), { accent: 'var(--gold)' });
+  });
+
+  socket.on('rejoin_chat', ({ history }) => {
+    const chatEl = document.getElementById('chat-messages');
+    if (chatEl && history) {
+      history.forEach(msg => addMsg(msg.author, msg.team, msg.text, msg.time));
+      chatEl.scrollTop = chatEl.scrollHeight;
+    }
   });
 
   socket.on('vote_conflict', () => {
@@ -6061,6 +6116,7 @@ async function backToLobby() {
   if (replayBtn) replayBtn.style.display = '';
   const roomScreen = document.getElementById('room-screen');
   if (roomScreen) delete roomScreen.dataset.tournamentId;
+  try { localStorage.removeItem('rv_room'); } catch(e) {} // room quittée proprement
   showScreen('main');
   // Attendre que le browser ait rendu screen-main, puis sync les stats
   requestAnimationFrame(() => {
