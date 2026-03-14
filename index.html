@@ -1034,12 +1034,24 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
 
           <!-- Portefeuille -->
           <div style="background:var(--surface);border:1px solid rgba(58,255,160,.2);border-radius:14px;padding:18px 20px;">
-            <div style="font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;">Portefeuille</div>
-            <div style="font-family:'Space Grotesk',sans-serif;font-size:34px;font-weight:900;color:var(--green);margin-bottom:4px;"><span id="cd-pending">0.00</span>€</div>
-            <div style="font-size:11px;color:var(--muted);margin-bottom:12px;">en attente de paiement</div>
-            <div style="background:rgba(58,255,160,.06);border:1px solid rgba(58,255,160,.15);border-radius:8px;padding:8px 12px;">
-              <div style="font-size:11px;color:var(--green);font-weight:600;">💸 Paiement chaque semaine</div>
-              <div style="font-size:10px;color:var(--muted);margin-top:2px;">Géré par l'admin — paiement chaque lundi</div>
+            <div style="font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:12px;">Portefeuille</div>
+            <!-- Deux lignes : en attente + déjà reçu -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
+              <div style="background:rgba(58,255,160,.06);border:1px solid rgba(58,255,160,.2);border-radius:10px;padding:12px 14px;">
+                <div style="font-size:10px;color:var(--muted);margin-bottom:4px;letter-spacing:1px;text-transform:uppercase;">En attente</div>
+                <div style="font-family:'Space Grotesk',sans-serif;font-size:26px;font-weight:900;color:var(--green);"><span id="cd-pending">0.00</span>€</div>
+                <div style="font-size:10px;color:var(--muted);margin-top:2px;">versé chaque lundi</div>
+              </div>
+              <div style="background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:10px;padding:12px 14px;">
+                <div style="font-size:10px;color:var(--muted);margin-bottom:4px;letter-spacing:1px;text-transform:uppercase;">Déjà reçu</div>
+                <div style="font-family:'Space Grotesk',sans-serif;font-size:26px;font-weight:900;color:var(--text);"><span id="cd-paid">0.00</span>€</div>
+                <div style="font-size:10px;color:var(--muted);margin-top:2px;">total versé</div>
+              </div>
+            </div>
+            <!-- Historique des paiements reçus -->
+            <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:6px;letter-spacing:1px;text-transform:uppercase;">Historique des versements</div>
+            <div id="cd-payments-history" style="display:flex;flex-direction:column;gap:4px;max-height:120px;overflow-y:auto;">
+              <div style="font-size:11px;color:var(--muted);padding:6px 0;">Aucun versement pour l'instant</div>
             </div>
           </div>
         </div>
@@ -6287,10 +6299,23 @@ async function loadContentDashboard() {
     // Portefeuille
     const pendingEl = document.getElementById('cd-pending');
     const paidEl = document.getElementById('cd-paid');
-    const totalEl = document.getElementById('cd-total');
     if (pendingEl) pendingEl.textContent = d.pending.toFixed(2);
     if (paidEl) paidEl.textContent = d.paid.toFixed(2);
-    if (totalEl) totalEl.textContent = d.portefeuille.toFixed(2);
+    // Historique des versements
+    const paymentsEl = document.getElementById('cd-payments-history');
+    if (paymentsEl) {
+      if (d.payments && d.payments.length > 0) {
+        paymentsEl.innerHTML = d.payments.slice().reverse().map(p => {
+          const date = new Date(p.date).toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', year:'2-digit' });
+          return `<div style="display:flex;align-items:center;gap:8px;font-size:11px;padding:5px 8px;background:rgba(58,255,160,.04);border-radius:6px;">
+            <span style="color:var(--green);font-weight:800;">+${parseFloat(p.amount).toFixed(2)}€</span>
+            <span style="color:var(--muted);flex:1;">${date}${p.note ? ' · ' + p.note : ''}</span>
+          </div>`;
+        }).join('');
+      } else {
+        paymentsEl.innerHTML = '<div style="font-size:11px;color:var(--muted);padding:6px 0;">Aucun versement pour le moment</div>';
+      }
+    }
 
     // Stats
     const countBadge = document.getElementById('cd-count-badge');

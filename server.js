@@ -2257,6 +2257,7 @@ app.get('/api/content/dashboard/:userId', (req, res) => {
       paid: Math.round(paid * 100) / 100,
       pending: Math.round(pending * 100) / 100,
       paliers: CONTENT_PALIERS,
+      payments: user.contentPayments || [],
     });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
