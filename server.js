@@ -2264,12 +2264,14 @@ app.get('/api/content/dashboard/:userId', (req, res) => {
 // Admin : marquer un paiement effectué
 app.post('/api/admin/content/mark-paid', (req, res) => {
   if (!isAdminReq(req)) return res.status(403).json({ error: 'Interdit' });
-  const { userId, amount } = req.body;
+  const { userId, amount, note } = req.body;
   try {
     const data = db.loadDB();
     const user = data.users.find(u => u.id === userId);
     if (!user) return res.status(404).json({ error: 'Introuvable' });
     user.contentPaid = (user.contentPaid || 0) + (amount || 0);
+    if (!user.contentPayments) user.contentPayments = [];
+    user.contentPayments.push({ amount, note: note || '', date: new Date().toISOString(), admin: req.headers['x-admin-pseudo'] || 'Admin' });
     db.saveDB(data);
     res.json({ ok: true, totalPaid: user.contentPaid });
   } catch(e) { res.status(500).json({ error: e.message }); }

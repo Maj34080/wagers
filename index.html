@@ -327,7 +327,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
 
 /* ── SIDEBAR V2 ── */
 #v2-sidebar{width:210px;min-width:210px;height:100vh;background:var(--bg);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto;}
-.v2-nav-item{display:flex;align-items:center;gap:10px;padding:10px 16px;border-radius:9px;margin:2px 8px;cursor:pointer;font-size:13px;font-weight:600;color:var(--muted);transition:all 0.15s;border:none;background:none;width:calc(100% - 16px);text-align:left;font-family:'DM Sans',sans-serif;}
+.v2-nav-item{display:flex;align-items:center;gap:10px;padding:10px 16px;border-radius:9px;margin:2px 8px;cursor:pointer;font-size:13px;font-weight:600;color:rgba(240,240,248,.7);transition:all 0.15s;border:none;background:none;width:calc(100% - 16px);text-align:left;font-family:'DM Sans',sans-serif;}
 .v2-nav-item:hover{background:var(--surface2);color:var(--text);}
 .v2-nav-item.v2-active{background:rgba(255,70,85,0.12);color:var(--accent);font-weight:700;}
 .v2-stat-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;}
@@ -1039,7 +1039,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
             <div style="font-size:11px;color:var(--muted);margin-bottom:12px;">en attente de paiement</div>
             <div style="background:rgba(58,255,160,.06);border:1px solid rgba(58,255,160,.15);border-radius:8px;padding:8px 12px;">
               <div style="font-size:11px;color:var(--green);font-weight:600;">💸 Paiement chaque semaine</div>
-              <div style="font-size:10px;color:var(--muted);margin-top:2px;">Déjà perçu : <span id="cd-paid">0.00</span>€ · Total généré : <span id="cd-total">0.00</span>€</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:2px;">Géré par l'admin — paiement chaque lundi</div>
             </div>
           </div>
         </div>
@@ -1238,10 +1238,15 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
             <!-- Liste filleuls -->
             <div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:8px;letter-spacing:1px;text-transform:uppercase;">Filleuls</div>
             <div id="acd-referrals" style="display:flex;flex-direction:column;gap:5px;max-height:260px;overflow-y:auto;"></div>
-            <!-- Bouton marquer payé -->
-            <div style="display:flex;align-items:center;gap:10px;margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">
-              <div style="font-size:12px;color:var(--muted);flex:1;">Marquer le solde en attente comme payé cette semaine</div>
-              <button onclick="adminMarkContentPaid()" style="background:rgba(58,255,160,.12);border:1px solid rgba(58,255,160,.3);color:var(--green);border-radius:8px;padding:8px 16px;font-size:12px;font-weight:700;cursor:pointer;">💸 Marquer payé</button>
+            <!-- Paiement manuel -->
+            <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">
+              <div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:10px;letter-spacing:1px;text-transform:uppercase;">Enregistrer un paiement</div>
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                <input id="acd-pay-amount" type="number" placeholder="Montant (€)" min="0" step="0.01" style="width:120px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:7px 10px;color:var(--text);font-size:13px;outline:none;" onfocus="this.style.borderColor='var(--green)'" onblur="this.style.borderColor='var(--border)'">
+                <input id="acd-pay-note" type="text" placeholder="Note (ex: PayPal semaine 12)" style="flex:1;min-width:140px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:7px 10px;color:var(--text);font-size:13px;outline:none;" onfocus="this.style.borderColor='var(--green)'" onblur="this.style.borderColor='var(--border)'">
+                <button onclick="adminMarkContentPaid()" style="background:rgba(58,255,160,.12);border:1px solid rgba(58,255,160,.3);color:var(--green);border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;">💸 Enregistrer</button>
+              </div>
+              <div id="acd-pay-history" style="margin-top:10px;display:flex;flex-direction:column;gap:4px;max-height:100px;overflow-y:auto;"></div>
             </div>
           </div>
           <!-- Backup -->
@@ -4325,22 +4330,34 @@ async function adminViewContentDashboard(userId, pseudo) {
 
 async function adminMarkContentPaid() {
   if (!_adminContentCurrentUserId) return;
-  const pendingEl = document.getElementById('acd-pending');
-  const amount = parseFloat(pendingEl?.textContent) || 0;
-  if (!amount) { notify('Aucun montant à payer'); return; }
-  if (!confirm('Marquer ' + amount.toFixed(2) + '€ comme payé pour ce créateur ?')) return;
+  const amountInput = document.getElementById('acd-pay-amount');
+  const noteInput = document.getElementById('acd-pay-note');
+  const amount = parseFloat(amountInput?.value) || 0;
+  const note = noteInput?.value?.trim() || '';
+  if (!amount || amount <= 0) { notify('Entre un montant valide', { accent: 'var(--accent)' }); return; }
   try {
     const r = await fetch('/api/admin/content/mark-paid', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-admin-key': ADMIN_KEY },
-      body: JSON.stringify({ userId: _adminContentCurrentUserId, amount })
+      body: JSON.stringify({ userId: _adminContentCurrentUserId, amount, note })
     });
     const d = await r.json();
     if (d.ok) {
-      notify('✅ Paiement enregistré — ' + amount.toFixed(2) + '€');
+      notify('✅ Paiement de ' + amount.toFixed(2) + '€ enregistré');
+      if (amountInput) amountInput.value = '';
+      if (noteInput) noteInput.value = '';
+      // Afficher dans l'historique local
+      const hist = document.getElementById('acd-pay-history');
+      if (hist) {
+        const date = new Date().toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', year:'2-digit' });
+        const entry = document.createElement('div');
+        entry.style.cssText = 'display:flex;align-items:center;gap:8px;font-size:11px;padding:4px 8px;background:rgba(58,255,160,.05);border-radius:6px;';
+        entry.innerHTML = '<span style="color:var(--green);font-weight:700;">+' + amount.toFixed(2) + '€</span><span style="color:var(--muted);">' + date + (note ? ' · ' + note : '') + '</span>';
+        hist.prepend(entry);
+      }
       adminViewContentDashboard(_adminContentCurrentUserId, document.getElementById('acd-pseudo').textContent);
       loadStaffStatus();
-    }
+    } else notify('❌ ' + (d.error || 'Erreur'));
   } catch(e) { notify('❌ Erreur réseau'); }
 }
 
