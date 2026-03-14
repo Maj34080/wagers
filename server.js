@@ -2097,7 +2097,7 @@ function createOneFakeRoom(mode) {
     map: null,
     team1: t1.map(p => p.slice(0,2)+'***'),
     team2: t2.map(p => p.slice(0,2)+'***'),
-    total: size*2, max: size*2, fake: true, createdAt
+    total: size*2, max: size*2, fake: true, createdAt: createdAt
   };
   fakeRooms.push(room);
   // Mettre à jour la durée chaque minute
@@ -2106,8 +2106,8 @@ function createOneFakeRoom(mode) {
     const m = Math.floor(elapsed / 60);
     const sec = (elapsed % 60).toString().padStart(2,'0');
     room.duration = m + 'm' + sec + 's';
-    broadcastFakeRooms();
-  }, 30000);
+    room.createdAt = createdAt; // always keep createdAt for client-side calc
+  }, 1000);
   // Résoudre automatiquement entre 15 et 18 minutes
   setTimeout(() => {
     clearInterval(durationTimer);

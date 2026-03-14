@@ -1024,6 +1024,9 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
           <button onclick="showAdminSection('fakerooms')" id="admin-sec-fakerooms" style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px 8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;transition:all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.07)'" onmouseout="this.style.background='var(--surface2)'">
             <span style="font-size:20px;">🎭</span><span style="font-size:11px;font-weight:700;color:#60a5fa;">Fakes</span>
           </button>
+          <button onclick="showAdminSection('backup')" id="admin-sec-backup" style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px 8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;transition:all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.07)'" onmouseout="this.style.background='var(--surface2)'">
+            <span style="font-size:20px;">💾</span><span style="font-size:11px;font-weight:700;color:#34d399;">Backup</span>
+          </button>
         </div>
 
         <!-- STATS DASHBOARD -->
@@ -1077,22 +1080,6 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
             </div>
           </div>
 
-
-
-          <!-- Backup manuelle -->
-          <div style="background:var(--surface);border:1px solid rgba(52,211,153,0.2);border-radius:14px;padding:16px 20px;margin-top:14px;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;">
-            <div>
-              <div style="font-weight:700;font-size:13px;color:#34d399;margin-bottom:3px;">💾 Backup Discord</div>
-              <div style="font-size:11px;color:var(--muted);">Envoi automatique toutes les heures.</div>
-            </div>
-            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-              <label style="background:rgba(167,139,250,0.12);border:1px solid rgba(167,139,250,0.3);color:#a78bfa;border-radius:10px;padding:9px 18px;font-weight:800;font-size:13px;cursor:pointer;white-space:nowrap;">
-                📂 Restaurer DB
-                <input type="file" accept=".json" onchange="restoreDBFromFile(this)" style="display:none;">
-              </label>
-              <button onclick="triggerManualBackup()" id="backup-btn" style="background:rgba(52,211,153,0.12);border:1px solid rgba(52,211,153,0.3);color:#34d399;border-radius:10px;padding:9px 18px;font-weight:800;font-size:13px;cursor:pointer;white-space:nowrap;">📤 Backup maintenant</button>
-            </div>
-          </div>
         </div>
 
         <div id="admin-section-rooms" style="display:none;">
@@ -1263,6 +1250,25 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
           </div>
           <div id="admin-fakerooms-list" style="display:flex;flex-direction:column;gap:8px;">
             <div style="color:var(--muted);text-align:center;padding:20px;">Aucune fake room active</div>
+          </div>
+        </div>
+
+
+        <!-- BACKUP DISCORD -->
+        <div id="admin-section-backup" style="display:none;">
+          <div style="font-weight:700;font-size:14px;margin-bottom:16px;">💾 Backup & Restauration</div>
+          <div style="background:var(--surface);border:1px solid rgba(52,211,153,0.3);border-radius:14px;padding:20px;margin-bottom:14px;">
+            <div style="font-weight:700;font-size:13px;color:#34d399;margin-bottom:6px;">📤 Backup Discord</div>
+            <div style="font-size:12px;color:var(--muted);margin-bottom:14px;">Envoi automatique toutes les heures sur le webhook Discord configuré.</div>
+            <button onclick="triggerManualBackup()" id="backup-btn" style="background:rgba(52,211,153,0.12);border:1px solid rgba(52,211,153,0.3);color:#34d399;border-radius:10px;padding:10px 20px;font-weight:800;font-size:13px;cursor:pointer;">📤 Forcer un backup maintenant</button>
+          </div>
+          <div style="background:var(--surface);border:1px solid rgba(167,139,250,0.3);border-radius:14px;padding:20px;">
+            <div style="font-weight:700;font-size:13px;color:#a78bfa;margin-bottom:6px;">📂 Restaurer la base de données</div>
+            <div style="font-size:12px;color:var(--muted);margin-bottom:14px;">Importe un fichier db.json pour écraser la BDD actuelle. ⚠️ Action irréversible.</div>
+            <label style="background:rgba(167,139,250,0.12);border:1px solid rgba(167,139,250,0.3);color:#a78bfa;border-radius:10px;padding:10px 20px;font-weight:800;font-size:13px;cursor:pointer;display:inline-block;">
+              📂 Choisir un fichier db.json
+              <input type="file" accept=".json" onchange="restoreDBFromFile(this)" style="display:none;">
+            </label>
           </div>
         </div>
 
@@ -2422,7 +2428,23 @@ function initSocket() {
 
   socket.on('ban_timer_start', ({ seconds }) => startBanTimerBar(seconds));
 
-  socket.on('active_rooms_update', (rooms) => renderLiveRooms(rooms));
+  socket.on('active_rooms_update', (rooms) => {
+    window._cachedLiveRooms = rooms;
+    renderLiveRooms(rooms);
+  });
+
+  // Timer client 1s — recalcule les durées depuis createdAt sans attendre le serveur
+  setInterval(() => {
+    if (!window._cachedLiveRooms) return;
+    const updated = window._cachedLiveRooms.map(r => {
+      if (!r.createdAt) return r;
+      const elapsed = Math.floor((Date.now() - r.createdAt) / 1000);
+      const m = Math.floor(elapsed / 60);
+      const sec = (elapsed % 60).toString().padStart(2, '0');
+      return Object.assign({}, r, { duration: m + 'm' + sec + 's' });
+    });
+    renderLiveRooms(updated);
+  }, 1000);
   socket.on('global_chat_msg', (msg) => appendGlobalChatMsg(msg));
 
   socket.on('clan_join_request', ({ pseudo, userId }) => {
@@ -3677,9 +3699,9 @@ function scrollAdminTop() {
 }
 
 function showAdminSection(sec) {
-  const colors = { stats:'255,70,85', rooms:'240,240,248', tickets:'240,240,248', banned:'240,240,248', smurfs:'249,115,22', premium:'255,209,102', staff:'79,209,197', lookup:'167,139,250', logs:'244,114,182', seasons:'52,211,153', content:'145,71,255', fakerooms:'96,165,250' };
-  const textColors = { stats:'var(--accent)', rooms:'var(--text)', tickets:'var(--text)', banned:'var(--text)', smurfs:'#f97316', premium:'var(--gold)', staff:'#4fd1c5', lookup:'#a78bfa', logs:'#f472b6', seasons:'#34d399', content:'#9147ff', fakerooms:'#60a5fa' };
-  ['rooms','tickets','banned','stats','premium','smurfs','staff','lookup','logs','seasons','content','fakerooms'].forEach(s => {
+  const colors = { stats:'255,70,85', rooms:'240,240,248', tickets:'240,240,248', banned:'240,240,248', smurfs:'249,115,22', premium:'255,209,102', staff:'79,209,197', lookup:'167,139,250', logs:'244,114,182', seasons:'52,211,153', content:'145,71,255', fakerooms:'96,165,250', backup:'52,211,153' };
+  const textColors = { stats:'var(--accent)', rooms:'var(--text)', tickets:'var(--text)', banned:'var(--text)', smurfs:'#f97316', premium:'var(--gold)', staff:'#4fd1c5', lookup:'#a78bfa', logs:'#f472b6', seasons:'#34d399', content:'#9147ff', fakerooms:'#60a5fa', backup:'#34d399' };
+  ['rooms','tickets','banned','stats','premium','smurfs','staff','lookup','logs','seasons','content','fakerooms','backup'].forEach(s => {
     const el = document.getElementById('admin-section-' + s);
     const btn = document.getElementById('admin-sec-' + s);
     if (el) el.style.display = s === sec ? '' : 'none';
@@ -3917,6 +3939,7 @@ async function adminLookupPlayer() {
             <div style="font-family:'Space Grotesk',sans-serif;font-weight:800;font-size:18px;">${d.pseudo}</div>
             <div style="font-size:12px;color:var(--muted);margin-top:2px;">${onlineDot} · ID: ${d.id} · inscrit ${new Date(d.createdAt).toLocaleDateString('fr-FR')}</div>
           </div>
+          <button onclick="document.getElementById('lookup-result').innerHTML=''" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:20px;padding:4px;line-height:1;border-radius:6px;transition:color 0.15s;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'" title="Fermer">✕</button>
           <div style="display:flex;gap:6px;flex-wrap:wrap;">
             ${d.banned ? '<span style="background:rgba(255,70,85,0.15);color:var(--accent);border-radius:6px;padding:3px 8px;font-size:11px;font-weight:700;">🚫 BANNI</span>' : ''}
             ${d.muted ? '<span style="background:rgba(255,165,0,0.15);color:orange;border-radius:6px;padding:3px 8px;font-size:11px;font-weight:700;">🔇 MUTE</span>' : ''}
