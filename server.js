@@ -336,8 +336,8 @@ app.get('/api/admin/content-list', (req, res) => {
 
 app.post('/api/admin/ban', (req, res) => {
   if (!isAdminReq(req)) return res.status(403).json({ error: 'Interdit' });
-  const { pseudo, reason } = req.body;
-  const user = db.getUserByPseudo(pseudo);
+  const { pseudo, userId, reason } = req.body;
+  const user = pseudo ? db.getUserByPseudo(pseudo) : db.getUserById(userId);
   if (!user) return res.status(404).json({ error: 'Introuvable' });
   db.banUser(user.id, reason);
   db.addAdminLog(req.headers['x-admin-pseudo'] || 'Admin', 'BAN', user.pseudo, reason || 'violation des règles');
@@ -357,8 +357,8 @@ app.post('/api/admin/unban', (req, res) => {
 });
 app.post('/api/admin/mute', (req, res) => {
   if (!isAdminReq(req)) return res.status(403).json({ error: 'Interdit' });
-  const { pseudo, duration } = req.body; // duration in minutes, null = permanent
-  const user = db.getUserByPseudo(pseudo);
+  const { pseudo, userId, duration } = req.body; // duration in minutes, null = permanent
+  const user = pseudo ? db.getUserByPseudo(pseudo) : db.getUserById(userId);
   if (!user) return res.status(404).json({ error: 'Introuvable' });
   db.muteUser(user.id, duration || null);
   // Update socket state live
@@ -2079,30 +2079,85 @@ const FAKE_MODES = ['1v1','2v2','3v3','5v5'];
 const FAKE_WEAPONS_LIST = ['Vandal/Phantom','Sheriff','Operator','Marshall','Ghost'];
 let fakeRooms = [];
 
-function generateFakeRooms() {
-  const count = 3 + Math.floor(Math.random() * 5); // 3-7
-  fakeRooms = [];
-  for (let i = 0; i < count; i++) {
-    const mode = FAKE_MODES[Math.floor(Math.random() * FAKE_MODES.length)];
-    const size = getTeamSize(mode);
-    const fakeName = () => FAKE_NAMES[Math.floor(Math.random()*FAKE_NAMES.length)] + Math.floor(Math.random()*999);
-    const t1 = Array.from({length:size}, fakeName);
-    const t2 = Array.from({length:size}, fakeName);
-    const statuses = ['playing','playing','playing','weapon_vote'];
-    fakeRooms.push({
-      id: 'FAKE_' + generateCode(4),
-      mode, status: statuses[Math.floor(Math.random()*statuses.length)],
-      duration: Math.floor(Math.random()*15) + 1 + 'm' + Math.floor(Math.random()*59).toString().padStart(2,'0') + 's',
-      weapon: FAKE_WEAPONS_LIST[Math.floor(Math.random()*FAKE_WEAPONS_LIST.length)],
-      map: null,
-      team1: t1.map(p => p.slice(0,2)+'***'),
-      team2: t2.map(p => p.slice(0,2)+'***'),
-      total: size*2, max: size*2, fake: true
-    });
-  }
+function createOneFakeRoom(mode) {
+  const size = getTeamSize(mode);
+  const fakeName = () => FAKE_NAMES[Math.floor(Math.random()*FAKE_NAMES.length)] + Math.floor(Math.random()*999);
+  const t1 = Array.from({length:size}, fakeName);
+  const t2 = Array.from({length:size}, fakeName);
+  const statuses = ['playing','playing','playing','weapon_vote'];
+  const id = 'FAKE_' + generateCode(4);
+  const createdAt = Date.now();
+  const minMs = 15 * 60 * 1000;
+  const maxMs = 18 * 60 * 1000;
+  const lifetime = minMs + Math.floor(Math.random() * (maxMs - minMs));
+  const room = {
+    id, mode, status: statuses[Math.floor(Math.random()*statuses.length)],
+    duration: '0m00s',
+    weapon: FAKE_WEAPONS_LIST[Math.floor(Math.random()*FAKE_WEAPONS_LIST.length)],
+    map: null,
+    team1: t1.map(p => p.slice(0,2)+'***'),
+    team2: t2.map(p => p.slice(0,2)+'***'),
+    total: size*2, max: size*2, fake: true, createdAt
+  };
+  fakeRooms.push(room);
+  // Mettre à jour la durée chaque minute
+  const durationTimer = setInterval(() => {
+    const elapsed = Math.floor((Date.now() - createdAt) / 1000);
+    const m = Math.floor(elapsed / 60);
+    const sec = (elapsed % 60).toString().padStart(2,'0');
+    room.duration = m + 'm' + sec + 's';
+    broadcastFakeRooms();
+  }, 30000);
+  // Résoudre automatiquement entre 15 et 18 minutes
+  setTimeout(() => {
+    clearInterval(durationTimer);
+    const winnerTeam = Math.random() < 0.5 ? 1 : 2;
+    room.status = 'finished';
+    room.fakeWinner = winnerTeam;
+    fakeRooms = fakeRooms.filter(r => r.id !== id);
+    broadcastFakeRooms();
+  }, lifetime);
+  broadcastFakeRooms();
+  return room;
 }
-generateFakeRooms();
-setInterval(generateFakeRooms, 20 * 60 * 1000); // refresh every 20min
+
+function broadcastFakeRooms() {
+  // Re-emit active rooms to all connected clients
+  const real = Object.values(rooms).filter(r => r.status !== 'finished').map(r => ({
+    id: r.id, mode: r.mode, status: r.status,
+    duration: r.createdAt ? (() => { const e = Math.floor((Date.now()-r.createdAt)/1000); return Math.floor(e/60)+'m'+(e%60).toString().padStart(2,'0')+'s'; })() : '0m00s',
+    weapon: r.chosenWeapon || null, map: r.chosenMap || null,
+    team1: (r.teams[0]||[]).map(p=>p.pseudo), team2: (r.teams[1]||[]).map(p=>p.pseudo),
+    total: (r.teams[0]||[]).length+(r.teams[1]||[]).length,
+    max: getTeamSize(r.mode)*2
+  }));
+  io.emit('active_rooms_update', [...real, ...fakeRooms]);
+}
+
+// Admin API : ajouter des fake rooms
+app.post('/api/admin/fake-rooms', (req, res) => {
+  if (!isAdminReq(req)) return res.status(403).json({ error: 'Interdit' });
+  const { count, mode } = req.body;
+  const n = Math.min(Math.max(parseInt(count)||1, 1), 10);
+  const modes = mode ? [mode] : FAKE_MODES;
+  const created = [];
+  for (let i = 0; i < n; i++) {
+    const m = modes[Math.floor(Math.random()*modes.length)];
+    created.push(createOneFakeRoom(m));
+  }
+  res.json({ ok: true, created: created.length, total: fakeRooms.length });
+});
+
+// Admin API : vider toutes les fake rooms
+app.post('/api/admin/fake-rooms/clear', (req, res) => {
+  if (!isAdminReq(req)) return res.status(403).json({ error: 'Interdit' });
+  fakeRooms = [];
+  broadcastFakeRooms();
+  res.json({ ok: true });
+});
+
+// Démarrer avec 0 fake rooms (contrôle admin uniquement)
+fakeRooms = [];
 
 // Friends API (request-based)
 const DBFILE = () => process.env.NODE_ENV === 'production' ? '/tmp/db.json' : path.join(__dirname, 'db.json');
