@@ -343,6 +343,10 @@ body.ui-v2 .main-body { display: none !important; }
 .v2-stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
 .v2-stat-label { font-size: 11px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
 .v2-stat-value { font-size: 24px; font-weight: 800; font-family: 'Space Grotesk', sans-serif; }
+/* Hide group chat and admin float in V2 */
+body.ui-v2 #group-chat-panel,
+body.ui-v2 #group-chat-bubble,
+body.ui-v2 #admin-float-join { display: none !important; }
 
 </style>
 </head>
@@ -395,6 +399,18 @@ body.ui-v2 .main-body { display: none !important; }
         </div>
       </div>
     </div>
+    <!-- Rank progress -->
+    <div style="padding:10px 14px 4px;border-bottom:1px solid var(--border);">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;">
+        <span id="v2-rank-name" style="font-size:11px;font-weight:800;color:var(--accent);text-transform:uppercase;letter-spacing:0.05em;">—</span>
+        <span id="v2-rank-next" style="font-size:10px;color:var(--muted);">→ —</span>
+      </div>
+      <div style="background:var(--surface2);border-radius:4px;height:5px;overflow:hidden;">
+        <div id="v2-rank-bar" style="height:5px;border-radius:4px;background:linear-gradient(90deg,var(--accent),#ff8a94);width:0%;transition:width 0.5s ease;"></div>
+      </div>
+      <div style="font-size:10px;color:var(--muted);margin-top:4px;text-align:right;"><span id="v2-rank-elo-label">500</span> ELO</div>
+    </div>
+
     <!-- Nav items -->
     <div style="padding:10px 0;flex:1;">
       <button class="v2-nav-item active" id="v2-ntab-room" onclick="v2ShowTab('room')">🎮 Ranked</button>
@@ -420,7 +436,7 @@ body.ui-v2 .main-body { display: none !important; }
       </div>
       <div style="display:flex;gap:6px;">
         <button onclick="openFriendsPanel()" style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px;font-size:11px;font-weight:700;color:var(--text);cursor:pointer;">👥 Amis</button>
-        <button onclick="toggleInterface()" title="Retour ancienne interface" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px 10px;font-size:11px;font-weight:700;color:var(--muted);cursor:pointer;" title="Retour V1">↩ V1</button>
+
       </div>
     </div>
   </div>
@@ -537,11 +553,6 @@ body.ui-v2 .main-body { display: none !important; }
 
       <button onclick="openFriendsPanel()" style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:8px 14px;color:var(--text);font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;" title="Amis">👥 <span id="friends-online-count" style="color:var(--green);font-size:11px;"></span></button>
 
-      <!-- Interface V2 toggle -->
-      <button id="ui-toggle-btn" onclick="toggleInterface()" title="Essayer la nouvelle interface" style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:7px 12px;cursor:pointer;display:flex;align-items:center;gap:6px;transition:border-color 0.2s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
-        <span style="font-size:13px;">🔲</span>
-        <span style="font-family:'Space Grotesk',sans-serif;font-size:11px;font-weight:800;color:var(--muted);">V2</span>
-      </button>
 
       <div class="avatar" id="nav-avatar" onclick="openProfile()">?</div>
       <div style="display:flex;flex-direction:column;align-items:flex-start;gap:1px;">
@@ -2346,8 +2357,12 @@ function updateRoomBtn() {
     btn.disabled = true;
     hint.style.display = '';
     hint.textContent = `Il faut ${currentTeamSize} joueur(s) dans le groupe`;
-    hint.style.color = '';
-  }
+    hint.style.color = '';n  }
+  // Sync V2 find button and hint
+  const v2btn = document.getElementById('btn-find-room-v2');
+  const v2hint = document.getElementById('room-hint-v2');
+  if (v2btn) { v2btn.disabled = btn.disabled; v2btn.textContent = btn.textContent || (btn.disabled ? '🔍 Rechercher une Room' : '🔍 Rechercher une Room'); }
+  if (v2hint && hint) { v2hint.textContent = hint.textContent; v2hint.style.display = hint.style.display; v2hint.style.color = hint.style.color; }
 }
 
 // ── SOCKET ──
@@ -2907,6 +2922,12 @@ function initSocket() {
     // Update local state if same mode
     if (state.stats && state.stats[mode]) state.stats[mode].elo = newElo;
     if (state.mode === mode) { state.elo = newElo; document.getElementById('nav-elo').textContent = newElo; updateNavRank(); }
+    // Sync V2
+    const v2eloEl = document.getElementById('v2-elo');
+    const v2statElo = document.getElementById('v2-stat-elo');
+    if (v2eloEl) v2eloEl.textContent = newElo;
+    if (v2statElo) v2statElo.textContent = newElo;
+    if (_uiV2) syncV2State();
   });
 
   socket.on('premium_revoked', () => {
@@ -5287,22 +5308,14 @@ function closeImgLightbox() {
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeImgLightbox(); });
 
 // ── INTERFACE V2 ──
-let _uiV2 = localStorage.getItem('rv_ui') === 'v2';
+const _uiV2 = true; // V2 permanent
 
 function toggleInterface() {
-  _uiV2 = !_uiV2;
-  localStorage.setItem('rv_ui', _uiV2 ? 'v2' : 'v1');
-  applyInterface();
+  // V2 est l'interface permanente
 }
 
 function applyInterface() {
   document.body.classList.toggle('ui-v2', _uiV2);
-  const btn = document.getElementById('ui-toggle-btn');
-  if (btn) {
-    const lbl = btn.querySelector('span:last-child');
-    if (lbl) lbl.textContent = _uiV2 ? 'V1' : 'V2';
-    btn.title = _uiV2 ? 'Revenir à l\'interface classique' : 'Essayer la nouvelle interface';
-  }
   if (_uiV2) {
     syncV2State();
     loadV2LiveRooms();
@@ -5343,12 +5356,35 @@ function syncV2State() {
   const matchEl = document.getElementById('v2-stat-matches');
   if (wrEl) wrEl.textContent = total ? wr + '%' : '—';
   if (matchEl) matchEl.textContent = total || '—';
-  // Rank
+  // Rank + progress bar
   const maxEloVal = Math.max(...['1v1','2v2','3v3','5v5'].map(m => stats[m]?.elo || 0), 0);
   const rankEl = document.getElementById('v2-stat-rank');
-  if (rankEl) {
-    const rname = maxEloVal >= 901 ? 'Radiant' : maxEloVal >= 751 ? 'Diamond' : maxEloVal >= 601 ? 'Platinum' : maxEloVal >= 451 ? 'Gold' : maxEloVal >= 301 ? 'Silver' : 'Bronze';
-    rankEl.textContent = rname;
+  const RANKS = [
+    { name: 'Bronze',   min: 0,   max: 300,  color: '#cd7f32' },
+    { name: 'Silver',   min: 301, max: 450,  color: '#a8a9ad' },
+    { name: 'Gold',     min: 451, max: 600,  color: '#ffd166' },
+    { name: 'Platinum', min: 601, max: 750,  color: '#4da6ff' },
+    { name: 'Diamond',  min: 751, max: 900,  color: '#b44fff' },
+    { name: 'Radiant',  min: 901, max: 9999, color: '#ff4655' },
+  ];
+  const curRank = RANKS.slice().reverse().find(r => maxEloVal >= r.min) || RANKS[0];
+  const nextRank = RANKS[RANKS.indexOf(curRank) + 1] || null;
+  if (rankEl) { rankEl.textContent = curRank.name; rankEl.style.color = curRank.color; }
+  // Sidebar rank bar
+  const barEl = document.getElementById('v2-rank-bar');
+  const nameEl = document.getElementById('v2-rank-name');
+  const nextEl = document.getElementById('v2-rank-next');
+  const eloLbl = document.getElementById('v2-rank-elo-label');
+  if (nameEl) { nameEl.textContent = curRank.name; nameEl.style.color = curRank.color; }
+  if (eloLbl) eloLbl.textContent = maxEloVal;
+  if (barEl && nextRank) {
+    const pct = Math.min(100, Math.round((maxEloVal - curRank.min) / (nextRank.min - curRank.min) * 100));
+    barEl.style.width = pct + '%';
+    barEl.style.background = `linear-gradient(90deg,${curRank.color},${nextRank.color})`;
+    if (nextEl) nextEl.textContent = '→ ' + nextRank.name + ' (' + (nextRank.min - maxEloVal) + ' pts)';
+  } else if (barEl) {
+    barEl.style.width = '100%';
+    if (nextEl) nextEl.textContent = '✦ Rang max';
   }
   // find btn state
   const v2find = document.getElementById('btn-find-room-v2');
@@ -5370,25 +5406,21 @@ function syncV2State() {
 
 function v2ShowTab(tab) {
   if (!_uiV2) return;
-  // Update sidebar active state
   ['room','lb','clans','tournois','boutique','tickets','admin'].forEach(t => {
     const btn = document.getElementById('v2-ntab-' + t);
     if (btn) btn.classList.toggle('active', t === tab);
   });
   const v2room = document.getElementById('v2-tab-room');
+  const mb = document.getElementById('screen-main')?.querySelector('.main-body');
   if (tab === 'room') {
     if (v2room) v2room.style.display = '';
-    // Also make main-body invisible (handled by CSS)
-  } else {
-    if (v2room) v2room.style.display = 'none';
-    // Show main-body content for other tabs
-    const mb = document.getElementById('screen-main').querySelector('.main-body');
-    if (mb) { mb.style.display = 'block'; mb.style.overflow = 'auto'; mb.style.flex = '1'; }
-    showMainTab(tab);
-  }
-  if (tab === 'room') {
+    if (mb) mb.style.display = 'none';
     loadV2LiveRooms();
     loadV2GlobalChat();
+  } else {
+    if (v2room) v2room.style.display = 'none';
+    if (mb) { mb.style.display = 'block'; mb.style.flex = '1'; mb.style.overflow = 'auto'; mb.style.padding = '0'; }
+    showMainTab(tab);
   }
 }
 
@@ -5501,7 +5533,7 @@ const _origUpdateRoomBtn = typeof updateRoomBtn === 'function' ? updateRoomBtn :
 
 // Apply on page load (respect saved preference)
 document.addEventListener('DOMContentLoaded', () => {
-  if (_uiV2) applyInterface();
+  applyInterface(); // V2 toujours actif
 });
 
 // ── RULES MODAL ──
