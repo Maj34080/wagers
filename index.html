@@ -72,7 +72,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
 
 /* MAIN */
 #screen-main{flex-direction:row;overflow:hidden;height:100vh;padding-bottom:0;}
-.main-body{flex:1;padding:24px 28px;max-width:none;margin:0;width:100%;overflow-y:auto;height:100vh;}
+.main-body{flex:1;padding:24px 28px;max-width:none;margin:0;min-width:0;overflow-y:auto;height:100vh;}
 .room-tab-content{display:none;}
 .room-tab-content.active{display:block;}
 
@@ -334,8 +334,8 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
 /* Hide group-chat bubble/panel and admin float */
 #group-chat-panel,#group-chat-bubble,#admin-float-join{display:none!important;}
 /* Room tab content animation */
-.room-tab-content{display:none;opacity:0;}
-.room-tab-content.active{display:block;animation:tabFadeIn 0.2s ease forwards;}
+.room-tab-content{display:none;opacity:0;width:100%;}
+.room-tab-content.active{display:block;width:100%;animation:tabFadeIn 0.2s ease forwards;}
 @keyframes tabFadeIn{from{opacity:0;transform:translateY(5px);}to{opacity:1;transform:translateY(0);}}
 </style>
 </head>
@@ -3005,6 +3005,8 @@ function enterMain() {
   if (adminBtn) adminBtn.style.display = state.isAdmin ? '' : 'none';
   const adminTab = document.getElementById('ntab-admin');
   if (adminTab) adminTab.style.display = state.isAdmin ? '' : 'none';
+  const v2AdminNav = document.getElementById('v2-nav-admin');
+  if (v2AdminNav) v2AdminNav.style.display = state.isAdmin ? '' : 'none';
   const adminToggleBtn = document.getElementById('btn-admin-mode-toggle');
   if (adminToggleBtn) adminToggleBtn.style.display = state.isAdmin ? '' : 'none';
   showScreen('main');
@@ -6307,8 +6309,7 @@ function v2SyncState() {
 
   // Admin nav item
   const adminNav = document.getElementById('v2-nav-admin');
-  const adminTab = document.getElementById('ntab-admin');
-  if (adminNav) adminNav.style.display = (adminTab && adminTab.style.display !== 'none') ? '' : 'none';
+  if (adminNav) adminNav.style.display = state.isAdmin ? '' : 'none';
 
   // Stat cards
   const stats = state.stats || {};
@@ -6381,9 +6382,8 @@ setInterval(() => {
   const nav_av = document.getElementById('nav-avatar');
   if (av2 && nav_av && av2.innerHTML !== nav_av.innerHTML) av2.innerHTML = nav_av.innerHTML;
   // Admin tab visibility
-  const adminNav = document.getElementById('v2-nav-admin');
-  const adminTab = document.getElementById('ntab-admin');
-  if (adminNav && adminTab) adminNav.style.display = adminTab.style.display !== 'none' ? '' : 'none';
+  const adminNav2 = document.getElementById('v2-nav-admin');
+  if (adminNav2) adminNav2.style.display = state.isAdmin ? '' : 'none';
 }, 800);
 </script>
 </body>
