@@ -465,7 +465,7 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;hei
         <div class="v2-stat-card"><div class="v2-stat-label">Rang</div><div class="v2-stat-value" id="v2-stat-rank" style="font-size:20px;color:var(--accent);">—</div></div>
       </div>
       <!-- 3 colonnes : matchmaking | chat global | rooms live -->
-      <div style="display:grid;grid-template-columns:290px 380px 210px;gap:16px;align-items:start;">
+      <div style="display:grid;grid-template-columns:320px 380px 1fr;gap:16px;align-items:start;">
 
         <!-- Matchmaking -->
         <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px 14px;text-align:center;position:relative;overflow:hidden;">
@@ -4367,10 +4367,6 @@ async function loadGlobalChat() {
     if (!box) return;
     box.innerHTML = '';
     msgs.forEach(m => appendGlobalChatMsg(m, false));
-    // Ré-injecter les activity events conservés localement (sans re-sauvegarder)
-    if (window._activityHistory && window._activityHistory.length > 0) {
-      window._activityHistory.forEach(q => _renderActivityMsg(box, q.type, q.data, q.time));
-    }
     // Vider la file d'attente (events reçus avant que le chat était prêt)
     if (window._activityQueue && window._activityQueue.length > 0) {
       const queue = [...window._activityQueue];
@@ -4449,23 +4445,9 @@ function _renderActivityMsg(box, type, data, time) {
   box.scrollTop = box.scrollHeight;
 }
 
-// Version publique : rendu + sauvegarde dans l'historique
+// Rendu + ajout dans le chat (sans persistance entre onglets)
 function _appendActivityMsgToBox(box, type, data, time) {
   _renderActivityMsg(box, type, data, time);
-  window._activityHistory = window._activityHistory || [];
-  // Éviter les doublons : vérifier si un event identique existe déjà (même type+pseudo+time)
-  const key = type + '_' + (data.pseudo||'') + '_' + (time||0);
-  if (!window._activityHistoryKeys) window._activityHistoryKeys = new Set();
-  if (window._activityHistoryKeys.has(key)) return; // déjà dans l'historique
-  window._activityHistoryKeys.add(key);
-  window._activityHistory.push({ type, data, time });
-  if (window._activityHistory.length > 50) {
-    const removed = window._activityHistory.shift();
-    if (removed) {
-      const removedKey = removed.type + '_' + (removed.data.pseudo||'') + '_' + (removed.time||0);
-      window._activityHistoryKeys.delete(removedKey);
-    }
-  }
 }
 
 function appendGlobalChatMsg(msg, scroll = true) {
