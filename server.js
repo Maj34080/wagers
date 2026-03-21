@@ -3302,11 +3302,6 @@ app.get('/api/twitch-live', async (req, res) => {
   res.json({ streams: twitchStreamsCache, configured: true });
 });
 
-// ── Catch-all React Router (toutes les routes /profile/xxx etc.) ──
-app.get('*', (req, res) => {
-  res.sendFile(path.join(CLIENT_DIST, 'index.html'));
-});
-
 server.listen(PORT, async () => {
   console.log(`✅ WAGERS sur http://localhost:${PORT}`);
   // 1. Ensure PG schema has all columns FIRST (blocking)
@@ -5119,4 +5114,9 @@ app.post('/api/admin/clan-bots', express.json(), (req, res) => {
     });
     res.json({ ok: true, memberCount: clan.members.length, botsAdded: needed });
   } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Catch-all React Router — DOIT être après TOUTES les routes /api ──
+app.get('*', (req, res) => {
+  res.sendFile(path.join(CLIENT_DIST, 'index.html'));
 });
