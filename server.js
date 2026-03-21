@@ -105,9 +105,13 @@ setInterval(() => {
 }, 60 * 1000);
 
 app.use(express.json({ limit: '10mb' }));
-app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'landing.html')));
-app.get('/app', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
-app.get('/auth', (req, res) => res.sendFile(path.join(__dirname, 'auth.html')));
+
+// ── Serve React client (toujours depuis client/dist) ──
+const CLIENT_DIST = path.join(__dirname, 'client', 'dist');
+app.use(express.static(CLIENT_DIST));
+app.get('/', (req, res) => res.sendFile(path.join(CLIENT_DIST, 'index.html')));
+app.get('/app', (req, res) => res.sendFile(path.join(CLIENT_DIST, 'index.html')));
+app.get('/auth', (req, res) => res.sendFile(path.join(CLIENT_DIST, 'index.html')));
 app.get('/api/leaderboard/:mode', (req, res) => res.json(db.getLeaderboard(req.params.mode)));
 app.get('/api/profile/:pseudo', (req, res) => {
   const user = db.getUserByPseudo(req.params.pseudo);
@@ -3294,6 +3298,11 @@ app.get('/api/twitch-live', async (req, res) => {
   // Refresh if cache older than 2 min
   if (Date.now() - twitchLastFetch > 2 * 60 * 1000) await refreshTwitchCache();
   res.json({ streams: twitchStreamsCache, configured: true });
+});
+
+// ── Catch-all React Router (toutes les routes /profile/xxx etc.) ──
+app.get('*', (req, res) => {
+  res.sendFile(path.join(CLIENT_DIST, 'index.html'));
 });
 
 server.listen(PORT, async () => {
