@@ -87,6 +87,7 @@ export default function AdminPage() {
   const [premiumMonths, setPremiumMonths] = useState('1')
   const [eloMode, setEloMode] = useState('2v2')
   const [eloAmount, setEloAmount] = useState('0')
+  const [eloExact, setEloExact] = useState('500')
   const [coinsAmount, setCoinsAmount] = useState('100')
 
   // Simulation tab
@@ -569,7 +570,7 @@ export default function AdminPage() {
                 {/* ELO */}
                 <div className="space-y-2 md:col-span-2">
                   <p className="text-xs font-bold uppercase tracking-wide" style={{ color: 'rgba(255,255,255,0.35)' }}>Ajuster ELO manuellement</p>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 mb-2">
                     <select className="input-field text-sm py-2" value={eloMode} onChange={e => setEloMode(e.target.value)} style={{ background: '#0e0e1a' }}>
                       {['1v1', '2v2', '3v3', '5v5'].map(m => <option key={m}>{m}</option>)}
                     </select>
@@ -577,6 +578,14 @@ export default function AdminPage() {
                     <button onClick={() => adminAction('/api/admin/elo', { pseudo: foundUser.pseudo, mode: eloMode, amount: parseInt(eloAmount) }, 'ELO ajusté !')}
                       className="btn-primary text-sm py-2 px-4 flex items-center gap-1.5">
                       <Star size={12} /> Appliquer
+                    </button>
+                  </div>
+                  <div className="flex gap-2">
+                    <input className="input-field text-sm py-2 flex-1" placeholder="ELO exact tous modes (ex: 500)" value={eloExact} onChange={e => setEloExact(e.target.value)} />
+                    <button onClick={() => adminAction('/api/admin/set-elo', { pseudo: foundUser.pseudo, elo: parseInt(eloExact) }, `ELO mis à ${eloExact} sur tous les modes !`)}
+                      className="text-sm py-2 px-4 rounded-xl font-semibold flex items-center gap-1.5 transition-all"
+                      style={{ background: 'rgba(99,102,241,0.15)', color: '#818cf8', border: '1px solid rgba(99,102,241,0.3)' }}>
+                      <Zap size={12} /> Set exact (tous modes)
                     </button>
                   </div>
                 </div>

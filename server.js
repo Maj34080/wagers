@@ -280,6 +280,37 @@ app.post('/api/admin/elo', express.json(), (req, res) => {
   res.json({ ok: true, pseudo: user.pseudo, mode, before, after: user.stats[mode].elo, change: amt });
 });
 
+// Set ELO exact sur tous les modes d'un joueur + sync PG
+app.post('/api/admin/set-elo', express.json(), async (req, res) => {
+  if (!isAdminReq(req)) return res.status(403).json({ error: 'Interdit' });
+  const { pseudo, elo } = req.body;
+  if (!pseudo || elo === undefined) return res.status(400).json({ error: 'Champs manquants' });
+  const exactElo = parseInt(elo);
+  if (isNaN(exactElo) || exactElo < 0 || exactElo > 9999) return res.status(400).json({ error: 'ELO invalide (0-9999)' });
+  const data = db.loadDB();
+  const user = data.users.find(u => u.pseudo.toLowerCase() === pseudo.toLowerCase());
+  if (!user) return res.status(404).json({ error: 'Joueur introuvable' });
+  if (!user.stats) user.stats = {};
+  ['1v1','2v2','3v3','5v5'].forEach(m => {
+    if (!user.stats[m]) user.stats[m] = { wins: 0, losses: 0, elo: exactElo };
+    user.stats[m].elo = exactElo;
+  });
+  db.saveDB(data);
+  // Sync vers PG immédiatement
+  if (process.env.DATABASE_URL) {
+    await db.syncStatsToPg(user.id, user.stats).catch(e => console.error('[PG] set-elo sync:', e.message));
+  }
+  // Notif si en ligne
+  const playerSocket = [...io.sockets.sockets.values()].find(s => s.userId === user.id);
+  if (playerSocket) {
+    ['1v1','2v2','3v3','5v5'].forEach(m => {
+      playerSocket.emit('elo_adjusted', { mode: m, amount: 0, newElo: exactElo });
+    });
+  }
+  db.addAdminLog(req.headers['x-admin-pseudo'] || 'Admin', 'ELO', user.pseudo, `Set exact ELO ${exactElo} tous modes`);
+  res.json({ ok: true, pseudo: user.pseudo, newElo: exactElo, stats: user.stats });
+});
+
 app.get('/api/admin/smurfs', (req, res) => {
   if (!isAdminReq(req)) return res.status(403).json({ error: 'Interdit' });
   try {
