@@ -4,7 +4,7 @@ services:
     env: node
     region: frankfurt
     plan: free
-    buildCommand: npm install && npm install --prefix client && npm run build --prefix client
+    buildCommand: npm install && npm install --prefix client --include=dev && npm run build --prefix client
     startCommand: node server.js
     envVars:
       - key: NODE_ENV
