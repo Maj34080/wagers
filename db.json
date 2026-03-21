@@ -17,7 +17,7 @@
       "fondateurDate": "2026-03-21T02:53:55.601Z",
       "stats": {
         "1v1": {
-          "elo": 721,
+          "elo": 500,
           "wins": 6,
           "losses": 1,
           "currentStreak": 2,
@@ -26,9 +26,19 @@
         "2v2": {
           "wins": 2,
           "losses": 0,
-          "elo": 530,
+          "elo": 500,
           "currentStreak": 2,
           "bestStreak": 2
+        },
+        "3v3": {
+          "wins": 0,
+          "losses": 0,
+          "elo": 500
+        },
+        "5v5": {
+          "wins": 0,
+          "losses": 0,
+          "elo": 500
         }
       },
       "matchHistory": [
