@@ -2820,12 +2820,14 @@ function applyEloResult(winTeam, loseTeam, mode) {
     const friendInfos = friendIds.map(fId => {
       const f = data.users.find(u => u.id === fId);
       if (!f) return null;
+      const bestElo = Math.max(...['1v1','2v2','3v3','5v5'].map(m => f.stats?.[m]?.elo || 0), 500);
       return {
         id: f.id,
         pseudo: f.pseudo,
         avatar: f.avatar || null,
         avatarFrame: f.avatarFrame || null,
         isPremium: f.isPremium || false,
+        elo: bestElo,
         online: [...io.sockets.sockets.values()].some(s => s.userId === f.id)
       };
     }).filter(Boolean);

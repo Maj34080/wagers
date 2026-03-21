@@ -30,10 +30,10 @@ export default function FriendsPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (!user) return
+    if (!user?.id) return
     setLoading(true)
     socket.emit('get_friends', { userId: user.id })
-  }, [user])
+  }, [user?.id])
 
   useEffect(() => {
     const onFriendsList = (data: FriendInfo[]) => {

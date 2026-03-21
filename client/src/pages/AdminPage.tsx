@@ -72,7 +72,7 @@ const LOG_COLORS: Record<string, string> = {
 }
 
 export default function AdminPage() {
-  const { user } = useAuth()
+  const { user, isLoading } = useAuth()
   const navigate = useNavigate()
   const [tab, setTab] = useState<AdminTab>('stats')
   const [adminKey, setAdminKey] = useState(localStorage.getItem('rv_admin_key') || '')
@@ -118,8 +118,8 @@ export default function AdminPage() {
   } | null>(null)
 
   useEffect(() => {
-    if (!user?.isAdmin) navigate('/app')
-  }, [user, navigate])
+    if (!isLoading && !user?.isAdmin) navigate('/app')
+  }, [user, isLoading, navigate])
 
   useEffect(() => {
     api.get('/api/stats').then(res => setStats(res.data)).catch(() => {})
