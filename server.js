@@ -274,7 +274,7 @@ app.post('/api/admin/elo', express.json(), (req, res) => {
   // Notify player if online
   const playerSocket = [...io.sockets.sockets.values()].find(s => s.userId === user.id);
   if (playerSocket) {
-    playerSocket.emit('elo_adjusted', { mode, amount: amt, newElo: user.stats[mode].elo });
+    playerSocket.emit('elo_update', { mode, newElo: user.stats[mode].elo, change: amt });
   }
   db.addAdminLog(req.headers['x-admin-pseudo'] || 'Admin', 'ELO', user.pseudo, `${mode}: ${amt > 0 ? '+' : ''}${amt} (${before} → ${user.stats[mode].elo})`);
   res.json({ ok: true, pseudo: user.pseudo, mode, before, after: user.stats[mode].elo, change: amt });
@@ -300,11 +300,22 @@ app.post('/api/admin/set-elo', express.json(), async (req, res) => {
   if (process.env.DATABASE_URL) {
     await db.syncStatsToPg(user.id, user.stats).catch(e => console.error('[PG] set-elo sync:', e.message));
   }
-  // Notif si en ligne
+  // Notif si en ligne — envoie elo_update pour chaque mode (AuthContext l'écoute)
+  // + auth_ok complet pour forcer la sync du profil et sidebar
   const playerSocket = [...io.sockets.sockets.values()].find(s => s.userId === user.id);
   if (playerSocket) {
     ['1v1','2v2','3v3','5v5'].forEach(m => {
-      playerSocket.emit('elo_adjusted', { mode: m, amount: 0, newElo: exactElo });
+      playerSocket.emit('elo_update', { mode: m, newElo: exactElo, change: 0 });
+    });
+    playerSocket.emit('auth_ok', {
+      pseudo: user.pseudo, stats: user.stats,
+      isAdmin: ADMIN_PSEUDOS.includes(user.pseudo),
+      isContent: CONTENT_PSEUDOS.includes(user.pseudo) || !!user.isContent,
+      avatar: user.avatar || null, banner: user.banner || null,
+      userId: user.id, isPremium: !!user.isPremium, premiumUntil: user.premiumUntil || null,
+      referralCode: user.referralCode || user.pseudo,
+      matchHistory: (user.matchHistory || []).slice(0, 20),
+      isFondateur: !!user.isFondateur, fondateurDate: user.fondateurDate || null
     });
   }
   db.addAdminLog(req.headers['x-admin-pseudo'] || 'Admin', 'ELO', user.pseudo, `Set exact ELO ${exactElo} tous modes`);
